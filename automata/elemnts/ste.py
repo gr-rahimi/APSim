@@ -7,6 +7,8 @@ class StartType(Enum):
     non_start = 0
     start_of_data = 1
     all_input = 2
+    unknown = 3 # for non homogeneous graphs, yes but will be determined
+    fake_root = 4
 
 class S_T_E(object):
     known_attributes = {'start', 'symbol-set', 'id'}
@@ -18,7 +20,7 @@ class S_T_E(object):
     def __init__(self, start_type, is_report, is_marked = False, id = None, symbol_set= None):
         self._start_type = start_type
         self._is_report = is_report
-        self._is_marked = is_marked
+        self._marked = is_marked
         self._id = id
         self._symbol_set = Set(symbol_set)
 
@@ -120,6 +122,9 @@ class S_T_E(object):
         return self._is_report
     def get_id(self):
         return self._id
+    def is_start(self):
+        return self._start_type == StartType.all_input or\
+               self._start_type == StartType.start_of_data
 
 
     # check if the ste element has any attribute that I have not considered yet
