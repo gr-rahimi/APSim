@@ -5,21 +5,22 @@ from collections import  deque
 from sets import Set
 
 class Automatanetwork(object):
-    known_attributes = {'id'}
-    fake_root = "fake_root"
+    known_attributes = {'id','name'}
+    _fake_root = "fake_root"
 
 
 
-    def __init__(self, is_homogenous = True):
+    def __init__(self, is_homogenous = True, stride = 1):
         #self._start_STEs=[]
         self._has_modified = True
         self._my_graph = nx.MultiDiGraph()
         self._node_dict={} # this dictionary helps retrieving nides using id(as a string)
         self._is_homogeneous = is_homogenous
-        self.fake_root = S_T_E(start_type = StartType.fake_root, is_report=False,
-                           is_marked=False, id=Automatanetwork.fake_root,
-                           symbol_set=None)
-        self.add_STE(self.fake_root)  # This is not areal node. It helps for simpler striding code
+        self._fake_root = S_T_E(start_type = StartType.fake_root, is_report=False,
+                                is_marked=False, id=Automatanetwork._fake_root,
+                                symbol_set=None)
+        self.add_STE(self._fake_root)  # This is not areal node. It helps for simpler striding code
+        self._stride = stride
 
 
     @classmethod
@@ -38,7 +39,7 @@ class Automatanetwork(object):
 
 
         for src_node_id, src_node in graph_ins._node_dict.iteritems():
-            if src_node_id == Automatanetwork.fake_root:
+            if src_node_id == Automatanetwork._fake_root:
                 continue
             for dst_id in src_node.get_adjacency_list():
                 dst_node = graph_ins._node_dict[dst_id]
@@ -47,6 +48,13 @@ class Automatanetwork(object):
             src_node.delete_adjacency_list()
 
         return graph_ins
+
+    def get_stride_value(self):
+        """
+        return number of chars eating per iteration
+        :return:
+        """
+        return self._stride
 
 
     @classmethod
@@ -86,7 +94,7 @@ class Automatanetwork(object):
     #     self._has_modified =False
 
 
-    def add_STE(self, to_add_STE):
+    def add_STE(self, to_add_STE, connect_to_fake_root = True):
 
         """
         :param to_add_STE: Add a ste to the graph
@@ -97,8 +105,8 @@ class Automatanetwork(object):
         self._node_dict[to_add_STE.get_id()] = to_add_STE
         self._has_modified = True
 
-        if self.is_homogeneous() and to_add_STE.is_start(): # only for homogenous graphs
-            self.add_edge(Automatanetwork.fake_root, to_add_STE) # add an esge from fake root to all start nodes
+        if self.is_homogeneous() and to_add_STE.is_start() and connect_to_fake_root: # only for homogenous graphs
+            self.add_edge(Automatanetwork._fake_root, to_add_STE) # add an esge from fake root to all start nodes
 
 
     def get_STE_by_id(self, id):
@@ -140,11 +148,11 @@ class Automatanetwork(object):
 
         dq = deque()
         self.unmark_all_nodes()
-        strided_graph = Automatanetwork(is_homogenous= False)
+        strided_graph = Automatanetwork(is_homogenous= False, stride= self.get_stride_value()*2)
         strided_graph._id = self._id + "_S1"
-        self.fake_root.set_marked(True)
+        self._fake_root.set_marked(True)
         ###
-        dq.appendleft(self.fake_root)
+        dq.appendleft(self._fake_root)
 
         while dq:
 
@@ -163,11 +171,31 @@ class Automatanetwork(object):
                     strided_graph.add_edge(strided_graph.get_STE_by_id(current_ste.get_id()), strided_graph.get_STE_by_id(l2_neigh.get_id()),
                                            label=tuple((span1, span2) for span1 in l1_neigh.get_symbols() for span2 in l2_neigh.get_symbols()),
                                            start_type = l1_neigh.get_start())
+
+        #strided_graph.draw_graph("mid_graph", draw_edge_label= True)
         strided_graph.make_homogenous()
         return strided_graph
 
 
+    def get_number_of_start_nodes(self):
+        """
+        number of start nodes (fake root neighbors) in a graph
+        :return:
+        """
+        return len(list(self._my_graph.neighbors(self._fake_root)))
 
+    def get_number_of_report_nodes(self):
+        """
+        number of report nodes in a graph
+        :return:
+        """
+        count = 0
+        for node in self._my_graph.nodes():
+            if node.get_start() == StartType.fake_root:
+                continue
+            elif node.is_report():
+                count+=1
+        return  count
 
     def delete_node(self, node):
         self._my_graph.remove_node(node)
@@ -179,20 +207,19 @@ class Automatanetwork(object):
         self.unmark_all_nodes()
         assert not self.is_homogeneous() # only works for non-homogeneous graph
         dq = deque()
-        self.fake_root.set_marked(True)
-        dq.appendleft(self.fake_root)
+        self._fake_root.set_marked(True)
+        dq.appendleft(self._fake_root)
 
         while dq:
-            print len(dq)
+            #print len(dq)
             current_ste = dq.pop()
+            #print "porcessing" , current_ste
             if current_ste.get_start() == StartType.fake_root: # fake root does need processing
                 for neighb in self._my_graph.neighbors(current_ste):
                     assert not neighb.is_marked()
                     neighb.set_marked(True)
                     dq.appendleft(neighb)
-                continue
-
-
+                continue # process next node from the queue
 
             for neighb in self._my_graph.neighbors(current_ste):
                 if not neighb.is_marked():
@@ -214,11 +241,11 @@ class Automatanetwork(object):
                 start_type = edge[2]['start_type']
 
                 if start_type == StartType.non_start:
-                    src_dict_non_start.setdefault(edge[0], Set()).add(label)
+                    src_dict_non_start.setdefault(edge[0], Set()).update(label)
                 elif start_type == StartType.start_of_data:
-                    src_dict_start_of_data.setdefault(edge[0], Set()).add(label)
+                    src_dict_start_of_data.setdefault(edge[0], Set()).update(label)
                 elif start_type == StartType.all_input:
-                    src_dict_all_start.setdefault(edge[0], Set()).add(label)
+                    src_dict_all_start.setdefault(edge[0], Set()).update(label)
                 else:
                     assert False # It should not happen
 
@@ -237,12 +264,28 @@ class Automatanetwork(object):
         return self._is_homogeneous
 
 
-    def draw_graph(self):
-        pos = nx.spring_layout(self._my_graph)
-        nx.draw(self._my_graph, pos)
-        plt.savefig("graph.png", dpi=1000)
+    def draw_graph(self, file_name, draw_edge_label = False):
+        """
 
-        pass
+        :param file_name: name of the png file
+        :param draw_edge_label: True if writing edge labels is required
+        :return:
+        """
+        pos = nx.spring_layout(self._my_graph, k =0.2)
+        node_color = [node.get_color() for node in self._my_graph.nodes()]
+        nx.draw(self._my_graph, pos, node_size = 2, width = 0.1, arrowsize = 2, node_color= node_color)
+
+        if draw_edge_label: # draw with edge lable
+            edge_lables = nx.get_edge_attributes(self._my_graph, 'label')
+
+            nx.draw_networkx_edge_labels(self._my_graph, pos, node_size = 2, width = 0.1, arrowsize = 2,
+                                         node_color= node_color, font_size= 3 )
+
+        plt.savefig(file_name, dpi=1000)
+        plt.clf()
+
+
+
 
     def _make_homogenous_node(self, curr_node, connectivity_dic, start_type):
 
@@ -258,74 +301,72 @@ class Automatanetwork(object):
                 self_loop_node =new_node # we need to make an edge from every other node to this node
             else:
                 new_nodes.append(new_node)
-                self.add_edge(neighb, new_node)
+                self.add_edge(neighb, new_node, label = new_node.get_symbols(), start_type = new_node.get_start())
+
+            out_edges = self._my_graph.out_edges(curr_node, data = True, keys = False)
+            for edge in out_edges:
+                self.add_edge(new_node, edge[1], label = edge[2]['label'], start_type = edge[2]['start_type'])
 
         if self_loop_node:
             for node in new_nodes:
-                self.add_edge(node, self_loop_node)
+                self.add_edge(node, self_loop_node, label = self_loop_node.get_symbols(), start_type = self_loop_node.get_start())
+            self.add_edge(self_loop_node,self_loop_node, label = self_loop_node.get_symbols(), start_type = self_loop_node.get_start())
+
+
+    def print_summary(self):
+        print "Number of nodes: ", self.get_number_of_nodes()
+        print "Number of start nodes", self.get_number_of_start_nodes()
+        print "Number of report nodes", self.get_number_of_report_nodes()
 
 
 
+    def split(self):
+        """
+        split the current automata and rturn both of them
+        :return:
+        """
 
+        left_automata = Automatanetwork(is_homogenous= self.is_homogeneous(), stride= self.get_stride_value()/2)
+        right_automata = Automatanetwork(is_homogenous=self.is_homogeneous(), stride=self.get_stride_value()/2)
+        self.unmark_all_nodes()
+        self._fake_root.set_marked(True) # fake root has been added in the constructor for both splited graphs
 
+        self._split_node(self._fake_root, left_automata = left_automata, right_automata= right_automata)
 
+        return left_automata, right_automata
 
+    def _split_node(self, node, left_automata, right_automata):
+        """
 
+        :param node: the node taht is going to be splitted
+        :param left_automata: the first automata to put the first split
+        :param right_automata: the second automata to put the second split
+        :return:
+        """
 
+        for neighb in self._my_graph.neighbors(node):
+            if not neighb.is_marked():
+                neighb.set_marked(True)
+                left_symbols, right_symbols = neighb.split_symbols()
 
+                left_ste = S_T_E( start_type = neighb.get_start(), is_report = neighb.is_report(),
+                                 is_marked = True, id = neighb.get_id(), symbol_set= left_symbols)
+                left_automata.add_STE(left_ste)
 
+                right_ste = S_T_E( start_type = neighb.get_start(), is_report = neighb.is_report(),
+                                 is_marked=True, id=neighb.get_id(), symbol_set=right_symbols)
+                right_automata.add_STE(right_ste)
 
+                self._split_node(neighb, left_automata= left_automata, right_automata=right_automata)
 
+            left_ste_src = left_automata.get_STE_by_id(node.get_id())
+            left_ste_dst = left_automata.get_STE_by_id(neighb.get_id())
+            left_automata.add_edge(left_ste_src, left_ste_dst, label = left_ste_dst.get_symbols(), start_type = left_ste_dst.get_start())
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+            right_ste_src = right_automata.get_STE_by_id(node.get_id())
+            right_ste_dst = right_automata.get_STE_by_id(neighb.get_id())
+            right_automata.add_edge(right_ste_src, right_ste_dst, label=left_ste_dst.get_symbols(),
+                                   start_type=left_ste_dst.get_start())
 
 
 

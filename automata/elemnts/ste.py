@@ -56,6 +56,7 @@ class S_T_E(object):
         # find symbol set
         assert 'symbol-set' in xml_node.attrib # all STEs should have symbol set
         symbol_set = VASim.parseSymbolSet(str(xml_node.attrib['symbol-set']))
+        symbol_set = symbol_set[::-1] # reverse the string
         start = False
         start_idx = -1
         for idx_b, ch in enumerate(symbol_set):
@@ -82,6 +83,8 @@ class S_T_E(object):
                 S_T_E._check_validity_rom(child)
                 #TODO we should consider reportcode
                 new_ste._is_report = True
+            elif child.tag == 'layout':
+                continue # Elaheh said it is not important
             else:
                 raise RuntimeError('unsupported children of STE')
 
@@ -153,6 +156,36 @@ class S_T_E(object):
 
     def add_symbol(self, symbol):
         self._symbol_set.add(symbol)
+
+    def get_color(self):
+
+        if self.get_start() == StartType.fake_root:
+            return  (0,0,0,1) # Black
+        elif self.get_start() == StartType.start_of_data:
+            return (0,1,0,1) # Green
+        elif self.get_start() == StartType.all_input:
+            return (0,1,0,0.5) # Light Green
+        elif self.is_report():
+            return (0,0,1,1) # Blue
+        elif self.get_start() == StartType.unknown:
+            return (1,1,0,1)  # Yellow
+        else:
+            return (1,0,0,1) # Red
+
+    def split_symbols(self):
+        left_set = Set()
+        right_set = Set()
+
+        for left_symbol, right_symbol in self.get_symbols():
+            left_set.add(left_symbol)
+            right_set.add(right_symbol)
+
+        return tuple(left_set), tuple(right_set)
+
+
+
+
+
 
 
 

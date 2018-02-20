@@ -1,8 +1,14 @@
 #include "VASim.h"
+#include<iostream>
 void setRange(std::bitset<256> &column, int start, int end, int value);
 
 std::string parseSymbolSet(std::string symbol_set) {
+
     std::bitset<256> column(256);
+     for(uint32_t i = 0; i < 256; i++) {
+        column.set(i,0);
+    }
+
 
     if(symbol_set.compare("*") == 0){
         column.set();
@@ -376,6 +382,7 @@ std::string parseSymbolSet(std::string symbol_set) {
 
             // HEX
         case 'x' :
+
             if(escaped){
                 //process hex char
                 ++index;
@@ -402,6 +409,7 @@ std::string parseSymbolSet(std::string symbol_set) {
                 }
                 last_char = c;
             }
+
             break;
 
 
@@ -433,7 +441,6 @@ std::string parseSymbolSet(std::string symbol_set) {
 //        exit(1);
 
     }
-
         return column.to_string();
 
 }
