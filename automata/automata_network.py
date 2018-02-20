@@ -135,6 +135,11 @@ class Automatanetwork(object):
         return len(self._my_graph)
 
     def add_edge(self, src, dest,**kwargs):
+        if not 'label' in kwargs:
+            kwargs['label'] = dest.get_symbols()
+        if not 'start_type' in kwargs:
+            kwargs['start_type'] = dest.get_start()
+
         self._my_graph.add_edge(src, dest, **kwargs)
         self._has_modified = True
 
@@ -170,7 +175,7 @@ class Automatanetwork(object):
 
                     strided_graph.add_edge(strided_graph.get_STE_by_id(current_ste.get_id()), strided_graph.get_STE_by_id(l2_neigh.get_id()),
                                            label=tuple((span1, span2) for span1 in l1_neigh.get_symbols() for span2 in l2_neigh.get_symbols()),
-                                           start_type = l1_neigh.get_start())
+                                           start_type = l1_neigh.get_start() if current_ste.get_start() == StartType.fake_root else StartType.non_start)
 
         #strided_graph.draw_graph("mid_graph", draw_edge_label= True)
         strided_graph.make_homogenous()
@@ -367,6 +372,40 @@ class Automatanetwork(object):
             right_ste_dst = right_automata.get_STE_by_id(neighb.get_id())
             right_automata.add_edge(right_ste_src, right_ste_dst, label=left_ste_dst.get_symbols(),
                                    start_type=left_ste_dst.get_start())
+
+
+    def feed_file(self, input_file):
+        """
+
+        :param input_file: file to be feed to the input
+        :return:
+        """
+        active_states = Set([self._fake_root])
+
+        all_start_states = [all_start_neighb for all_start_neighb in self._my_graph.neighbors(self._fake_root)
+                            if all_start_neighb.get_start() == StartType.all_input]
+        with open(input_file, 'rb') as f:
+            for input in iter(lambda: f.read(self.get_stride_value()),b''):
+                new_active_states = Set()
+                for act_st in active_states:
+                    for neighb in self._my_graph.neighbors(act_st):
+                        if neighb.can_accept(input=input):
+                            new_active_states.add(neighb)
+
+                for state in all_start_states:
+                    if state.can_accept(input):
+                        new_active_states.add(state)
+
+                active_states = new_active_states
+                yield active_states
+
+
+
+    def get_connected_components_size(self):
+        undirected_graph = self._my_graph.copy()
+        undirected_graph= undirected_graph.to_undirected()
+        undirected_graph.remove_node("fake_root")
+        return tuple(len(g) for g in sorted(nx.connected_components(undirected_graph), key=len, reverse=True))
 
 
 

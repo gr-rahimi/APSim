@@ -183,7 +183,28 @@ class S_T_E(object):
         return tuple(left_set), tuple(right_set)
 
 
+    def can_accept(self, input):
+        symbol_set = self.get_symbols()
+        for symbol in symbol_set:
+            if self._check_interval(input, symbol):
+                return True
 
+        return False
+
+    def _check_interval(self, input, symbol_set):
+        assert len(symbol_set) == 2
+        if len(input) ==1:
+            left_margin , right_margin = symbol_set
+            can_accept = left_margin<=input[0] and input[0]<= right_margin
+
+            if can_accept and self.is_report():
+                print "reported"
+
+
+            return  can_accept
+        else:
+            return self._check_interval(input[:len(input)/2],symbol_set[0]) and\
+                   self._check_interval(input[len(input)/2:],symbol_set[1])
 
 
 
