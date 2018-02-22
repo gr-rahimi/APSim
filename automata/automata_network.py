@@ -1,4 +1,6 @@
-from  elemnts.ste import S_T_E, StartType
+from  elemnts.ste import S_T_E
+from elemnts.element import StartType
+from elemnts.or_elemnt import OrElement
 import networkx as nx
 import matplotlib.pyplot as plt
 from collections import  deque
@@ -23,7 +25,7 @@ class Automatanetwork(object):
         self._fake_root = S_T_E(start_type = StartType.fake_root, is_report=False,
                                 is_marked=False, id=Automatanetwork._fake_root,
                                 symbol_set=None)
-        self.add_STE(self._fake_root)  # This is not areal node. It helps for simpler striding code
+        self.add_element(self._fake_root)  # This is not areal node. It helps for simpler striding code
         self._stride = stride
 
 
@@ -37,11 +39,14 @@ class Automatanetwork(object):
         for child in xml_node:
             if child.tag == 'state-transition-element':
                 ste = S_T_E.from_xml_node(child)
-                graph_ins.add_STE(ste)
-            elif child.tag == 'description':
+                graph_ins.add_element(ste)
+            elif child.tag == 'or':
+                or_gate = OrElement.from_xml_node(child)
+                graph_ins.add_element(to_add_element=or_gate, connect_to_fake_root= False)
+            elif child.tag == 'description': # not important
                 continue
             else:
-                raise RuntimeError('unsupported child of automata-network')
+                raise RuntimeError('unsupported child of automata-network-> ' + child.tag )
 
 
         for src_node_id, src_node in graph_ins._node_dict.iteritems():
@@ -100,19 +105,19 @@ class Automatanetwork(object):
     #     self._has_modified =False
 
 
-    def add_STE(self, to_add_STE, connect_to_fake_root = True):
+    def add_element(self, to_add_element, connect_to_fake_root = True):
 
         """
-        :param to_add_STE: Add a ste to the graph
+        :param to_add_element: Add a ste to the graph
         :return:
         """
-        assert to_add_STE.get_id() not in self._node_dict
-        self._my_graph.add_node(to_add_STE)
-        self._node_dict[to_add_STE.get_id()] = to_add_STE
+        assert to_add_element.get_id() not in self._node_dict
+        self._my_graph.add_node(to_add_element)
+        self._node_dict[to_add_element.get_id()] = to_add_element
         self._has_modified = True
 
-        if self.is_homogeneous() and to_add_STE.is_start() and connect_to_fake_root: # only for homogenous graphs
-            self.add_edge(Automatanetwork._fake_root, to_add_STE) # add an esge from fake root to all start nodes
+        if self.is_homogeneous() and to_add_element.is_start() and connect_to_fake_root: # only for homogenous graphs
+            self.add_edge(Automatanetwork._fake_root, to_add_element) # add an esge from fake root to all start nodes
 
 
     def get_STE_by_id(self, id):
@@ -175,7 +180,7 @@ class Automatanetwork(object):
 
                         temp_ste = S_T_E(start_type = StartType.unknown, is_report= l2_neigh.is_report(),
                                                     is_marked=False, id = l2_neigh.get_id(), symbol_set= None)
-                        strided_graph.add_STE(temp_ste)
+                        strided_graph.add_element(temp_ste)
                         l2_neigh.set_marked(True)
                         dq.appendleft(l2_neigh)
 
@@ -306,7 +311,7 @@ class Automatanetwork(object):
         for neighb, on_edge_char_set in connectivity_dic.iteritems():
             new_node = S_T_E(start_type=start_type, is_report= curr_node.is_report(), is_marked= True,
                              id = neighb.get_id()+"_"+curr_node.get_id()+"_" +str(on_edge_char_set), symbol_set = on_edge_char_set)
-            self.add_STE(new_node)
+            self.add_element(new_node)
             if curr_node == neighb:
                 assert start_type == StartType.non_start
                 self_loop_node =new_node # we need to make an edge from every other node to this node
@@ -360,11 +365,11 @@ class Automatanetwork(object):
 
                 left_ste = S_T_E( start_type = neighb.get_start(), is_report = neighb.is_report(),
                                  is_marked = True, id = neighb.get_id(), symbol_set= left_symbols)
-                left_automata.add_STE(left_ste)
+                left_automata.add_element(left_ste)
 
                 right_ste = S_T_E( start_type = neighb.get_start(), is_report = neighb.is_report(),
                                  is_marked=True, id=neighb.get_id(), symbol_set=right_symbols)
-                right_automata.add_STE(right_ste)
+                right_automata.add_element(right_ste)
 
                 self._split_node(neighb, left_automata= left_automata, right_automata=right_automata)
 
@@ -430,6 +435,34 @@ class Automatanetwork(object):
 
                 active_states = new_active_states
                 yield active_states, is_report
+
+
+    def remove_ors(self):
+        to_be_deleted_ors= []
+        for node in self._my_graph.nodes:
+            if node == self._fake_root:
+                continue
+            if node.is_OR():
+                for pre_childs in self._my_graph.predecessors(node):
+                    if pre_childs == node :
+                        continue
+
+                    for post_childs in self._my_graph.neighbors(node):
+                        if post_childs == node:
+                            continue
+
+                        self.add_edge(pre_childs, post_childs)
+
+                to_be_deleted_ors.append(node)
+
+        for or_node in to_be_deleted_ors:
+            self.delete_node(or_node)
+
+
+
+
+
+
 
 
 
