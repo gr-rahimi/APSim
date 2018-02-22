@@ -1,37 +1,21 @@
 import automata as atma
 import matplotlib.pyplot as plt
 import networkx as nx
+from profilehooks import profile
+from automata.automata_network import compare_input
 
-automata = atma.parse_anml_file("/home/reza/Git/ANMLZoo/SPM/anml/bible_size4.1chip.anml")
+automata = atma.parse_anml_file("/home/reza/Git/ANMLZoo/PowerEN/anml/complx_01000_00123.1chip.anml")
 print "Finished processing from anml file. Here is the summary"
 automata.print_summary()
-#automata.draw_graph("original.png", draw_edge_label= True)
-#automata.feed_file("/home/reza/Git/ANMLZoo/SPM/inputs/SPM_1MB.input")
-print "finished feeding input file"
-#print automata.get_connected_components_size()
+
+for active_states, is_report in automata.feed_file("/home/reza/Git/ANMLZoo/Dotstar/inputs/backdoor_1MB.input"):
+    if is_report:
+        print "report detected."
 
 
+strided_automata_NH = automata.get_single_stride_graph()
+strided_automata_NH.make_homogenous()
 
 
-strided_automata = automata.get_single_stride_graph()
-print "finished double striding. Here is the summary"
-strided_automata.print_summary()
-#strided_automata.draw_graph("strided.png", draw_edge_label= True)
-
-left_automata, right_automata = strided_automata.split()
-
-print "left automata:"
-left_automata.print_summary()
-#left_automata.draw_graph("left_automata.png",draw_edge_label = True)
-
-print "right automata:"
-right_automata.print_summary()
-#right_automata.draw_graph("right_automata.png",draw_edge_label = True)
-
-second_strided = strided_automata.get_single_stride_graph()
-print "finished second double striding. Here is the summary"
-second_strided.print_summary()
-#second_strided.draw_graph("second_strided.png", draw_edge_label=True)
-
-
+compare_input(True,"/home/reza/Downloads/POST/simple1.txt", automata, strided_automata_NH)
 

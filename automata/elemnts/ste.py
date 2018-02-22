@@ -1,14 +1,19 @@
 import networkx as nx
 import CPP.VASim as VASim
-from sets import Set
+#from sets import Set
 from enum import Enum
 
+
+Set = set
 class StartType(Enum):
     non_start = 0
     start_of_data = 1
     all_input = 2
     unknown = 3 # for non homogeneous graphs, yes but will be determined
     fake_root = 4
+
+
+
 
 class S_T_E(object):
     known_attributes = {'start', 'symbol-set', 'id'}
@@ -22,8 +27,13 @@ class S_T_E(object):
         self._is_report = is_report
         self._marked = is_marked
         self._id = id
-        self._symbol_set = Set(symbol_set)
 
+        self._symbol_set = Set(symbol_set) if symbol_set else Set()
+
+
+    @classmethod
+    def get_element_type(cls):
+        return cls.__name__
 
 
     @classmethod
@@ -57,6 +67,7 @@ class S_T_E(object):
         assert 'symbol-set' in xml_node.attrib # all STEs should have symbol set
         symbol_set = VASim.parseSymbolSet(str(xml_node.attrib['symbol-set']))
         symbol_set = symbol_set[::-1] # reverse the string
+
         start = False
         start_idx = -1
         for idx_b, ch in enumerate(symbol_set):
@@ -182,25 +193,24 @@ class S_T_E(object):
 
         return tuple(left_set), tuple(right_set)
 
+    def can_accept(self, input, on_edge_symbol_set = None):
+        """
 
-    def can_accept(self, input):
-        symbol_set = self.get_symbols()
+        :param input: the input bytes
+        :return: (acceptance True/False, is_reported True/False)
+        """
+        symbol_set = on_edge_symbol_set if on_edge_symbol_set else self._symbol_set
         for symbol in symbol_set:
             if self._check_interval(input, symbol):
-                return True
+                return (True, self.is_report())
 
-        return False
+        return (False, False)
 
     def _check_interval(self, input, symbol_set):
         assert len(symbol_set) == 2
         if len(input) ==1:
             left_margin , right_margin = symbol_set
             can_accept = left_margin<=input[0] and input[0]<= right_margin
-
-            if can_accept and self.is_report():
-                print "reported"
-
-
             return  can_accept
         else:
             return self._check_interval(input[:len(input)/2],symbol_set[0]) and\

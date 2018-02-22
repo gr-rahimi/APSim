@@ -2,7 +2,11 @@ from  elemnts.ste import S_T_E, StartType
 import networkx as nx
 import matplotlib.pyplot as plt
 from collections import  deque
-from sets import Set
+from tqdm import tqdm
+import os
+
+Set = set
+
 
 class Automatanetwork(object):
     known_attributes = {'id','name'}
@@ -34,6 +38,8 @@ class Automatanetwork(object):
             if child.tag == 'state-transition-element':
                 ste = S_T_E.from_xml_node(child)
                 graph_ins.add_STE(ste)
+            elif child.tag == 'description':
+                continue
             else:
                 raise RuntimeError('unsupported child of automata-network')
 
@@ -160,7 +166,7 @@ class Automatanetwork(object):
         dq.appendleft(self._fake_root)
 
         while dq:
-
+            #print len(dq)
             current_ste = dq.pop()
 
             for l1_neigh in self._my_graph.neighbors(current_ste):
@@ -178,7 +184,7 @@ class Automatanetwork(object):
                                            start_type = l1_neigh.get_start() if current_ste.get_start() == StartType.fake_root else StartType.non_start)
 
         #strided_graph.draw_graph("mid_graph", draw_edge_label= True)
-        strided_graph.make_homogenous()
+        #strided_graph.make_homogenous()
         return strided_graph
 
 
@@ -323,8 +329,6 @@ class Automatanetwork(object):
         print "Number of start nodes", self.get_number_of_start_nodes()
         print "Number of report nodes", self.get_number_of_report_nodes()
 
-
-
     def split(self):
         """
         split the current automata and rturn both of them
@@ -381,23 +385,51 @@ class Automatanetwork(object):
         :return:
         """
         active_states = Set([self._fake_root])
-
-        all_start_states = [all_start_neighb for all_start_neighb in self._my_graph.neighbors(self._fake_root)
+        if self.is_homogeneous():
+            all_start_states = [all_start_neighb for all_start_neighb in self._my_graph.neighbors(self._fake_root)
                             if all_start_neighb.get_start() == StartType.all_input]
-        with open(input_file, 'rb') as f:
-            for input in iter(lambda: f.read(self.get_stride_value()),b''):
-                new_active_states = Set()
-                for act_st in active_states:
-                    for neighb in self._my_graph.neighbors(act_st):
-                        if neighb.can_accept(input=input):
-                            new_active_states.add(neighb)
+        else:
+            all_start_edges = [all_start_edge for all_start_edge in self._my_graph.out_edges(self._fake_root, data=True, keys = False)
+                                if all_start_edge[2]['start_type'] == StartType.all_input]
 
-                for state in all_start_states:
-                    if state.can_accept(input):
-                        new_active_states.add(state)
+        with open(input_file, 'rb') as f:
+            file_size = os.path.getsize(input_file)
+            for input in tqdm(iter(lambda: f.read(self.get_stride_value()),b''), total= file_size/ self.get_stride_value(), unit = "symbol"):
+
+                input = bytearray(input)
+                new_active_states = Set()
+                is_report = False
+                for act_st in active_states:
+                    if self.is_homogeneous():
+                        for neighb in self._my_graph.neighbors(act_st):
+                            can_accept, temp_is_report = neighb.can_accept(input=input)
+                            is_report = is_report or temp_is_report
+                            if can_accept:
+                                new_active_states.add(neighb)
+                    else:
+                        out_edges = self._my_graph.out_edges(act_st, data = True, keys = False)
+                        for edge in out_edges:
+                            can_accept, temp_is_report = edge[1].can_accept(input=input, on_edge_symbol_set= edge[2]['label'])
+                            is_report = is_report or temp_is_report
+                            if can_accept:
+                                new_active_states.add(edge[1])
+                if self.is_homogeneous():
+                    for state in all_start_states:
+                        can_accept, temp_is_report = state.can_accept(input=input)
+                        is_report = is_report or temp_is_report
+                        if can_accept:
+                            new_active_states.add(state)
+                else:
+                    for all_start_edge in all_start_edges:
+                        can_accept, temp_is_report = edge[1].can_accept(input=input,
+                                                                        on_edge_symbol_set=all_start_edge[2]['label'])
+                        is_report = is_report or temp_is_report
+                        if can_accept:
+                            new_active_states.add(edge[1])
+
 
                 active_states = new_active_states
-                yield active_states
+                yield active_states, is_report
 
 
 
@@ -406,6 +438,35 @@ class Automatanetwork(object):
         undirected_graph= undirected_graph.to_undirected()
         undirected_graph.remove_node("fake_root")
         return tuple(len(g) for g in sorted(nx.connected_components(undirected_graph), key=len, reverse=True))
+
+
+def compare_input(only_report, file_path, *automatas):
+    gens = []
+    result = [() for i in range(len(automatas))]
+    max_stride = max([sv.get_stride_value() for sv in automatas])
+
+    for a in automatas:
+        g = a.feed_file(file_path)
+        gens.append(g)
+
+    try:
+        for idx_g, (g, automata) in enumerate(zip(gens,automatas)):
+            assert max_stride % automata.get_stride_value() == 0
+            for _ in range(max_stride / automata.get_stride_value()):
+                temp_active_states, temp_is_report = next(g)
+            result[idx_g] =(temp_active_states, temp_is_report)
+
+        for active_state, report_state in result[1:]:
+            assert report_state==result[0][1] # check report states
+            if not only_report:
+                assert active_state == result[0][0] # check current states
+
+
+
+
+    except StopIteration:
+        print "They are equal"
+
 
 
 
