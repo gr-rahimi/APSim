@@ -36,7 +36,8 @@ class S_T_E(BaseElement):
 
         # find symbol set
         assert 'symbol-set' in xml_node.attrib  # all STEs should have symbol set
-        symbol_list = VASim.parseSymbolSet(str(xml_node.attrib['symbol-set']))
+        symbol_str = str(xml_node.attrib['symbol-set'])
+        symbol_list = VASim.parseSymbolSet(symbol_str)
         symbol_list = symbol_list[::-1]  # reverse the string
 
         symbol_set = set()
@@ -87,6 +88,9 @@ class S_T_E(BaseElement):
 
     def get_start(self):
         return  self._start_type
+
+    def set_start(self, start):
+        self._start_type = start
 
     def is_start(self):
         return self._start_type == StartType.all_input or\

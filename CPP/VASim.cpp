@@ -10,11 +10,11 @@ std::string parseSymbolSet(std::string symbol_set) {
     }
 
 
-    if(symbol_set.compare("*") == 0){
+   if(symbol_set.compare("*") == 0){
         column.set();
         return column.to_string();
     }
-    
+
     // KAA found that apcompile parses symbol-set="." to mean "^\x0a"
     // hard-coding this here
     if(symbol_set.compare(".") == 0) {
@@ -22,7 +22,7 @@ std::string parseSymbolSet(std::string symbol_set) {
         column.flip();
         return column.to_string();
     }
-        
+
     bool in_charset = false;
     bool escaped = false;
     bool inverting = false;
@@ -36,7 +36,9 @@ std::string parseSymbolSet(std::string symbol_set) {
     // handle symbol sets that start and end with curly braces {###}
     if((symbol_set[0] == '{') &&
        (symbol_set[symbol_set.size() - 1] == '}')){
-    return column.to_string();
+
+        std::cout << "CURLY BRACES NOT IMPLEMENTED" << std::endl;
+        exit(1);
     }
 
     int index = 0;
@@ -45,9 +47,9 @@ std::string parseSymbolSet(std::string symbol_set) {
         unsigned char c = symbol_set[index];
 
         //std::cout << "PROCESSING CHAR: " << c << std::endl;
-        
+
         switch(c){
-            
+
             // Brackets
         case '[' :
             if(escaped){
@@ -69,24 +71,24 @@ std::string parseSymbolSet(std::string symbol_set) {
                     setRange(column,range_start,c,value);
                     range_set = false;
                 }
-
+                escaped = false;
                 last_char = c;
             }else{
                 bracket_sem--;
             }
-            
+
             break;
 
             // Braces
         case '{' :
-            
+
             //if(escaped){
                 column.set(c, value);
                 if(range_set){
                     setRange(column,range_start,c,value);
                     range_set = false;
                 }
-                
+
                 last_char = c;
                 //escaped = false;
                 //}else{
@@ -106,7 +108,7 @@ std::string parseSymbolSet(std::string symbol_set) {
                 //brace_sem--;
                 //}
             break;
-            
+
             //escape
         case '\\' :
             if(escaped){
@@ -122,7 +124,7 @@ std::string parseSymbolSet(std::string symbol_set) {
                 escaped = true;
             }
             break;
-            
+
             // escaped chars
         case 'n' :
             if(escaped){
@@ -307,6 +309,7 @@ std::string parseSymbolSet(std::string symbol_set) {
                     setRange(column,range_start,'-',value);
                     range_set = false;
                 }
+                escaped = false;
                 last_char = '-';
             }else{
                 range_set = true;
@@ -382,7 +385,6 @@ std::string parseSymbolSet(std::string symbol_set) {
 
             // HEX
         case 'x' :
-
             if(escaped){
                 //process hex char
                 ++index;
@@ -391,7 +393,7 @@ std::string parseSymbolSet(std::string symbol_set) {
                 hex[1] = (char)symbol_set.c_str()[index+1];
                 hex[2] = '\0';
                 unsigned char number = (unsigned char)std::strtoul(hex, NULL, 16);
-                
+
                 //
                 ++index;
                 column.set(number, value);
@@ -409,7 +411,6 @@ std::string parseSymbolSet(std::string symbol_set) {
                 }
                 last_char = c;
             }
-
             break;
 
 
@@ -433,15 +434,13 @@ std::string parseSymbolSet(std::string symbol_set) {
     if(inverting)
         column.flip();
 
-    if(bracket_sem != 0 || 
+    if(bracket_sem != 0 ||
        brace_sem != 0){
-       return column.to_string();
-//       std::cout << "MALFORMED BRACKETS OR BRACES: " << symbol_set <<  std::endl;
-//        std::cout << "brackets: " << bracket_sem << std::endl;
-//        exit(1);
-
+        std::cout << "MALFORMED BRACKETS OR BRACES: " << symbol_set <<  std::endl;
+        std::cout << "brackets: " << bracket_sem << std::endl;
+        exit(1);
     }
-        return column.to_string();
+    return column.to_string();
 
 }
 

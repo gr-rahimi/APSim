@@ -227,7 +227,7 @@ class Automatanetwork(object):
         dq.appendleft(self._fake_root)
 
         while dq:
-            #print len(dq)
+            print len(dq)
             current_ste = dq.pop()
             #print "porcessing" , current_ste
             if current_ste.get_start() == StartType.fake_root: # fake root does need processing
@@ -289,15 +289,16 @@ class Automatanetwork(object):
         """
         pos = nx.spring_layout(self._my_graph, k =0.2)
         node_color = [node.get_color() for node in self._my_graph.nodes()]
-        nx.draw(self._my_graph, pos, node_size = 2, width = 0.1, arrowsize = 2, node_color= node_color)
+        nx.draw(self._my_graph, pos, node_size = 1, width = 0.2, arrowsize = 2, node_color= node_color)
 
         if draw_edge_label: # draw with edge lable
             edge_lables = nx.get_edge_attributes(self._my_graph, 'label')
 
             nx.draw_networkx_edge_labels(self._my_graph, pos, node_size = 2, width = 0.1, arrowsize = 2,
-                                         node_color= node_color, font_size= 3 )
+                                         node_color= node_color, font_size= 1 )
 
         plt.savefig(file_name, dpi=1000)
+        #self.does_have_self_loop()
         plt.clf()
 
 
@@ -327,7 +328,18 @@ class Automatanetwork(object):
             for node in new_nodes:
                 self.add_edge(node, self_loop_node, label = self_loop_node.get_symbols(), start_type = self_loop_node.get_start())
             self.add_edge(self_loop_node,self_loop_node, label = self_loop_node.get_symbols(), start_type = self_loop_node.get_start())
+            pass
 
+
+
+    def does_have_self_loop(self):
+        found = False
+        for node in self._my_graph.nodes():
+            if node in self._my_graph.neighbors(node):
+                print node.get_id()
+                found = True
+
+        return found
 
     def print_summary(self):
         print "Number of nodes: ", self.get_number_of_nodes()
@@ -458,12 +470,32 @@ class Automatanetwork(object):
         for or_node in to_be_deleted_ors:
             self.delete_node(or_node)
 
+    def remove_all_start_nodes(self):
+        """
+        this funstion add a new node that accepts Dot Kleene start and connect it to all "all_input nodes"
+        :return: a graph taht does not have any start node with all_input condition
+        """
+
+        assert self.is_homogeneous() and self.get_stride_value() == 1,\
+            "Graph should be in homogenous state to handle this situation and alaso it should be single stride"
+
+        star_node = S_T_E(start_type = StartType.start_of_data, is_report = False, is_marked = False,
+                          id = "all_input_handler", symbol_set={(0, 255)}, adjacent_S_T_E_s = [])
+
+        self.add_element(to_add_element = star_node, connect_to_fake_root = True)
+
+        self.add_edge(star_node, star_node)
+
+        temp_var = list(self._my_graph.neighbors(star_node))
 
 
+        for node in self._my_graph.neighbors(self._fake_root):
 
-
-
-
+            if node == star_node:
+                continue
+            if node.get_start() == StartType.all_input:
+                node.set_start(StartType.start_of_data)
+                self.add_edge(star_node,node)
 
 
     def get_connected_components_size(self):
@@ -483,22 +515,27 @@ def compare_input(only_report, file_path, *automatas):
         gens.append(g)
 
     try:
-        for idx_g, (g, automata) in enumerate(zip(gens,automatas)):
-            assert max_stride % automata.get_stride_value() == 0
-            for _ in range(max_stride / automata.get_stride_value()):
-                temp_active_states, temp_is_report = next(g)
-            result[idx_g] =(temp_active_states, temp_is_report)
+        while True:
+            for idx_g, (g, automata) in enumerate(zip(gens,automatas)):
+                assert max_stride % automata.get_stride_value() == 0
+                for _ in range(max_stride / automata.get_stride_value()):
+                    temp_active_states, temp_is_report = next(g)
+                result[idx_g] =(temp_active_states, temp_is_report)
 
-        for active_state, report_state in result[1:]:
-            assert report_state==result[0][1] # check report states
-            if not only_report:
-                assert active_state == result[0][0] # check current states
+            for active_state, report_state in result[1:]:
+                print active_state, report_state, "* correct = ",result[0]
+                assert report_state==result[0][1] # check report states
+                if not only_report:
+                    assert active_state == result[0][0] # check current states
 
 
 
 
     except StopIteration:
         print "They are equal"
+
+
+
 
 
 
