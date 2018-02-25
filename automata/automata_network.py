@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from collections import  deque
 from tqdm import tqdm
 import os
+import itertools
 
 Set = set
 
@@ -265,12 +266,37 @@ class Automatanetwork(object):
                 else:
                     assert False # It should not happen
 
-            self._make_homogenous_node(curr_node = current_ste, connectivity_dic = src_dict_all_start,
+            new_nodes = []
+            new_all_input_nodes = self._make_homogenous_node(curr_node = current_ste, connectivity_dic = src_dict_all_start,
                                        start_type = StartType.all_input )
-            self._make_homogenous_node(curr_node=current_ste, connectivity_dic=src_dict_non_start,
-                                       start_type=StartType.non_start)
-            self._make_homogenous_node(curr_node=current_ste, connectivity_dic=src_dict_start_of_data,
+            new_nodes.extend(new_all_input_nodes)
+
+            new_start_of_data_nodes = self._make_homogenous_node(curr_node=current_ste, connectivity_dic=src_dict_start_of_data,
                                        start_type=StartType.start_of_data)
+            new_nodes.extend(new_start_of_data_nodes)
+
+            new_non_start_nodes =  self._make_homogenous_node(curr_node=current_ste, connectivity_dic=src_dict_non_start,
+                                       start_type=StartType.non_start)
+            new_nodes.extend(new_non_start_nodes)
+
+            if current_ste in self._my_graph.neighbors(current_ste): # handling self loop nodes
+
+                for neighb, on_edge_char_set in src_dict_non_start.iteritems():
+                    if neighb == current_ste:
+                        self_loop_handler = S_T_E(start_type = StartType.non_start, is_report= current_ste.is_report(),
+                                          is_marked= True, id =  current_ste.get_id()+"_"+current_ste.get_id()+"_" +str(on_edge_char_set),
+                                                  symbol_set= on_edge_char_set) #self loop handlers are always non start nodes
+                        self.add_edge(self_loop_handler, self_loop_handler)
+                        for node in new_nodes:
+                            self.add_edge(node, self_loop_handler)
+
+                        out_edges = self._my_graph.out_edges(current_ste, data= True, keys = False)
+                        for edge in out_edges:
+                            if edge[0] == edge[1]: # self loop node
+                                continue
+                            self.add_edge(self_loop_handler, edge[1], label = edge[2]['label'], start_type = edge[2]['start_type'])
+
+
             self.delete_node(current_ste)
 
         self._is_homogeneous = True
@@ -307,29 +333,27 @@ class Automatanetwork(object):
     def _make_homogenous_node(self, curr_node, connectivity_dic, start_type):
 
         new_nodes = []
-        self_loop_node = None
 
         for neighb, on_edge_char_set in connectivity_dic.iteritems():
-            new_node = S_T_E(start_type=start_type, is_report= curr_node.is_report(), is_marked= True,
-                             id = neighb.get_id()+"_"+curr_node.get_id()+"_" +str(on_edge_char_set), symbol_set = on_edge_char_set)
-            self.add_element(new_node)
-            if curr_node == neighb:
-                assert start_type == StartType.non_start
-                self_loop_node =new_node # we need to make an edge from every other node to this node
-            else:
+            if curr_node != neighb:
+                new_node = S_T_E(start_type=start_type, is_report=curr_node.is_report(), is_marked=True,
+                                 id=neighb.get_id() + "_" + curr_node.get_id() + "_" + str(on_edge_char_set),
+                                 symbol_set=on_edge_char_set)
+                self.add_element(new_node, connect_to_fake_root= False) # it will not be coonected to fake_root since the graph is not homogeneous at the moment
                 new_nodes.append(new_node)
                 self.add_edge(neighb, new_node, label = new_node.get_symbols(), start_type = new_node.get_start())
+                out_edges = self._my_graph.out_edges(curr_node, data = True, keys = False)
 
-            out_edges = self._my_graph.out_edges(curr_node, data = True, keys = False)
-            for edge in out_edges:
-                self.add_edge(new_node, edge[1], label = edge[2]['label'], start_type = edge[2]['start_type'])
+                for edge in out_edges:
+                    if edge[1] != edge[0]:
+                        self.add_edge(new_node, edge[1], label = edge[2]['label'], start_type = edge[2]['start_type'])
+                    else:
+                        continue # not necessary for self loops
+            else:
+                assert start_type == StartType.non_start, "self lopps should be in non start category"
+                continue # self-loops node will be processed later
 
-        if self_loop_node:
-            for node in new_nodes:
-                self.add_edge(node, self_loop_node, label = self_loop_node.get_symbols(), start_type = self_loop_node.get_start())
-            self.add_edge(self_loop_node,self_loop_node, label = self_loop_node.get_symbols(), start_type = self_loop_node.get_start())
-            pass
-
+        return new_nodes
 
 
     def does_have_self_loop(self):
@@ -393,6 +417,81 @@ class Automatanetwork(object):
             right_ste_dst = right_automata.get_STE_by_id(neighb.get_id())
             right_automata.add_edge(right_ste_src, right_ste_dst, label=left_ste_dst.get_symbols(),
                                    start_type=left_ste_dst.get_start())
+
+    def _find_next_states(self, current_active_states, input):
+        """
+
+        :param current_active_states: a set of current active states
+        :param input: an iterable symbol set
+        :return: (True/False) if there is a report element in new states, (Set) new states
+        """
+        new_active_states = Set()
+        is_report = False
+
+        for act_st in current_active_states:
+            if self.is_homogeneous():
+                for neighb in self._my_graph.neighbors(act_st):
+                    can_accept, temp_is_report = neighb.can_accept(input=input)
+                    is_report = is_report or temp_is_report
+                    if can_accept:
+                        new_active_states.add(neighb)
+            else:
+                out_edges = self._my_graph.out_edges(act_st, data=True, keys=False)
+                for edge in out_edges:
+                    can_accept, temp_is_report = edge[1].can_accept(input=input,
+                                                                    on_edge_symbol_set=edge[2]['label'])
+                    is_report = is_report or temp_is_report
+                    if can_accept:
+                        new_active_states.add(edge[1])
+
+        return is_report, new_active_states
+
+    def feed_input(self, input_stream, offset = 0, jump = 0):
+
+        my_stride = self.get_stride_value()
+        assert offset < (my_stride + jump), "this condition should be met"
+
+        temp_g = (itertools.islice(input_stream, offset + i, len(input_stream), jump + my_stride) for i in range(my_stride))
+        g = itertools.izip(*temp_g)
+
+        try:
+            active_states = Set([self._fake_root])
+
+            if self.is_homogeneous():
+                all_start_states = [all_start_neighb for all_start_neighb in self._my_graph.neighbors(self._fake_root)
+                                    if all_start_neighb.get_start() == StartType.all_input]
+            else:
+                all_start_edges = [all_start_edge for all_start_edge in
+                                   self._my_graph.out_edges(self._fake_root, data=True, keys=False)
+                                   if all_start_edge[2]['start_type'] == StartType.all_input]
+
+            for input in tqdm(g, total = len(input_stream) / (my_stride + jump), unit="symbol"):
+
+                is_report, new_active_states = self._find_next_states(current_active_states = active_states, input = input)
+
+                if self.is_homogeneous():
+                    for all_start_state in all_start_states:
+                        can_accept, temp_is_report = all_start_state.can_accept(input=input)
+                        is_report = is_report or temp_is_report
+                        if can_accept:
+                            new_active_states.add(all_start_state)
+                else:
+                    for all_start_edge in all_start_edges:
+                        can_accept, temp_is_report = all_start_edge[1].can_accept(input=input,
+                                                                        on_edge_symbol_set=all_start_edge[2][
+                                                                            'label'])
+                        is_report = is_report or temp_is_report
+                        if can_accept:
+                            new_active_states.add(all_start_edge[1])
+
+                active_states = new_active_states
+                yield active_states, is_report
+
+
+        except StopIteration:
+            pass
+
+
 
 
     def feed_file(self, input_file):
@@ -523,13 +622,10 @@ def compare_input(only_report, file_path, *automatas):
                 result[idx_g] =(temp_active_states, temp_is_report)
 
             for active_state, report_state in result[1:]:
-                print active_state, report_state, "* correct = ",result[0]
+                #print active_state, report_state, "* correct = ",result[0]
                 assert report_state==result[0][1] # check report states
                 if not only_report:
                     assert active_state == result[0][0] # check current states
-
-
-
 
     except StopIteration:
         print "They are equal"
