@@ -1,140 +1,108 @@
 import networkx as nx
 import CPP.VASim as VASim
-from sets import Set
-from enum import Enum
+from element import BaseElement, StartType
 
-class StartType(Enum):
-    non_start = 0
-    start_of_data = 1
-    all_input = 2
-    unknown = 3 # for non homogeneous graphs, yes but will be determined
-    fake_root = 4
-
-class S_T_E(object):
+class S_T_E(BaseElement):
     known_attributes = {'start', 'symbol-set', 'id'}
     aom_known_attributes = {'element'}
     report_on_match_attributes = {'reportcode'}
 
 
 
-    def __init__(self, start_type, is_report, is_marked = False, id = None, symbol_set= None):
+    def __init__(self, start_type, is_report, is_marked = False, id = None, symbol_set= set(), adjacent_S_T_E_s = []):
+        super(S_T_E, self).__init__(is_report = is_report, is_marked = is_marked, id = id)
         self._start_type = start_type
-        self._is_report = is_report
-        self._marked = is_marked
-        self._id = id
-        self._symbol_set = Set(symbol_set)
-
+        self._symbol_set = symbol_set
+        self._adjacent_S_T_Es = adjacent_S_T_E_s
 
 
     @classmethod
     def from_xml_node(cls, xml_node):
-        S_T_E._check_validity(xml_node)
-
-        new_ste = cls(start_type = StartType.non_start, is_report = False)
-
-        '''
-        when we make the automata form XML node,
-        we need this to build the graph after parsing the whole xmldelete_adjacency_list
-        '''
-        new_ste._adjacent_S_T_Es = []
-
-        # find state id
-        assert 'id' in xml_node.attrib
-        new_ste._id = xml_node.attrib['id']
-
+        assert cls.__name__ == S_T_E.__name__ # this function should not be called from child classes.
+        cls.check_validity(xml_node)
+        parameter_dict = {}
+        super(S_T_E, cls).from_xml_node_to_dict(xml_node = xml_node, attrib_dic= parameter_dict)
 
         # find if start state
         if 'start' in xml_node.attrib:
             if xml_node.attrib['start'] == 'start-of-data':
-                new_ste._start_type = StartType.start_of_data
+                parameter_dict['start_type'] = StartType.start_of_data
             elif xml_node.attrib['start'] == 'all-input':
-                new_ste._start_type = StartType.all_input
+                parameter_dict['start_type'] = StartType.all_input
             else:
                 raise RuntimeError('Unknown value for start attribute')
-
+        else:
+            parameter_dict['start_type'] = StartType.non_start
 
         # find symbol set
-        assert 'symbol-set' in xml_node.attrib # all STEs should have symbol set
-        symbol_set = VASim.parseSymbolSet(str(xml_node.attrib['symbol-set']))
-        symbol_set = symbol_set[::-1] # reverse the string
+        assert 'symbol-set' in xml_node.attrib  # all STEs should have symbol set
+        symbol_str = str(xml_node.attrib['symbol-set'])
+        symbol_list = VASim.parseSymbolSet(symbol_str)
+        symbol_list = symbol_list[::-1]  # reverse the string
+
+        symbol_set = set()
+
         start = False
         start_idx = -1
-        for idx_b, ch in enumerate(symbol_set):
+        for idx_b, ch in enumerate(symbol_list):
             if ch == "1" and start == False:
                 start = True
                 start_idx = idx_b
             elif ch == "0" and start == True:
                 start = False
-                new_ste._symbol_set.add((start_idx, idx_b - 1))
+                symbol_set.add((start_idx, idx_b - 1))
                 start_idx = -1
 
-        if start == True: # this is necessary if the last iteration was 1
-            new_ste._symbol_set.add((start_idx, idx_b))
-            start = False # not necessary
-            start_idx = -1 # not necessary
+        if start == True:  # this is necessary if the last iteration was 1
+            symbol_set.add((start_idx, idx_b))
+            start = False  # not necessary
+            start_idx = -1  # not necessary
 
+        parameter_dict['symbol_set'] = symbol_set
+
+        adjacent_S_T_E_s = []
+        is_report = False
 
         for child in xml_node:
             if child.tag == 'activate-on-match':
                 S_T_E._check_validity_aom(child)
                 assert 'element' in child.attrib
-                new_ste._adjacent_S_T_Es.append(child.attrib['element'])
+                adjacent_S_T_E_s.append(child.attrib['element'])
             elif child.tag == 'report-on-match':
                 S_T_E._check_validity_rom(child)
-                #TODO we should consider reportcode
-                new_ste._is_report = True
+                # TODO we should consider reportcode
+                is_report = True
             elif child.tag == 'layout':
-                continue # Elaheh said it is not important
+                continue  # Elaheh said it is not important
             else:
-                raise RuntimeError('unsupported children of STE')
+                raise RuntimeError('unsupported children of STE->' + child.tag)
 
-        return new_ste
+        parameter_dict['adjacent_S_T_E_s'] = adjacent_S_T_E_s
+        parameter_dict['is_report'] = is_report
 
+        return S_T_E(**parameter_dict)
 
-    def get_adjacency_list(self):
-        return self._adjacent_S_T_Es
+    @classmethod
+    def from_xml_node_to_dict(cls, xml_node, attrib_dic):
+        pass
 
-    def delete_adjacency_list(self):
-        """
-        To save memory and remove dual copy of structure
-        :return:
-        """
-        del self._adjacent_S_T_Es
-
-
-    def __hash__(self):
-        return hash(self._id)
-
-    def __eq__(self, other):
-        return self._id == str(other)
-
-    def __str__(self):
-        return  self._id
-
-    def __repr__(self):
-        return self._id
-
-
-    def is_marked(self):
-        return self._marked
-    def set_marked(self, m):
-        self._marked = m
     def get_start(self):
         return  self._start_type
-    def is_report(self):
-        return self._is_report
-    def get_id(self):
-        return self._id
+
+    def set_start(self, start):
+        self._start_type = start
+
     def is_start(self):
         return self._start_type == StartType.all_input or\
                self._start_type == StartType.start_of_data
 
 
     # check if the ste element has any attribute that I have not considered yet
-    @staticmethod
-    def _check_validity(xml_node):
+    @classmethod
+    def check_validity(cls, xml_node):
         attr_set = set(xml_node.attrib)
         assert attr_set.issubset(S_T_E.known_attributes)
+        super(S_T_E, cls).check_validity(xml_node)
 
     # check if the active-on-match has any new attribute
     @staticmethod
@@ -152,7 +120,7 @@ class S_T_E(object):
         return tuple(self._symbol_set)
 
     def set_symbols(self, symbols):
-        self._symbol_set = Set(symbols)
+        self._symbol_set = set(symbols)
 
     def add_symbol(self, symbol):
         self._symbol_set.add(symbol)
@@ -173,8 +141,8 @@ class S_T_E(object):
             return (1,0,0,1) # Red
 
     def split_symbols(self):
-        left_set = Set()
-        right_set = Set()
+        left_set = set()
+        right_set = set()
 
         for left_symbol, right_symbol in self.get_symbols():
             left_set.add(left_symbol)
@@ -182,8 +150,31 @@ class S_T_E(object):
 
         return tuple(left_set), tuple(right_set)
 
+    def can_accept(self, input, on_edge_symbol_set = None):
+        """
 
+        :param input: the input bytes
+        :return: (acceptance True/False, is_reported True/False)
+        """
+        symbol_set = on_edge_symbol_set if on_edge_symbol_set else self._symbol_set
+        for symbol in symbol_set:
+            if self._check_interval(input, symbol):
+                return (True, self.is_report())
 
+        return (False, False)
+
+    def _check_interval(self, input, symbol_set):
+        assert len(symbol_set) == 2
+        if len(input) ==1:
+            left_margin , right_margin = symbol_set
+            can_accept = left_margin<=input[0] and input[0]<= right_margin
+            return  can_accept
+        else:
+            return self._check_interval(input[:len(input)/2],symbol_set[0]) and\
+                   self._check_interval(input[len(input)/2:],symbol_set[1])
+
+    def is_S_T_E(self):
+        return True
 
 
 
