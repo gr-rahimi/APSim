@@ -286,6 +286,7 @@ class Automatanetwork(object):
                         self_loop_handler = S_T_E(start_type = StartType.non_start, is_report= current_ste.is_report(),
                                           is_marked= True, id =  current_ste.get_id()+"_"+current_ste.get_id()+"_" +str(on_edge_char_set),
                                                   symbol_set= on_edge_char_set) #self loop handlers are always non start nodes
+                        self.add_element(self_loop_handler)
                         self.add_edge(self_loop_handler, self_loop_handler)
                         for node in new_nodes:
                             self.add_edge(node, self_loop_handler)
@@ -449,47 +450,46 @@ class Automatanetwork(object):
     def feed_input(self, input_stream, offset = 0, jump = 0):
 
         my_stride = self.get_stride_value()
-        assert offset < (my_stride + jump), "this condition should be met"
+        assert offset < (jump), "this condition should be met"
 
-        temp_g = (itertools.islice(input_stream, offset + i, len(input_stream), jump + my_stride) for i in range(my_stride))
+        temp_g = (itertools.islice(input_stream, offset + i, len(input_stream), jump ) for i in range(my_stride))
         g = itertools.izip(*temp_g)
 
-        try:
-            active_states = Set([self._fake_root])
+
+        active_states = Set([self._fake_root])
+
+        if self.is_homogeneous():
+            all_start_states = [all_start_neighb for all_start_neighb in self._my_graph.neighbors(self._fake_root)
+                                if all_start_neighb.get_start() == StartType.all_input]
+        else:
+            all_start_edges = [all_start_edge for all_start_edge in
+                               self._my_graph.out_edges(self._fake_root, data=True, keys=False)
+                               if all_start_edge[2]['start_type'] == StartType.all_input]
+
+        for input in tqdm(g, total = len(input_stream) / jump, unit="symbol"):
+
+            is_report, new_active_states = self._find_next_states(current_active_states = active_states, input = input)
 
             if self.is_homogeneous():
-                all_start_states = [all_start_neighb for all_start_neighb in self._my_graph.neighbors(self._fake_root)
-                                    if all_start_neighb.get_start() == StartType.all_input]
+                for all_start_state in all_start_states:
+                    can_accept, temp_is_report = all_start_state.can_accept(input=input)
+                    is_report = is_report or temp_is_report
+                    if can_accept:
+                        new_active_states.add(all_start_state)
             else:
-                all_start_edges = [all_start_edge for all_start_edge in
-                                   self._my_graph.out_edges(self._fake_root, data=True, keys=False)
-                                   if all_start_edge[2]['start_type'] == StartType.all_input]
+                for all_start_edge in all_start_edges:
+                    can_accept, temp_is_report = all_start_edge[1].can_accept(input=input,
+                                                                    on_edge_symbol_set=all_start_edge[2][
+                                                                        'label'])
+                    is_report = is_report or temp_is_report
+                    if can_accept:
+                        new_active_states.add(all_start_edge[1])
 
-            for input in tqdm(g, total = len(input_stream) / (my_stride + jump), unit="symbol"):
-
-                is_report, new_active_states = self._find_next_states(current_active_states = active_states, input = input)
-
-                if self.is_homogeneous():
-                    for all_start_state in all_start_states:
-                        can_accept, temp_is_report = all_start_state.can_accept(input=input)
-                        is_report = is_report or temp_is_report
-                        if can_accept:
-                            new_active_states.add(all_start_state)
-                else:
-                    for all_start_edge in all_start_edges:
-                        can_accept, temp_is_report = all_start_edge[1].can_accept(input=input,
-                                                                        on_edge_symbol_set=all_start_edge[2][
-                                                                            'label'])
-                        is_report = is_report or temp_is_report
-                        if can_accept:
-                            new_active_states.add(all_start_edge[1])
-
-                active_states = new_active_states
-                yield active_states, is_report
+            active_states = new_active_states
+            yield active_states, is_report
 
 
-        except StopIteration:
-            pass
+
 
 
 
@@ -513,35 +513,22 @@ class Automatanetwork(object):
             for input in tqdm(iter(lambda: f.read(self.get_stride_value()),b''), total= file_size/ self.get_stride_value(), unit = "symbol"):
 
                 input = bytearray(input)
-                new_active_states = Set()
-                is_report = False
-                for act_st in active_states:
-                    if self.is_homogeneous():
-                        for neighb in self._my_graph.neighbors(act_st):
-                            can_accept, temp_is_report = neighb.can_accept(input=input)
-                            is_report = is_report or temp_is_report
-                            if can_accept:
-                                new_active_states.add(neighb)
-                    else:
-                        out_edges = self._my_graph.out_edges(act_st, data = True, keys = False)
-                        for edge in out_edges:
-                            can_accept, temp_is_report = edge[1].can_accept(input=input, on_edge_symbol_set= edge[2]['label'])
-                            is_report = is_report or temp_is_report
-                            if can_accept:
-                                new_active_states.add(edge[1])
+
+                is_report, new_active_states = self._find_next_states(current_active_states=active_states, input=input)
+
                 if self.is_homogeneous():
-                    for state in all_start_states:
-                        can_accept, temp_is_report = state.can_accept(input=input)
+                    for all_start_state in all_start_states:
+                        can_accept, temp_is_report = all_start_state.can_accept(input=input)
                         is_report = is_report or temp_is_report
                         if can_accept:
-                            new_active_states.add(state)
+                            new_active_states.add(all_start_state)
                 else:
                     for all_start_edge in all_start_edges:
-                        can_accept, temp_is_report = edge[1].can_accept(input=input,
+                        can_accept, temp_is_report = all_start_edge[1].can_accept(input=input,
                                                                         on_edge_symbol_set=all_start_edge[2]['label'])
                         is_report = is_report or temp_is_report
                         if can_accept:
-                            new_active_states.add(edge[1])
+                            new_active_states.add(all_start_edge[1])
 
 
                 active_states = new_active_states
@@ -602,6 +589,96 @@ class Automatanetwork(object):
         undirected_graph= undirected_graph.to_undirected()
         undirected_graph.remove_node("fake_root")
         return tuple(len(g) for g in sorted(nx.connected_components(undirected_graph), key=len, reverse=True))
+
+
+
+def compare_strided(only_report, file_path,*automatas ):
+    with open(file_path, 'rb') as f:
+        file_content = f.read()
+
+    byte_file_content = bytearray(file_content)
+
+    strides = [sum(stride for stride in map(lambda x:x.get_stride_value(), automata)) for automata in automatas]
+    max_stride = max(strides)
+    gens =[]
+
+    for idx, automata in enumerate(automatas):
+        sum_stride_value = 0
+        strided_gen =[]
+        for strided_automata in automata:
+            strided_gen.append(strided_automata.feed_input(byte_file_content, offset= sum_stride_value, jump = strides[idx]))
+            sum_stride_value += strided_automata.get_stride_value()
+        gens.append(strided_gen)
+
+
+    stopped_automata = 0
+
+    while stopped_automata == 0:
+
+        first_automata_ste_set = None
+        first_automata_report = False
+        for idx, generator_set in enumerate(gens):
+
+            try:
+                for _ in range(max_stride/strides[idx]):
+
+                    temp_result_set_list=[]
+                    for gen in generator_set:
+                        result_set, _ = next(gen)
+                        temp_result_set_list.append(result_set)
+
+                    intersection_set = set(temp_result_set_list[0])
+                    for result_set in temp_result_set_list[1:]:
+                        intersection_set = intersection_set.intersection(result_set)
+
+                    for result_set in temp_result_set_list:
+                        result_set.clear()
+                        result_set.update(intersection_set)
+
+                temp_is_report = False
+                for ste in intersection_set:
+                    if ste.is_report():
+                        temp_is_report = True
+                        break
+
+                if idx == 0:
+                    first_automata_ste_set = intersection_set
+                    first_automata_report = temp_is_report
+                else:
+
+                    assert temp_is_report == first_automata_report
+                    if not only_report:
+                        assert first_automata_ste_set == intersection_set
+
+
+            except StopIteration:
+                stopped_automata +=1
+
+    if stopped_automata == len(automatas):
+        print "they are equal"
+    else:
+        print "something is wrong with the rate of consumption"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 def compare_input(only_report, file_path, *automatas):
