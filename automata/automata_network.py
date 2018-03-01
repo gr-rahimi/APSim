@@ -7,8 +7,10 @@ from collections import  deque
 from tqdm import tqdm
 import os
 import itertools
+import random
+import sys
+random.seed(a = None)
 
-Set = set
 
 
 class Automatanetwork(object):
@@ -28,6 +30,19 @@ class Automatanetwork(object):
                                 symbol_set=None)
         self.add_element(self._fake_root)  # This is not areal node. It helps for simpler striding code
         self._stride = stride
+        self._node_id = 0
+
+
+
+
+
+    def _get_new_id(self):
+        new_random_id = str(random.randint(1, sys.maxint))
+        while new_random_id in self._node_dict:
+            new_random_id = str(random.randint(1, sys.maxint))
+        return new_random_id
+
+
 
 
     @classmethod
@@ -67,6 +82,9 @@ class Automatanetwork(object):
         :return:
         """
         return self._stride
+
+    def get_nodes(self):
+        return self._my_graph.nodes()
 
 
     @classmethod
@@ -258,11 +276,11 @@ class Automatanetwork(object):
                 start_type = edge[2]['start_type']
 
                 if start_type == StartType.non_start:
-                    src_dict_non_start.setdefault(edge[0], Set()).update(label)
+                    src_dict_non_start.setdefault(edge[0], set()).update(label)
                 elif start_type == StartType.start_of_data:
-                    src_dict_start_of_data.setdefault(edge[0], Set()).update(label)
+                    src_dict_start_of_data.setdefault(edge[0], set()).update(label)
                 elif start_type == StartType.all_input:
-                    src_dict_all_start.setdefault(edge[0], Set()).update(label)
+                    src_dict_all_start.setdefault(edge[0], set()).update(label)
                 else:
                     assert False # It should not happen
 
@@ -284,7 +302,7 @@ class Automatanetwork(object):
                 for neighb, on_edge_char_set in src_dict_non_start.iteritems():
                     if neighb == current_ste:
                         self_loop_handler = S_T_E(start_type = StartType.non_start, is_report= current_ste.is_report(),
-                                          is_marked= True, id =  current_ste.get_id()+"_"+current_ste.get_id()+"_" +str(on_edge_char_set),
+                                                  is_marked= True, id =  self._get_new_id(),
                                                   symbol_set= on_edge_char_set) #self loop handlers are always non start nodes
                         self.add_element(self_loop_handler)
                         self.add_edge(self_loop_handler, self_loop_handler)
@@ -338,7 +356,7 @@ class Automatanetwork(object):
         for neighb, on_edge_char_set in connectivity_dic.iteritems():
             if curr_node != neighb:
                 new_node = S_T_E(start_type=start_type, is_report=curr_node.is_report(), is_marked=True,
-                                 id=neighb.get_id() + "_" + curr_node.get_id() + "_" + str(on_edge_char_set),
+                                 id=self._get_new_id(),
                                  symbol_set=on_edge_char_set)
                 self.add_element(new_node, connect_to_fake_root= False) # it will not be coonected to fake_root since the graph is not homogeneous at the moment
                 new_nodes.append(new_node)
@@ -426,7 +444,7 @@ class Automatanetwork(object):
         :param input: an iterable symbol set
         :return: (True/False) if there is a report element in new states, (Set) new states
         """
-        new_active_states = Set()
+        new_active_states = set()
         is_report = False
 
         for act_st in current_active_states:
@@ -456,7 +474,7 @@ class Automatanetwork(object):
         g = itertools.izip(*temp_g)
 
 
-        active_states = Set([self._fake_root])
+        active_states = set([self._fake_root])
 
         if self.is_homogeneous():
             all_start_states = [all_start_neighb for all_start_neighb in self._my_graph.neighbors(self._fake_root)
@@ -500,7 +518,7 @@ class Automatanetwork(object):
         :param input_file: file to be feed to the input
         :return:
         """
-        active_states = Set([self._fake_root])
+        active_states = set([self._fake_root])
         if self.is_homogeneous():
             all_start_states = [all_start_neighb for all_start_neighb in self._my_graph.neighbors(self._fake_root)
                             if all_start_neighb.get_start() == StartType.all_input]

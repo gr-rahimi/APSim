@@ -12,6 +12,7 @@ class S_T_E(BaseElement):
     def __init__(self, start_type, is_report, is_marked = False, id = None, symbol_set= set(), adjacent_S_T_E_s = []):
         super(S_T_E, self).__init__(is_report = is_report, is_marked = is_marked, id = id)
         self._start_type = start_type
+        #assert _is_symbol_set_sorted(symbol_set), "symbol set should be sorted"
         self._symbol_set = symbol_set
         self._adjacent_S_T_Es = adjacent_S_T_E_s
 
@@ -120,6 +121,7 @@ class S_T_E(BaseElement):
         return tuple(self._symbol_set)
 
     def set_symbols(self, symbols):
+        #assert _is_symbol_set_sorted(symbols), "symbol set should be sorted"
         self._symbol_set = set(symbols)
 
     def add_symbol(self, symbol):
@@ -176,7 +178,68 @@ class S_T_E(BaseElement):
     def is_S_T_E(self):
         return True
 
+    def is_symbolset_a_subsetof_self_symbolset(self, other_symbol_set):
+        """
 
+        :param other_symbol_set: the symbol set that is going to be checked
+        :return: true if the input symbol set is a subset of the current subset
+        """
+        my_symbol_set = sorted(self.get_symbols())
+        other_symbol_set = sorted(other_symbol_set)
+
+        dim_size = _get_symbol_dim(other_symbol_set[0])
+        assert dim_size == _get_symbol_dim(self.get_symbols()[0]), "dimesnsions should be equal"
+
+        def cube_point_generator(interval):
+            from itertools import product
+
+            product_generator = product([0,1], repeat = dim_size)
+
+            def point_calculator(x ,p , d):
+                if d == 1:
+                    return [x[p[0]]]
+                else:
+                    return point_calculator(x[0], p[0:len(p)/2], d/2) + (point_calculator(x[1], p[len(p)/2:], d/2))
+
+            for p in product_generator:
+                yield point_calculator(interval, p, dim_size)
+
+        for interval in other_symbol_set:
+            g = cube_point_generator(interval)
+            for point in g:
+                if self.can_accept(point):
+                    continue
+                else:
+                    return False
+        return  True
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def _is_symbol_set_sorted(symbol_set):
+    if not symbol_set:  # fake root has None symbol set
+        return  True
+    for  prev_pt, next_pt in zip(symbol_set[:-1], symbol_set[1:]):
+        if next_pt< prev_pt:
+            return False
+    return  True
+
+def _get_symbol_dim(input_symbol):
+    import collections
+    if not isinstance(input_symbol, collections.Sequence):
+        return 0.5
+    else:
+        return int(2 * _get_symbol_dim(input_symbol[0]))
 
 
 
