@@ -9,6 +9,7 @@ import os
 import itertools
 import random
 import sys
+import time
 random.seed(a = None)
 
 
@@ -180,7 +181,7 @@ class Automatanetwork(object):
         It assumes that the graph in cyrrent state is a homogeneous graph
         :return: a graph with a single step stride
         """
-
+        assert self.is_homogeneous(), "Automata should be in homogenous mode"
         dq = deque()
         self.unmark_all_nodes()
         strided_graph = Automatanetwork(is_homogenous= False, stride= self.get_stride_value()*2)
@@ -234,6 +235,7 @@ class Automatanetwork(object):
 
     def delete_node(self, node):
         self._my_graph.remove_node(node)
+        del self._node_dict[node.get_id()]
 
     def make_homogenous(self):
         """
@@ -383,6 +385,8 @@ class Automatanetwork(object):
                 found = True
 
         return found
+    def does_STE_has_self_loop(self, ste):
+        return ste in self._my_graph.neighbors(ste)
 
     def print_summary(self):
         print "Number of nodes: ", self.get_number_of_nodes()
@@ -583,6 +587,14 @@ class Automatanetwork(object):
         assert self.is_homogeneous() and self.get_stride_value() == 1,\
             "Graph should be in homogenous state to handle this situation and alaso it should be single stride"
 
+        does_have_all_input = False
+        for node in self._my_graph.neighbors(self._fake_root):
+            if node.get_start() == StartType.all_input:
+                does_have_all_input = True
+                break
+
+        if not does_have_all_input:
+            return
         star_node = S_T_E(start_type = StartType.start_of_data, is_report = False, is_marked = False,
                           id = "all_input_handler", symbol_set={(0, 255)}, adjacent_S_T_E_s = [])
 
@@ -603,10 +615,159 @@ class Automatanetwork(object):
 
 
     def get_connected_components_size(self):
-        undirected_graph = self._my_graph.copy()
-        undirected_graph= undirected_graph.to_undirected()
+        start_time = time.time()
+        undirected_graph= self._my_graph.to_undirected()
         undirected_graph.remove_node("fake_root")
+        print "componnent size calculation took:", time.time()-start_time
         return tuple(len(g) for g in sorted(nx.connected_components(undirected_graph), key=len, reverse=True))
+
+    def get_connected_components_as_automatas(self):
+        assert not self._does_have_special_elements(), "This function does not support automatas with special elements"
+        undirected_graph = self._my_graph.to_undirected()
+        undirected_graph.remove_node("fake_root")
+        ccs =  list(nx.connected_components(undirected_graph))
+        splitted_automatas = []
+
+        for idx_cc, cc in enumerate(ccs):
+            print idx_cc,"th element from", len(ccs)
+            new_automata = Automatanetwork(is_homogenous = self.is_homogeneous(), stride= self.get_stride_value())
+            for node in cc:
+                new_STE =  S_T_E(start_type= node.get_start(), is_report = node.is_report(),
+                                 is_marked = False, id = node.get_id(), symbol_set= node.get_symbols(),
+                                 adjacent_S_T_E_s = [])# we asssume we only have STE
+                new_automata.add_element(new_STE)
+
+            self.unmark_all_nodes()
+            dq = deque()
+            self._fake_root.set_marked(True)
+            dq.appendleft(self._fake_root)
+
+            while dq:
+                curr_node = dq.pop()
+
+                for out_edge in self._my_graph.out_edges(curr_node, data = True, keys = False):
+                    new_automata.add_edge(new_automata.get_STE_by_id(out_edge[0].get_id()),
+                                          new_automata.get_STE_by_id(out_edge[1].get_id()),
+                                          label =  out_edge[2]['label'], start_type= out_edge[2]['start_type'])
+
+                for neighbor in self._my_graph.neighbors(curr_node):
+                    if not neighbor.is_marked():
+                        neighbor.set_marked(True)
+                        dq.appendleft(neighbor)
+
+            splitted_automatas.append(new_automata)
+
+
+        return splitted_automatas
+
+
+
+
+
+
+
+    def _does_have_special_elements(self):
+        for nodes in self._my_graph.nodes():
+            if nodes.is_special_element():
+                return True
+        return  False
+
+
+
+    def left_merge(self):
+        assert self.is_homogeneous(), "This function is working only for homogeneous case!"
+        self.unmark_all_nodes()
+        dq = deque()
+
+        self._fake_root.set_marked(True)
+        dq.appendleft(self._fake_root)
+
+
+        while dq:
+
+            current_node = dq.pop()
+
+
+            for children in list(self._my_graph.neighbors(current_node)):
+                if children.is_marked():
+                    continue
+
+                if not children in self._node_dict: # this children has been deleted
+                    continue
+
+                if children == current_node:
+                    continue # self loop
+                for second_children in list(self._my_graph.neighbors(current_node)):
+                    if not second_children in self._node_dict:
+                        continue # deleted node
+                    if second_children == children :
+                        continue #comparing the same node
+                    if second_children.is_marked():
+                        continue
+
+                    if self._can_left_merge_stes(children, second_children):
+                        first_children_neighb = set(self._my_graph.neighbors(children))
+                        for second_children_neigh in self._my_graph.neighbors(second_children):
+                            if second_children_neigh in first_children_neighb:
+                                continue
+                            self.add_edge(children, second_children_neigh)
+
+                        self.delete_node(second_children)
+
+            for children in self._my_graph.neighbors(current_node):
+                if not children.is_marked():
+                    children.set_marked(True)
+                    dq.appendleft(children)
+
+
+
+
+
+
+    def _can_left_merge_stes(self,fst_ste, sec_ste):
+
+        if fst_ste.get_start() != sec_ste.get_start():
+            return  False
+
+        if fst_ste.is_report() != sec_ste.is_report():
+            return  False
+
+        if not fst_ste.is_symbolset_a_subsetof_self_symbolset(sec_ste.get_symbols()) or not \
+                sec_ste.is_symbolset_a_subsetof_self_symbolset(fst_ste.get_symbols()):
+            return False
+
+        if self.does_STE_has_self_loop(fst_ste) != self.does_STE_has_self_loop(sec_ste):
+            return  False
+
+        fst_ste_parents = set(self._my_graph.predecessors(fst_ste))
+        sec_ste_parents = set(self._my_graph.predecessors(sec_ste))
+
+        if sec_ste in fst_ste_parents and fst_ste in sec_ste_parents:
+            fst_ste_parents.remove(sec_ste)
+            sec_ste_parents.remove(fst_ste)
+
+        try:
+            fst_ste_parents.remove(fst_ste)
+            sec_ste_parents.remove(sec_ste)
+        except KeyError:
+            pass
+
+        return fst_ste_parents == sec_ste_parents
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

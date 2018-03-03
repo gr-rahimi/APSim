@@ -1,14 +1,11 @@
 import automata as atma
 
-
-
-
-
 automata = atma.parse_anml_file("/home/reza/Git/ANMLZoo/ClamAV/anml/515_nocounter.1chip.anml")
 print "Finished processing ClamAV"
 automata.remove_ors()
 automata.print_summary()
 print "connecting component size=", automata.get_connected_components_size()
+
 
 
 automata = atma.parse_anml_file("/home/reza/Git/ANMLZoo/Dotstar/anml/backdoor_dotstar.1chip.anml")

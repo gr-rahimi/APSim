@@ -76,6 +76,10 @@ class BaseElement(object):
     def is_OR(self):
         return False
 
+    def is_special_element(self):
+        return False
+
+
 
     def is_start(self):
         return  False # currently only STEs can be start elemnts

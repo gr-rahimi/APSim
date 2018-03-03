@@ -207,7 +207,8 @@ class S_T_E(BaseElement):
         for interval in other_symbol_set:
             g = cube_point_generator(interval)
             for point in g:
-                if self.can_accept(point):
+                can_accept , _ =self.can_accept(point)
+                if can_accept:
                     continue
                 else:
                     return False

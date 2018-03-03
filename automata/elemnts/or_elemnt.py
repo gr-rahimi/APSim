@@ -38,6 +38,9 @@ class OrElement(BaseElement):
     def is_OR(self):
         return True
 
+    def is_special_element(self):
+        return True
+
 
 
 
