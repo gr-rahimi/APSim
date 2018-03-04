@@ -20,7 +20,7 @@ class Automatanetwork(object):
 
 
 
-    def __init__(self, is_homogenous = True, stride = 1):
+    def __init__(self, id ,is_homogenous = True, stride = 1):
         #self._start_STEs=[]
         self._has_modified = True
         self._my_graph = nx.MultiDiGraph()
@@ -31,7 +31,8 @@ class Automatanetwork(object):
                                 symbol_set=None)
         self.add_element(self._fake_root)  # This is not areal node. It helps for simpler striding code
         self._stride = stride
-        self._node_id = 0
+        self._id = id
+        #self._node_id = 0
 
 
 
@@ -44,14 +45,39 @@ class Automatanetwork(object):
         return new_random_id
 
 
+    @classmethod
+    def _from_graph(cls, id ,is_homogenous, graph ,stride):
+        assert is_homogenous, "graph should be in homogenous state"
+
+        automata = Automatanetwork(id = id,is_homogenous = True, stride = stride) # this will create a initial graph but we do not need it
+
+        automata._node_dict = {}
+        automata._my_graph = graph
+        automata._fake_root = S_T_E(start_type=StartType.fake_root, is_report=False,
+                                is_marked=False, id=Automatanetwork._fake_root,
+                                symbol_set=None)
+        automata.add_element(automata._fake_root)
+
+        for node in list(graph.nodes()):
+            if node.get_start() == StartType.all_input or\
+                node.get_start() == StartType.start_of_data:
+                automata.add_edge(automata._fake_root, node)
+            if node.get_start()!= StartType.fake_root: # fake root has already been added to dictinonary
+                assert not node.get_id() in automata._node_dict
+                automata._node_dict[node.get_id()] = node
+        return automata
+
+
+
 
 
     @classmethod
     def from_xml(cls, xml_node):
 
         Automatanetwork._check_validity(xml_node)
-        graph_ins = cls()
-        graph_ins._id = xml_node.attrib['id']
+
+        graph_ins = cls( id = xml_node.attrib['id'])
+
 
         for child in xml_node:
             if child.tag == 'state-transition-element':
@@ -86,6 +112,9 @@ class Automatanetwork(object):
 
     def get_nodes(self):
         return self._my_graph.nodes()
+
+    def get_filtered_nodes(self,lambda_func):
+        return filter(lambda_func, self._my_graph.nodes)
 
 
     @classmethod
@@ -137,7 +166,7 @@ class Automatanetwork(object):
         self._has_modified = True
 
         if self.is_homogeneous() and to_add_element.is_start() and connect_to_fake_root: # only for homogenous graphs
-            self.add_edge(Automatanetwork._fake_root, to_add_element) # add an esge from fake root to all start nodes
+            self.add_edge(self._fake_root, to_add_element) # add an esge from fake root to all start nodes
 
 
     def get_STE_by_id(self, id):
@@ -184,8 +213,7 @@ class Automatanetwork(object):
         assert self.is_homogeneous(), "Automata should be in homogenous mode"
         dq = deque()
         self.unmark_all_nodes()
-        strided_graph = Automatanetwork(is_homogenous= False, stride= self.get_stride_value()*2)
-        strided_graph._id = self._id + "_S1"
+        strided_graph = Automatanetwork(id = self._id + "_S1",is_homogenous= False, stride= self.get_stride_value()*2)
         self._fake_root.set_marked(True)
         ###
         dq.appendleft(self._fake_root)
@@ -248,7 +276,7 @@ class Automatanetwork(object):
         dq.appendleft(self._fake_root)
 
         while dq:
-            print len(dq)
+            #print len(dq)
             current_ste = dq.pop()
             #print "porcessing" , current_ste
             if current_ste.get_start() == StartType.fake_root: # fake root does need processing
@@ -389,9 +417,17 @@ class Automatanetwork(object):
         return ste in self._my_graph.neighbors(ste)
 
     def print_summary(self):
+        print"********************Automata Report********************"
+        print "report for", self._id
         print "Number of nodes: ", self.get_number_of_nodes()
         print "Number of start nodes", self.get_number_of_start_nodes()
         print "Number of report nodes", self.get_number_of_report_nodes()
+        print "does have all_input? ", self.does_have_all_input()
+        print "does have special element?", self.does_have_special_elements()
+        print "is Homogenous?", self.is_homogeneous()
+        print "stride value = ", self.get_stride_value()
+        print "#######################################################"
+
 
     def split(self):
         """
@@ -399,8 +435,8 @@ class Automatanetwork(object):
         :return:
         """
 
-        left_automata = Automatanetwork(is_homogenous= self.is_homogeneous(), stride= self.get_stride_value()/2)
-        right_automata = Automatanetwork(is_homogenous=self.is_homogeneous(), stride=self.get_stride_value()/2)
+        left_automata = Automatanetwork(id = self._id+"_split1",is_homogenous= self.is_homogeneous(), stride= self.get_stride_value()/2)
+        right_automata = Automatanetwork(id = self._id+"_split2", is_homogenous=self.is_homogeneous(), stride=self.get_stride_value()/2)
         self.unmark_all_nodes()
         self._fake_root.set_marked(True) # fake root has been added in the constructor for both splited graphs
 
@@ -578,6 +614,12 @@ class Automatanetwork(object):
         for or_node in to_be_deleted_ors:
             self.delete_node(or_node)
 
+    def does_have_all_input(self):
+        for node in self._my_graph.neighbors(self._fake_root):
+            if node.get_start() == StartType.all_input:
+                return True
+        return  False
+
     def remove_all_start_nodes(self):
         """
         this funstion add a new node that accepts Dot Kleene start and connect it to all "all_input nodes"
@@ -587,14 +629,9 @@ class Automatanetwork(object):
         assert self.is_homogeneous() and self.get_stride_value() == 1,\
             "Graph should be in homogenous state to handle this situation and alaso it should be single stride"
 
-        does_have_all_input = False
-        for node in self._my_graph.neighbors(self._fake_root):
-            if node.get_start() == StartType.all_input:
-                does_have_all_input = True
-                break
-
-        if not does_have_all_input:
+        if not self.does_have_all_input():
             return
+
         star_node = S_T_E(start_type = StartType.start_of_data, is_report = False, is_marked = False,
                           id = "all_input_handler", symbol_set={(0, 255)}, adjacent_S_T_E_s = [])
 
@@ -622,40 +659,18 @@ class Automatanetwork(object):
         return tuple(len(g) for g in sorted(nx.connected_components(undirected_graph), key=len, reverse=True))
 
     def get_connected_components_as_automatas(self):
-        assert not self._does_have_special_elements(), "This function does not support automatas with special elements"
+        assert not self.does_have_special_elements(), "This function does not support automatas with special elements"
+        assert self.is_homogeneous(), "Graph should be in homogeneous state"
         undirected_graph = self._my_graph.to_undirected()
         undirected_graph.remove_node("fake_root")
-        ccs =  list(nx.connected_components(undirected_graph))
+        ccs =  nx.connected_components(undirected_graph)
         splitted_automatas = []
 
-        for idx_cc, cc in enumerate(ccs):
-            print idx_cc,"th element from", len(ccs)
-            new_automata = Automatanetwork(is_homogenous = self.is_homogeneous(), stride= self.get_stride_value())
-            for node in cc:
-                new_STE =  S_T_E(start_type= node.get_start(), is_report = node.is_report(),
-                                 is_marked = False, id = node.get_id(), symbol_set= node.get_symbols(),
-                                 adjacent_S_T_E_s = [])# we asssume we only have STE
-                new_automata.add_element(new_STE)
-
-            self.unmark_all_nodes()
-            dq = deque()
-            self._fake_root.set_marked(True)
-            dq.appendleft(self._fake_root)
-
-            while dq:
-                curr_node = dq.pop()
-
-                for out_edge in self._my_graph.out_edges(curr_node, data = True, keys = False):
-                    new_automata.add_edge(new_automata.get_STE_by_id(out_edge[0].get_id()),
-                                          new_automata.get_STE_by_id(out_edge[1].get_id()),
-                                          label =  out_edge[2]['label'], start_type= out_edge[2]['start_type'])
-
-                for neighbor in self._my_graph.neighbors(curr_node):
-                    if not neighbor.is_marked():
-                        neighbor.set_marked(True)
-                        dq.appendleft(neighbor)
-
-            splitted_automatas.append(new_automata)
+        for cc_idx, cc in enumerate(ccs):
+            sg = self._my_graph.subgraph(cc)
+            new_graph = nx.MultiDiGraph(sg)
+            new_autoama = Automatanetwork._from_graph(id = self._id + str(cc_idx),is_homogenous=True, graph = new_graph, stride= self.get_stride_value())
+            splitted_automatas.append(new_autoama)
 
 
         return splitted_automatas
@@ -666,7 +681,8 @@ class Automatanetwork(object):
 
 
 
-    def _does_have_special_elements(self):
+
+    def does_have_special_elements(self):
         for nodes in self._my_graph.nodes():
             if nodes.is_special_element():
                 return True
@@ -720,6 +736,56 @@ class Automatanetwork(object):
                     dq.appendleft(children)
 
 
+    def right_merge(self):
+
+        assert self.is_homogeneous(), "This function is working only for homogeneous case!"
+        self.unmark_all_nodes()
+        dq = deque()
+
+        report_nodes = self.get_filtered_nodes(lambda n: n.is_report())
+        for report_node in report_nodes:
+            report_node.set_marked(True)
+            dq.appendleft(report_node)
+
+
+        while dq:
+
+            current_node = dq.pop()
+
+            for parent in list(self._my_graph.predecessors(current_node)):
+
+                if parent.is_marked():
+                    continue
+
+                if not parent in self._node_dict: # this parent has been deleted
+                    continue
+
+                if parent == current_node:
+                    continue # self loop
+
+                for second_parent in list(self._my_graph.predecessors(current_node)):
+                    if not second_parent in self._node_dict:
+                        continue # deleted node
+                    if second_parent == parent :
+                        continue #comparing the same node
+                    if second_parent.is_marked():
+                        continue
+
+                    if self._can_right_merge_stes(parent, second_parent):
+                        first_children_parents = set(self._my_graph.predecessors(parent))
+                        for second_children_neigh in self._my_graph.predecessors(second_parent):
+                            if second_children_neigh in first_children_parents:
+                                continue
+                            self.add_edge(second_children_neigh, parent)
+
+                        self.delete_node(second_parent)
+
+            for parent in self._my_graph.predecessors(current_node):
+                if not parent.is_marked():
+                    parent.set_marked(True)
+                    dq.appendleft(parent)
+
+
 
 
 
@@ -754,7 +820,35 @@ class Automatanetwork(object):
 
         return fst_ste_parents == sec_ste_parents
 
+    def _can_right_merge_stes(self,fst_ste, sec_ste):
 
+        if fst_ste.get_start() != sec_ste.get_start():
+            return  False
+
+        if fst_ste.is_report() != sec_ste.is_report():
+            return  False
+
+        if not fst_ste.is_symbolset_a_subsetof_self_symbolset(sec_ste.get_symbols()) or not \
+                sec_ste.is_symbolset_a_subsetof_self_symbolset(fst_ste.get_symbols()):
+            return False
+
+        if self.does_STE_has_self_loop(fst_ste) != self.does_STE_has_self_loop(sec_ste):
+            return  False
+
+        fst_ste_children = set(self._my_graph.neighbors(fst_ste))
+        sec_ste_children = set(self._my_graph.neighbors(sec_ste))
+
+        if sec_ste in fst_ste_children and fst_ste in sec_ste_children:
+            fst_ste_children.remove(sec_ste)
+            sec_ste_children.remove(fst_ste)
+
+        try:
+            fst_ste_children.remove(fst_ste)
+            sec_ste_children.remove(sec_ste)
+        except KeyError:
+            pass
+
+        return fst_ste_children == sec_ste_children
 
 
 
