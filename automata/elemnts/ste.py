@@ -125,7 +125,8 @@ class S_T_E(BaseElement):
         self._symbol_set = set(symbols)
 
     def add_symbol(self, symbol):
-        self._symbol_set.add(symbol)
+        if not self.is_symbolset_a_subsetof_self_symbolset(symbol):
+            self._symbol_set.add(symbol)
 
     def get_color(self):
 

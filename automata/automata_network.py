@@ -388,6 +388,7 @@ class Automatanetwork(object):
                 new_node = S_T_E(start_type=start_type, is_report=curr_node.is_report(), is_marked=True,
                                  id=self._get_new_id(),
                                  symbol_set=on_edge_char_set)
+
                 self.add_element(new_node, connect_to_fake_root= False) # it will not be coonected to fake_root since the graph is not homogeneous at the moment
                 new_nodes.append(new_node)
                 self.add_edge(neighb, new_node, label = new_node.get_symbols(), start_type = new_node.get_start())
@@ -416,7 +417,7 @@ class Automatanetwork(object):
     def does_STE_has_self_loop(self, ste):
         return ste in self._my_graph.neighbors(ste)
 
-    def print_summary(self):
+    def print_summary(self, print_detailed_final_states = False):
         print"********************Automata Report********************"
         print "report for", self._id
         print "Number of nodes: ", self.get_number_of_nodes()
@@ -426,7 +427,76 @@ class Automatanetwork(object):
         print "does have special element?", self.does_have_special_elements()
         print "is Homogenous?", self.is_homogeneous()
         print "stride value = ", self.get_stride_value()
+        if print_detailed_final_states:
+            self._print_final_states_detail()
+
         print "#######################################################"
+
+
+    def combile_finals_with_same_symbol_set(self):
+        symbol_set_dict = {}
+        final_nodes = self.get_filtered_nodes(lambda ste: ste.is_report())
+        for idx_fnode, f_node in enumerate(final_nodes):
+            found_symbol_set_key = False
+            for key in symbol_set_dict:
+                if f_node.is_symbolset_a_subsetof_self_symbolset(key.get_symbols()) and \
+                        key.is_symbolset_a_subsetof_self_symbolset(f_node.get_symbols()):
+                    found_symbol_set_key = True
+                    symbol_set_dict[key].append(f_node)
+                    break
+            if not found_symbol_set_key:
+                symbol_set_dict[f_node] = []
+
+        for _ , nodes in symbol_set_dict.iteritems():
+            to_bejoined_nodes =[]
+            for node in nodes:
+                if not self.does_STE_has_self_loop(node) and len(list(self._my_graph.neighbors(node))) == 0:
+                    to_bejoined_nodes.append(node)
+
+            if len(to_bejoined_nodes) > 1:
+                anchor_node = to_bejoined_nodes[0]
+                for other_node in to_bejoined_nodes[1:]:
+                    for pred in self._my_graph.predecessors(other_node):
+                        self.add_edge(pred, anchor_node)
+                    self.delete_node(other_node)
+
+
+
+
+
+
+    def _print_final_states_detail(self):
+        final_states_with_self_loop = 0
+        final_states_with_back_connection = 0
+        symbol_set_dict = {}
+
+        final_nodes = self.get_filtered_nodes(lambda ste: ste.is_report())
+
+        for idx_fnode,f_node in enumerate(final_nodes):
+            if self.does_STE_has_self_loop(f_node):
+                final_states_with_self_loop+=1
+
+            for neighb in self._my_graph.neighbors(f_node):
+                if not neighb.is_report():
+                    final_states_with_back_connection += 1
+                    break
+            found_symbol_set_key = False
+            for key in symbol_set_dict:
+                if f_node.is_symbolset_a_subsetof_self_symbolset(key.get_symbols()) and \
+                        key.is_symbolset_a_subsetof_self_symbolset(f_node.get_symbols()):
+                    found_symbol_set_key = True
+                    symbol_set_dict[key] += 1
+                    break
+            if not found_symbol_set_key:
+                symbol_set_dict[f_node] = 1
+
+        print "number of final nodes with self connection:", final_states_with_self_loop
+        print "number of final nodes with back connection:", final_states_with_back_connection
+        print "number of different symbol sets", len(symbol_set_dict)
+
+
+
+
 
 
     def split(self):
@@ -786,6 +856,95 @@ class Automatanetwork(object):
                     dq.appendleft(parent)
 
 
+
+
+    def combine_symbol_sets(self):
+        self.unmark_all_nodes()
+
+        dq = deque()
+        self._fake_root.set_marked(True)
+        dq.appendleft(self._fake_root)
+
+        while dq:
+            current_node = dq.pop()
+
+            for first_neighb_node in list(self._my_graph.neighbors(current_node)):
+                if not first_neighb_node in self._node_dict:
+                    continue #deleted node
+                for sec_neighb_node in list(self._my_graph.neighbors(current_node)):
+                    if not sec_neighb_node in self._node_dict:
+                        continue # deleted node
+                    if first_neighb_node == sec_neighb_node:
+                        continue
+                    if self._can_combine_symbol_set(fst_ste=first_neighb_node, sec_ste= sec_neighb_node):
+                        print "miow"
+                        for symbol in sec_neighb_node.get_symbols():
+                            first_neighb_node.add_symbol(symbol)
+                        self.delete_node(sec_neighb_node)
+
+            for node in self._my_graph.neighbors(current_node):
+                if not node.is_marked():
+                    node.set_marked(True)
+                    dq.appendleft(node)
+
+
+
+
+
+
+
+
+
+
+    def _can_combine_symbol_set(self, fst_ste, sec_ste):
+        if fst_ste.get_start() != sec_ste.get_start():
+            return  False
+
+        if fst_ste.is_report() != sec_ste.is_report():
+            return  False
+
+        if self.does_STE_has_self_loop(fst_ste) != self.does_STE_has_self_loop(sec_ste):
+            return  False
+
+        fst_ste_neighbors = list(self._my_graph.neighbors(fst_ste))
+
+        if fst_ste in fst_ste_neighbors:
+            fst_ste_neighbors.remove(fst_ste)
+
+        if len(fst_ste_neighbors) != 1:
+            return False
+
+        sec_ste_neighbors = list(self._my_graph.neighbors(sec_ste))
+
+        if sec_ste in sec_ste_neighbors:
+            sec_ste_neighbors.remove(sec_ste)
+
+        if len(sec_ste_neighbors) != 1:
+            return False
+
+        if sec_ste_neighbors != fst_ste_neighbors:
+            return False
+
+        fst_ste_predecessors = list(self._my_graph.predecessors(fst_ste))
+
+        if fst_ste in fst_ste_predecessors:
+            fst_ste_predecessors.remove(fst_ste)
+
+        if len(fst_ste_predecessors) != 1:
+            return False
+
+        sec_ste_predecessors = list(self._my_graph.predecessors(sec_ste))
+
+        if sec_ste in sec_ste_predecessors:
+            sec_ste_predecessors.remove(sec_ste)
+
+        if len(sec_ste_predecessors) != 1:
+            return False
+
+        if sec_ste_predecessors != fst_ste_predecessors:
+            return False
+
+        return True
 
 
 

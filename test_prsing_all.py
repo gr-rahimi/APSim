@@ -1,5 +1,6 @@
 import automata as atma
 
+
 automata = atma.parse_anml_file("/home/reza/Git/ANMLZoo/ClamAV/anml/515_nocounter.1chip.anml")
 print "Finished processing ClamAV"
 automata.remove_ors()
