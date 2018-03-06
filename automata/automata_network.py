@@ -192,7 +192,7 @@ class Automatanetwork(object):
 
 
     def get_number_of_nodes(self):
-        return len(self._my_graph)
+        return len(self._my_graph) -1
 
     def add_edge(self, src, dest,**kwargs):
         if not 'label' in kwargs:
@@ -210,7 +210,7 @@ class Automatanetwork(object):
         It assumes that the graph in cyrrent state is a homogeneous graph
         :return: a graph with a single step stride
         """
-        assert self.is_homogeneous(), "Automata should be in homogenous mode"
+        assert self.is_homogeneous() and not self.does_have_all_input(), "Automata should be in homogenous mode and without all input nodes"
         dq = deque()
         self.unmark_all_nodes()
         strided_graph = Automatanetwork(id = self._id + "_S1",is_homogenous= False, stride= self.get_stride_value()*2)
@@ -407,6 +407,10 @@ class Automatanetwork(object):
 
 
     def does_have_self_loop(self):
+        """
+        check if there is a node in the graph that have self loop
+        :return: True if there is a node otherwise return False
+        """
         found = False
         for node in self._my_graph.nodes():
             if node in self._my_graph.neighbors(node):
@@ -434,6 +438,11 @@ class Automatanetwork(object):
 
 
     def combile_finals_with_same_symbol_set(self):
+        """
+        This function merges all the final nodes that
+        does not have self loop and out edge, but with the same symbol sets
+        :return:
+        """
         symbol_set_dict = {}
         final_nodes = self.get_filtered_nodes(lambda ste: ste.is_report())
         for idx_fnode, f_node in enumerate(final_nodes):
@@ -685,6 +694,10 @@ class Automatanetwork(object):
             self.delete_node(or_node)
 
     def does_have_all_input(self):
+        """
+        check if there is a node that has an all input property
+        :return: True if there is.
+        """
         for node in self._my_graph.neighbors(self._fake_root):
             if node.get_start() == StartType.all_input:
                 return True
@@ -859,6 +872,10 @@ class Automatanetwork(object):
 
 
     def combine_symbol_sets(self):
+        """
+        this function combines the symbol sets of two stes with a same parent and a same child
+        :return:
+        """
         self.unmark_all_nodes()
 
         dq = deque()
@@ -1008,6 +1025,16 @@ class Automatanetwork(object):
             pass
 
         return fst_ste_children == sec_ste_children
+
+    def get_STEs_out_degree(self):
+        out_degree_list = []
+        for node in self.get_nodes():
+            if node.get_start() == StartType.fake_root:
+                continue
+
+            out_degree_list.append(self._my_graph.out_degree(node))
+
+        return tuple(out_degree_list)
 
 
 
