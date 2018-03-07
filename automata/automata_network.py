@@ -1,3 +1,4 @@
+from __future__ import division
 from  elemnts.ste import S_T_E
 from elemnts.element import StartType
 from elemnts.or_elemnt import OrElement
@@ -10,6 +11,8 @@ import itertools
 import random
 import sys
 import time
+import math
+
 random.seed(a = None)
 
 
@@ -1036,18 +1039,70 @@ class Automatanetwork(object):
 
         return tuple(out_degree_list)
 
+    def get_STEs_in_degree(self):
+        in_degree_list = []
+        for node in self.get_nodes():
+            if node.get_start() == StartType.fake_root:
+                continue
+
+            in_degree_list.append(self._my_graph.in_degree(node))
+
+        return tuple(in_degree_list)
+
+    def max_STE_in_degree(self):
+        return max(self.get_STEs_in_degree())
+
+    def max_STE_out_degree(self):
+        return max(self.get_STEs_out_degree())
+
+    def set_max_fan_in(self, max_fan_in):
+        assert self.is_homogeneous(), "This function works onlyu for homogeneous automatas"
+
+        self.unmark_all_nodes()
+
+        dq = deque()
+        self._fake_root.set_marked(True)
+        dq.appendleft(self._fake_root)
+
+        while dq:
+            current_node = dq.pop()
+            for neighb in self._my_graph.neighbors(current_node):
+                if not neighb.is_marked():
+                    neighb.set_marked(True)
+                    dq.appendleft(neighb)
+
+            if current_node.get_start() == StartType.fake_root: # fake root does not have fan in constrain
+                continue
+
+            is_start = current_node.get_start() == StartType.start_of_data or current_node.get_start() == StartType.all_input
+            curr_node_in_degree = self._my_graph.in_degree(current_node) - is_start
+            if curr_node_in_degree > max_fan_in:
+                is_self_loop = self.does_STE_has_self_loop(current_node)
 
 
+                number_of_new_copies = int(math.ceil((curr_node_in_degree - is_self_loop)/(max_fan_in - is_self_loop)))
+                predecessors = list(self._my_graph.predecessors(current_node))
+                if is_self_loop:
+                    predecessors.remove(current_node)
+
+                if is_start:
+                    predecessors.remove(self._fake_root)
+
+                step_size = max_fan_in - is_self_loop
+                for i in range(number_of_new_copies):
+
+                    new_STE = S_T_E(start_type = current_node.get_start(), is_report = current_node.is_report(),
+                                    is_marked = True, id = self._get_new_id(),symbol_set = set(current_node.get_symbols()))
 
 
+                    self.add_element(new_STE)
 
+                    for neighb in self._my_graph.neighbors(current_node):
+                        self.add_edge(new_STE, new_STE if neighb == current_node else neighb)
 
-
-
-
-
-
-
+                    for pred in predecessors[i*step_size:min(len(predecessors), (i+1)*step_size)]:
+                        self.add_edge(pred, new_STE)
+                self.delete_node(current_node)
 
 
 
@@ -1153,7 +1208,7 @@ def compare_input(only_report, file_path, *automatas):
         while True:
             for idx_g, (g, automata) in enumerate(zip(gens,automatas)):
                 assert max_stride % automata.get_stride_value() == 0
-                for _ in range(max_stride / automata.get_stride_value()):
+                for _ in range(int(max_stride / automata.get_stride_value())):
                     temp_active_states, temp_is_report = next(g)
                 result[idx_g] =(temp_active_states, temp_is_report)
 

@@ -88,5 +88,5 @@ class BaseElement(object):
         return tuple()
 
     def get_start(self):
-        return StartType.non_start
+        raise NotImplementedError()
 
