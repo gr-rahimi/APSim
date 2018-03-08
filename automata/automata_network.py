@@ -1114,6 +1114,10 @@ class Automatanetwork(object):
 
                     for pred in predecessors[i*step_size:min(len(predecessors), (i+1)*step_size)]:
                         self.add_edge(pred, new_STE)
+
+                for neighb in self._my_graph.neighbors(current_node):
+                    if neighb != current_node and not neighb in dq:
+                        dq.appendleft(neighb)
                 self.delete_node(current_node)
 
     def set_max_fan_out(self, max_fan_out):
@@ -1163,14 +1167,36 @@ class Automatanetwork(object):
 
                     for neighb in neighbors[i*step_size:min(len(neighbors), (i+1)*step_size)]:
                         self.add_edge(new_STE, neighb)
-                    pass
+
+                for pred in self._my_graph.predecessors(current_node):
+                    if pred != current_node and not pred in dq:
+                        dq.appendleft(pred)
                 self.delete_node(current_node)
     def does_all_nodes_marked(self):
         for node in self._my_graph.nodes():
             if not node.is_marked():
                 return  False
-
         return True
+
+    def _get_alphabet_set(self):
+        pass
+
+
+    def minimize_automata(self):
+        finall_partition = []
+
+        final_set = set(self.get_filtered_nodes(lambda node: node.is_report()))
+        non_final_set = set(self.get_filtered_nodes(lambda node: not node.is_report()))
+
+        finall_partition.append(final_set)
+        finall_partition.append(non_final_set)
+
+
+
+
+
+
+
 
 
 
@@ -1241,6 +1267,8 @@ def compare_strided(only_report, file_path,*automatas ):
         print "they are equal"
     else:
         print "something is wrong with the rate of consumption"
+
+
 
 
 

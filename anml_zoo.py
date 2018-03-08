@@ -16,10 +16,12 @@ class AnmalZoo(Enum):
     RandomForest = 9
     SPM = 10
     Snort = 11
-    Synthetic = 12
+    Synthetic_BlockRings = 12
+    Synthetic_CoreRings = 13
+
 
 anml_path = {}
-anml_path[AnmalZoo.Brill] = os.path.join(_base_address, "Bril/anml/brill.1chip.anml")
+anml_path[AnmalZoo.Brill] = os.path.join(_base_address, "Brill/anml/brill.1chip.anml")
 anml_path[AnmalZoo.ClamAV] = os.path.join(_base_address, "ClamAV/anml/515_nocounter.1chip.anml")
 anml_path[AnmalZoo.Dotstar] = os.path.join(_base_address, "Dotstar/anml/backdoor_dotstar.1chip.anml")
 anml_path[AnmalZoo.EntityResolution] = os.path.join(_base_address, "EntityResolution/anml/1000.1chip.anml")
@@ -31,7 +33,8 @@ anml_path[AnmalZoo.Protomata] = os.path.join(_base_address, "Protomata/anml/2340
 anml_path[AnmalZoo.RandomForest] = os.path.join(_base_address, "RandomForest/anml/rf.1chip.anml")
 anml_path[AnmalZoo.SPM] = os.path.join(_base_address, "SPM/anml/bible_size4.1chip.anml")
 anml_path[AnmalZoo.Snort] = os.path.join(_base_address, "Snort/anml/snort.1chip.anml")
-anml_path[AnmalZoo.Synthetic] = os.path.join(_base_address, "Synthetic/anml/BlockRings.anml")
+anml_path[AnmalZoo.Synthetic_BlockRings] = os.path.join(_base_address, "Synthetic/anml/BlockRings.anml")
+anml_path[AnmalZoo.Synthetic_CoreRings] = os.path.join(_base_address, "Synthetic/anml/CoreRings.anml")
 
 input_path = {}
 input_path[AnmalZoo.Brill] = os.path.join(_base_address, "Brill/inputs/brill_1MB.input")
@@ -46,7 +49,8 @@ input_path[AnmalZoo.Protomata] = os.path.join(_base_address, "Protomata/inputs/u
 input_path[AnmalZoo.RandomForest] = os.path.join(_base_address, "RandomForest/inputs/mnist_1MB.input")
 input_path[AnmalZoo.SPM] = os.path.join(_base_address, "SPM/inputs/SPM_1MB.input")
 input_path[AnmalZoo.Snort] = os.path.join(_base_address, "Snort/inputs/snort_1MB.input")
-input_path[AnmalZoo.Synthetic] = os.path.join(_base_address, "Synthetic/inputs/1MB.input")
+input_path[AnmalZoo.Synthetic_BlockRings] = os.path.join(_base_address, "Synthetic/inputs/1MB.input")
+input_path[AnmalZoo.Synthetic_CoreRings] = os.path.join(_base_address, "Synthetic/inputs/1MB.input")
 
 
 

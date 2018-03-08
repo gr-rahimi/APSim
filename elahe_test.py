@@ -23,7 +23,7 @@ def cal_utilization (cc_size, hardware_block_sz):
 
 
 
-automata = atma.parse_anml_file(anml_path[AnmalZoo.PowerEN])
+automata = atma.parse_anml_file(anml_path[AnmalZoo.Synthetic_CoreRings])
 automata.remove_ors()
 print "Finished processing from anml file. Here is the summary"
 automata.print_summary()
