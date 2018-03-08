@@ -14,7 +14,7 @@ def parse_anml_file(file_path):
         assert len(automata_network) == 1
         automata = Automatanetwork.from_xml(automata_network[0])
 
-    print "parsing took:", time.time() - start_time
+    #print "parsing took:", time.time() - start_time
     return  automata
 
 

@@ -3,7 +3,7 @@ from  elemnts.ste import S_T_E
 from elemnts.element import StartType
 from elemnts.or_elemnt import OrElement
 import networkx as nx
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 from collections import  deque
 from tqdm import tqdm
 import os
@@ -744,7 +744,7 @@ class Automatanetwork(object):
         start_time = time.time()
         undirected_graph= self._my_graph.to_undirected()
         undirected_graph.remove_node("fake_root")
-        print "componnent size calculation took:", time.time()-start_time
+        #print "componnent size calculation took:", time.time()-start_time
         return tuple(len(g) for g in sorted(nx.connected_components(undirected_graph), key=len, reverse=True))
 
     def get_connected_components_as_automatas(self):
