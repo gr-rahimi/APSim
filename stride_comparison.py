@@ -18,6 +18,8 @@ def minimize_automata(automata):
 
 
 for automata_name, automata_path in anml_path.iteritems():
+    if automata_name == AnmalZoo.EntityResolution or automata_name == AnmalZoo.Synthetic or automata_name == AnmalZoo.RandomForest:
+        continue
     automata = atma.parse_anml_file(automata_path)
     print "Finished processing from anml file. Here is the summary", str(automata_name)
 
@@ -31,7 +33,8 @@ for automata_name, automata_path in anml_path.iteritems():
     orig_automatas = automata.get_connected_components_as_automatas()
 
     for orig_cc in tqdm(orig_automatas, unit="automata"):
-        orig_atm_nodes_count.append((orig_cc.get_number_of_nodes(), orig_cc.get_number_of_edges(), orig_cc.max_STE_out_degree(),orig_cc.max_STE_in_degree() ))
+        orig_atm_nodes_count.append((orig_cc.get_number_of_nodes(), orig_cc.get_number_of_edges(),
+                                     orig_cc.max_STE_out_degree(),orig_cc.max_STE_in_degree() ))
 
         orig_cc.remove_all_start_nodes()
 

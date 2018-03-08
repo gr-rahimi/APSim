@@ -1068,6 +1068,7 @@ class Automatanetwork(object):
 
     def set_max_fan_in(self, max_fan_in):
         assert self.is_homogeneous(), "This function works onlyu for homogeneous automatas"
+        assert max_fan_in > 2
 
         self.unmark_all_nodes()
 
@@ -1114,6 +1115,63 @@ class Automatanetwork(object):
                     for pred in predecessors[i*step_size:min(len(predecessors), (i+1)*step_size)]:
                         self.add_edge(pred, new_STE)
                 self.delete_node(current_node)
+
+    def set_max_fan_out(self, max_fan_out):
+        assert self.is_homogeneous(), "This function works onlyu for homogeneous automatas"
+        assert max_fan_out > 2
+
+        self.unmark_all_nodes()
+
+        dq = deque()
+        report_nodes = self.get_filtered_nodes(lambda n: n.is_report())
+
+        for report_node in report_nodes:
+            report_node.set_marked(True)
+            dq.appendleft(report_node)
+
+        while dq:
+            current_node = dq.pop()
+            for pred in self._my_graph.predecessors(current_node):
+                if not pred.is_marked():
+                    pred.set_marked(True)
+                    dq.appendleft(pred)
+
+            if current_node.get_start() == StartType.fake_root: # fake root does not have fan out constraint
+                continue
+
+            curr_node_out_degree = self._my_graph.out_degree(current_node)
+            if curr_node_out_degree > max_fan_out:
+                is_self_loop = self.does_STE_has_self_loop(current_node)
+
+                number_of_new_copies = int(math.ceil((curr_node_out_degree - is_self_loop)/(max_fan_out - is_self_loop)))
+                neighbors = list(self._my_graph.neighbors(current_node))
+                if is_self_loop:
+                    neighbors.remove(current_node)
+
+
+                step_size = max_fan_out - is_self_loop
+                for i in range(number_of_new_copies):
+
+                    new_STE = S_T_E(start_type = current_node.get_start(), is_report = current_node.is_report(),
+                                    is_marked = True, id = self._get_new_id(),symbol_set = set(current_node.get_symbols()))
+
+
+                    self.add_element(new_STE)
+
+                    for pred in self._my_graph.predecessors(current_node):
+                        self.add_edge(new_STE if pred == current_node else pred, new_STE)
+
+                    for neighb in neighbors[i*step_size:min(len(neighbors), (i+1)*step_size)]:
+                        self.add_edge(new_STE, neighb)
+                    pass
+                self.delete_node(current_node)
+    def does_all_nodes_marked(self):
+        for node in self._my_graph.nodes():
+            if not node.is_marked():
+                return  False
+
+        return True
+
 
 
 

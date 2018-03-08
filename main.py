@@ -12,9 +12,11 @@ automata.remove_ors()
 
 orig_automatas = automata.get_connected_components_as_automatas()
 atm = orig_automatas[0]
-print atm.max_STE_in_degree()
-atm.set_max_fan_in(8)
-print atm.max_STE_in_degree()
+print atm.max_STE_out_degree()
+out_degrees = atm.get_STEs_out_degree()
+atm.set_max_fan_out(3)
+print atm.max_STE_out_degree()
+out_degrees = atm.get_STEs_out_degree()
 
 orig_automatas = automata.get_connected_components_as_automatas()
 
