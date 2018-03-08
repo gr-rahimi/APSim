@@ -197,6 +197,9 @@ class Automatanetwork(object):
     def get_number_of_nodes(self):
         return len(self._my_graph) -1
 
+    def get_number_of_edges(self):
+        return self._my_graph.number_of_edges() - self.get_number_of_start_nodes() # there is a fake edge between fake root and all srtart nodes
+
     def add_edge(self, src, dest,**kwargs):
         if not 'label' in kwargs:
             kwargs['label'] = dest.get_symbols()
@@ -1050,9 +1053,17 @@ class Automatanetwork(object):
         return tuple(in_degree_list)
 
     def max_STE_in_degree(self):
+        """
+        return the maximum fan in ampng all the STEs
+        :return:
+        """
         return max(self.get_STEs_in_degree())
 
     def max_STE_out_degree(self):
+        """
+        return the maximum fan out ampng all the STEs
+        :return:
+        """
         return max(self.get_STEs_out_degree())
 
     def set_max_fan_in(self, max_fan_in):
