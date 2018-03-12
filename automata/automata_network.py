@@ -3,7 +3,8 @@ from  elemnts.ste import S_T_E
 from elemnts.element import StartType
 from elemnts.or_elemnt import OrElement
 import networkx as nx
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
+from matplotlib import colors
 from collections import  deque
 from tqdm import tqdm
 import os
@@ -12,6 +13,7 @@ import random
 import sys
 import time
 import math
+
 
 random.seed(a = None)
 
@@ -195,7 +197,7 @@ class Automatanetwork(object):
 
 
     def get_number_of_nodes(self):
-        return len(self._my_graph) -1
+        return len(self._my_graph) -1 # minus one because of fake root
 
     def get_number_of_edges(self):
         return self._my_graph.number_of_edges() - self.get_number_of_start_nodes() # there is a fake edge between fake root and all srtart nodes
@@ -368,7 +370,7 @@ class Automatanetwork(object):
         :param draw_edge_label: True if writing edge labels is required
         :return:
         """
-        pos = nx.spring_layout(self._my_graph, k =0.2)
+        pos = nx.spring_layout(self._my_graph, k =0.5)
         node_color = [node.get_color() for node in self._my_graph.nodes()]
         nx.draw(self._my_graph, pos, node_size = 1, width = 0.2, arrowsize = 2, node_color= node_color)
 
@@ -378,9 +380,118 @@ class Automatanetwork(object):
             nx.draw_networkx_edge_labels(self._my_graph, pos, node_size = 2, width = 0.1, arrowsize = 2,
                                          node_color= node_color, font_size= 1 )
 
-        plt.savefig(file_name, dpi=1000)
-        #self.does_have_self_loop()
+        plt.savefig(file_name, dpi=500)
         plt.clf()
+
+
+    def _get_BFS_label_dictionary(self):
+        node_to_index = {}
+        last_assigned_id = -1
+        dq = deque()
+        self._fake_root.set_marked(True) # no need to push fake root
+
+        for start_node in self._my_graph.neighbors(self._fake_root):
+            if start_node.is_marked():
+                continue
+            last_assigned_id += 1
+            node_to_index[start_node] = last_assigned_id
+            assert not start_node in node_to_index, "This is a bug. Contact Reza!"
+            dq.appendleft(start_node)
+
+            while dq:
+                current_node = dq.pop()
+
+                for neighb in self._my_graph.neighbors(current_node):
+                    if not neighb.is_marked():
+                        neighb.set_marked(True)
+                        dq.appendleft(neighb)
+                        last_assigned_id += 1
+                        assert not neighb in node_to_index, "This is a bug. Contact Reza!"
+                        node_to_index[neighb] = last_assigned_id
+
+        return node_to_index
+
+
+
+    def draw_switch_box(self, path):
+        nodes_count = self.get_number_of_nodes()
+        assert nodes_count <= 256, "it only works for small automatas"
+        nodes_count = 256
+        switch_map = [[0 for _ in range(nodes_count)]  for _ in range(nodes_count)]
+
+        self.unmark_all_nodes()
+
+
+        node_to_index = {} # assigning index zero to fake_root
+        last_assigned_id = -1
+
+        dq = deque()
+        self._fake_root.set_marked(True)
+        dq.appendleft(self._fake_root)
+
+        while dq:
+
+            current_node = dq.pop()
+
+            for neighb in self._my_graph.neighbors(current_node):
+                if not neighb.is_marked():
+                    neighb.set_marked(True)
+                    dq.appendleft(neighb)
+                    last_assigned_id += 1
+                    assert not neighb in node_to_index, "This is a bug. Contact Reza!"
+                    node_to_index[neighb] = last_assigned_id
+
+            if current_node.get_start() == StartType.fake_root:
+                continue
+
+            for neighb in self._my_graph.neighbors(current_node):
+                switch_map[node_to_index[current_node]][node_to_index[neighb]] = 1
+
+        assert not self._fake_root in node_to_index,\
+            "Fake root should not be in the dictionary.(fake root does not have self loop)"
+
+        cmap = colors.ListedColormap(['white', 'black'])
+        bounds = [0, 0.5, 1]
+        norm = colors.BoundaryNorm(bounds, cmap.N)
+        fig, ax = plt.subplots()
+        ax.imshow(switch_map, cmap=cmap, norm=norm)
+        ax.grid(which='major', axis='both', linestyle='-', color='k', linewidth=0)
+        ax.set_xticks(range(0,nodes_count,15))
+        ax.set_yticks(range(0, nodes_count,15))
+
+        plt.gca().invert_yaxis()
+        plt.savefig(path + ".png")
+        plt.clf()
+
+
+        with open(path+".txt", "w") as f:
+            for cycle in nx.simple_cycles(self._my_graph):
+                if len(cycle) == 1: # self loops
+                    continue
+                for node in cycle:
+                    f.write(str(node_to_index[node]) + "->")
+                f.write("\n")
+        self.draw_graph(path+"graph.png")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
