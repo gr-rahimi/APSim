@@ -16,6 +16,13 @@ class S_T_E(BaseElement):
         self._symbol_set = symbol_set
         self._adjacent_S_T_Es = adjacent_S_T_E_s
 
+        self._mark_idx = -1
+
+    def set_mark_idx(self, idx):
+        self._mark_idx = idx
+
+    def get_mark_idx(self):
+        return self._mark_idx
 
     @classmethod
     def from_xml_node(cls, xml_node):

@@ -11,8 +11,10 @@ import os
 import itertools
 import random
 import sys
-import time
+import time, operator
 import math
+from deap import algorithms, base, creator, tools
+import numpy as np
 
 
 random.seed(a = None)
@@ -41,6 +43,11 @@ class Automatanetwork(object):
 
 
 
+
+
+    def _clear_mark_idx(self):
+        for node in self.get_nodes():
+            node.set_mark_idx(-1)
 
 
     def _get_new_id(self):
@@ -117,6 +124,9 @@ class Automatanetwork(object):
 
     def get_nodes(self):
         return self._my_graph.nodes()
+
+    def get_edges(self):
+        return self._my_graph.edges()
 
     def get_filtered_nodes(self,lambda_func):
         return filter(lambda_func, self._my_graph.nodes)
@@ -384,18 +394,24 @@ class Automatanetwork(object):
         plt.clf()
 
 
-    def _get_BFS_label_dictionary(self):
+    def get_BFS_label_dictionary(self, set_nodes_idx = True):
         node_to_index = {}
         last_assigned_id = -1
         dq = deque()
         self._fake_root.set_marked(True) # no need to push fake root
 
+        if set_nodes_idx:
+            self._clear_mark_idx()
+
         for start_node in self._my_graph.neighbors(self._fake_root):
             if start_node.is_marked():
                 continue
             last_assigned_id += 1
-            node_to_index[start_node] = last_assigned_id
             assert not start_node in node_to_index, "This is a bug. Contact Reza!"
+            node_to_index[start_node] = last_assigned_id
+            if set_nodes_idx:
+                start_node.set_mark_idx(last_assigned_id)
+            start_node.set_marked(True)
             dq.appendleft(start_node)
 
             while dq:
@@ -408,47 +424,48 @@ class Automatanetwork(object):
                         last_assigned_id += 1
                         assert not neighb in node_to_index, "This is a bug. Contact Reza!"
                         node_to_index[neighb] = last_assigned_id
+                        if set_nodes_idx:
+                            neighb.set_mark_idx(last_assigned_id)
 
         return node_to_index
 
+    def _generate_standard_index_dictionary(self):
+        current_idx = 0
+        out_dic = {}
+        self._clear_mark_idx()
 
+        for node in self.get_nodes():
+            if node.get_start() == StartType.fake_root:
+                continue
+            out_dic[node] = current_idx
+            node.set_mark_idx(current_idx)
+            current_idx+=1
 
-    def draw_switch_box(self, path):
+        return  out_dic
+
+    def get_connectivity_matrix(self, node_dictionary = None):
+        if not node_dictionary:
+            node_dictionary = self._generate_standard_index_dictionary()
+
         nodes_count = self.get_number_of_nodes()
         assert nodes_count <= 256, "it only works for small automatas"
         nodes_count = 256
-        switch_map = [[0 for _ in range(nodes_count)]  for _ in range(nodes_count)]
+        switch_map = [[0 for _ in range(nodes_count)] for _ in range(nodes_count)]
 
-        self.unmark_all_nodes()
+        for node in node_dictionary:
+            for neighb in self._my_graph.neighbors(node):
+                switch_map[node_dictionary[node]][node_dictionary[neighb]] = 1
 
 
-        node_to_index = {} # assigning index zero to fake_root
-        last_assigned_id = -1
+        return switch_map
 
-        dq = deque()
-        self._fake_root.set_marked(True)
-        dq.appendleft(self._fake_root)
 
-        while dq:
 
-            current_node = dq.pop()
 
-            for neighb in self._my_graph.neighbors(current_node):
-                if not neighb.is_marked():
-                    neighb.set_marked(True)
-                    dq.appendleft(neighb)
-                    last_assigned_id += 1
-                    assert not neighb in node_to_index, "This is a bug. Contact Reza!"
-                    node_to_index[neighb] = last_assigned_id
-
-            if current_node.get_start() == StartType.fake_root:
-                continue
-
-            for neighb in self._my_graph.neighbors(current_node):
-                switch_map[node_to_index[current_node]][node_to_index[neighb]] = 1
-
-        assert not self._fake_root in node_to_index,\
-            "Fake root should not be in the dictionary.(fake root does not have self loop)"
+    def draw_switch_box(self, path, node_idx_dictionary):
+        assert not self._fake_root in node_idx_dictionary
+        nodes_count = self.get_number_of_nodes()
+        switch_map = self.get_connectivity_matrix(node_idx_dictionary)
 
         cmap = colors.ListedColormap(['white', 'black'])
         bounds = [0, 0.5, 1]
@@ -469,24 +486,107 @@ class Automatanetwork(object):
                 if len(cycle) == 1: # self loops
                     continue
                 for node in cycle:
-                    f.write(str(node_to_index[node]) + "->")
+                    f.write(str(node_idx_dictionary[node]) + "->")
                 f.write("\n")
         self.draw_graph(path+"graph.png")
 
 
 
+    def _generate_BFS(self):
+        pass
+
+    def add_automata(self, new_automata):
+        new_nodes_dictionary = {}
+        for node in new_automata.get_nodes():
+            if node.get_start() == StartType.fake_root:
+                continue
+
+            new_node = S_T_E(start_type = node.get_start(), is_report = node.is_report(),
+                             is_marked = False, id = self._get_new_id(), symbol_set= node.get_symbols(), adjacent_S_T_E_s = [])
+            new_nodes_dictionary[node] = new_node
+
+            self.add_element(new_node)
+
+        for src, dst in new_automata.get_edges():
+            if src.get_start() == StartType.fake_root:
+                continue
+
+            self.add_edge(new_nodes_dictionary[src], new_nodes_dictionary[dst])
+
+    def bfs_rout(self,routing_template, available_rows):
+        node_dictionary = self.get_BFS_label_dictionary()
+        assert not self._fake_root in node_dictionary
+        cost = 0
+        for current_node in node_dictionary:
+            for neighb in self._my_graph.neighbors(current_node):
+                if not routing_template[node_dictionary[current_node]][node_dictionary[neighb]]:
+                    cost += 1
+        print "BFS cost =", cost
 
 
 
+    def ga_route(self, routing_template, avilable_rows):
+        """
+        :param routing_template:
+        :param avilable_rows:
+        :return:
+        """
+        num_nodes  = self.get_number_of_nodes()
+        nodes = list(self.get_nodes())
+        nodes.remove(self._fake_root)
+        node_dic = self._generate_standard_index_dictionary()
+        #switch_map = self.get_connectivity_matrix(node_dic)
+
+        toolbox = base.Toolbox()
+        creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
+        creator.create("Individual", list, fitness=creator.FitnessMin)
+        toolbox.register("indices", random.sample, avilable_rows, num_nodes)
+        toolbox.register("individual", tools.initIterate, creator.Individual,
+                         toolbox.indices)
+        toolbox.register("population", tools.initRepeat, list,
+                         toolbox.individual)
+
+        toolbox.register("mate", tools.cxOrdered)
+        toolbox.register("mutate", tools.mutShuffleIndexes, indpb=0.05)
 
 
 
+        def evaluation(individual):
+            cost = 0
 
+            for node_idx, node_assignee in enumerate(individual):
+                current_node = nodes[node_idx]
+                for neighb in self._my_graph.neighbors(current_node):
+                    neighb_idx = node_dic[neighb]
+                    neighb_assignee = individual[neighb_idx]
+                    if not routing_template[node_assignee][neighb_assignee]:
+                        cost += 1
 
+            return cost,
 
+        toolbox.register("evaluate", evaluation)
+        toolbox.register("select", tools.selTournament, tournsize = 3)
 
+        fit_stats = tools.Statistics(key=operator.attrgetter("fitness.values"))
+        fit_stats.register('mean', np.mean)
+        fit_stats.register('min', np.min)
 
+        result, log = algorithms.eaSimple(toolbox.population(n=200), toolbox,
+                                          cxpb=0.5, mutpb=0.3,
+                                          ngen=800, verbose=False,
+                                          stats=fit_stats)
 
+        best_individual = tools.selBest(result, k=1)[0]
+        print('Fitness of the best individual: ', evaluation(best_individual)[0])
+
+        plt.figure(figsize=(11, 4))
+        plots = plt.plot(log.select('min'), 'c-', log.select('mean'), 'b-')
+        plt.legend(plots, ('Minimum fitness', 'Mean fitness'), frameon=True)
+        plt.ylabel('Fitness')
+        plt.xlabel('Iterations')
+        plt.show()
+
+        return dict(zip(nodes, best_individual))
 
 
 
