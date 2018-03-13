@@ -397,6 +397,7 @@ class Automatanetwork(object):
     def get_BFS_label_dictionary(self, set_nodes_idx = True):
         node_to_index = {}
         last_assigned_id = -1
+        self.unmark_all_nodes()
         dq = deque()
         self._fake_root.set_marked(True) # no need to push fake root
 
@@ -488,7 +489,7 @@ class Automatanetwork(object):
                 for node in cycle:
                     f.write(str(node_idx_dictionary[node]) + "->")
                 f.write("\n")
-        self.draw_graph(path+"graph.png")
+        #self.draw_graph(path+"graph.png")
 
 
 
@@ -571,7 +572,16 @@ class Automatanetwork(object):
         fit_stats.register('mean', np.mean)
         fit_stats.register('min', np.min)
 
-        result, log = algorithms.eaSimple(toolbox.population(n=200), toolbox,
+        pop = toolbox.population(n=200)
+
+        pop.insert(0, creator.Individual(
+            self.get_BFS_label_dictionary().values())) # adding bfs solution as an initial guess
+        pop.insert(1, creator.Individual(
+            self.get_BFS_label_dictionary().values()))  # adding bfs solution as an initial guess
+        pop.insert(2, creator.Individual(
+            self.get_BFS_label_dictionary().values()))  # adding bfs solution as an initial guess
+
+        result, log = algorithms.eaSimple(pop, toolbox,
                                           cxpb=0.5, mutpb=0.3,
                                           ngen=800, verbose=False,
                                           stats=fit_stats)
