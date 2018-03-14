@@ -7,3 +7,7 @@
 ANMLZoo/
 *.pkl
 snort/
+AnmalZoo.Brill/
+AnmalZoo.EntityResolution/
+AnmalZoo.Fermi/
+AnmalZoo.Levenshtein/

@@ -15,6 +15,7 @@ import time, operator
 import math
 from deap import algorithms, base, creator, tools
 import numpy as np
+import utility
 
 
 random.seed(a = None)
@@ -465,31 +466,21 @@ class Automatanetwork(object):
 
     def draw_switch_box(self, path, node_idx_dictionary):
         assert not self._fake_root in node_idx_dictionary
-        nodes_count = self.get_number_of_nodes()
         switch_map = self.get_connectivity_matrix(node_idx_dictionary)
-
-        cmap = colors.ListedColormap(['white', 'black'])
         bounds = [0, 0.5, 1]
-        norm = colors.BoundaryNorm(bounds, cmap.N)
-        fig, ax = plt.subplots()
-        ax.imshow(switch_map, cmap=cmap, norm=norm)
-        ax.grid(which='major', axis='both', linestyle='-', color='k', linewidth=0)
-        ax.set_xticks(range(0,nodes_count,15))
-        ax.set_yticks(range(0, nodes_count,15))
-
-        plt.gca().invert_yaxis()
-        plt.savefig(path + ".png")
-        plt.clf()
-
+        utility.draw_matrix(path+".png", switch_map, bounds)
 
         with open(path+".txt", "w") as f:
-            for cycle in nx.simple_cycles(self._my_graph):
+            for cycle in nx.cycle_basis(nx.Graph(self._my_graph)):
+                if self._fake_root in cycle:
+                    continue
                 if len(cycle) == 1: # self loops
                     continue
                 for node in cycle:
                     f.write(str(node_idx_dictionary[node]) + "->")
                 f.write("\n")
-        #self.draw_graph(path+"graph.png")
+        return switch_map
+
 
 
 
@@ -523,6 +514,7 @@ class Automatanetwork(object):
                 if not routing_template[node_dictionary[current_node]][node_dictionary[neighb]]:
                     cost += 1
         print "BFS cost =", cost
+        return cost, node_dictionary
 
 
 
@@ -533,6 +525,7 @@ class Automatanetwork(object):
         :return:
         """
         num_nodes  = self.get_number_of_nodes()
+        num_nodes = 256
         nodes = list(self.get_nodes())
         nodes.remove(self._fake_root)
         node_dic = self._generate_standard_index_dictionary()
@@ -556,6 +549,8 @@ class Automatanetwork(object):
             cost = 0
 
             for node_idx, node_assignee in enumerate(individual):
+                if node_idx >= self.get_number_of_nodes():
+                    break
                 current_node = nodes[node_idx]
                 for neighb in self._my_graph.neighbors(current_node):
                     neighb_idx = node_dic[neighb]
@@ -572,18 +567,18 @@ class Automatanetwork(object):
         fit_stats.register('mean', np.mean)
         fit_stats.register('min', np.min)
 
-        pop = toolbox.population(n=200)
+        pop = toolbox.population(n=400)
 
-        pop.insert(0, creator.Individual(
-            self.get_BFS_label_dictionary().values())) # adding bfs solution as an initial guess
-        pop.insert(1, creator.Individual(
-            self.get_BFS_label_dictionary().values()))  # adding bfs solution as an initial guess
-        pop.insert(2, creator.Individual(
-            self.get_BFS_label_dictionary().values()))  # adding bfs solution as an initial guess
+        bfs_set = set(
+            self.get_BFS_label_dictionary().values())
+        bfs_set.update(range(num_nodes))
+        pop.insert(0, creator.Individual(list(bfs_set))) # adding bfs solution as an initial guess
+        pop.insert(1, creator.Individual(list(bfs_set)))  # adding bfs solution as an initial guess
+        pop.insert(2, creator.Individual(list(bfs_set)))  # adding bfs solution as an initial guess
 
         result, log = algorithms.eaSimple(pop, toolbox,
-                                          cxpb=0.5, mutpb=0.3,
-                                          ngen=800, verbose=False,
+                                          cxpb=0.5, mutpb=0.2,
+                                          ngen=1000, verbose=False,
                                           stats=fit_stats)
 
         best_individual = tools.selBest(result, k=1)[0]
