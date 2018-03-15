@@ -5,6 +5,7 @@ from tqdm import tqdm
 import pickle
 import matplotlib.pyplot as plt
 from matplotlib import colors
+import utility
 
 
 
@@ -49,7 +50,7 @@ def generate_squared_routing(size, basic_block_WH, overlap):
 
 
 
-automata = atma.parse_anml_file(anml_path[AnmalZoo.Levenshtein])
+automata = atma.parse_anml_file(anml_path[AnmalZoo.Hamming])
 print "Finished processing from anml file. Here is the summary"
 
 automata.remove_ors()
@@ -72,11 +73,11 @@ orig_automatas = automata.get_connected_components_as_automatas()
 
 #exit(0)
 
-current_automata = orig_automatas[9]
+current_automata = orig_automatas[10]
 current_automata.set_max_fan_in(4)
 current_automata.set_max_fan_out(4)
-#routing_matrix = generate_route(current_automata.get_number_of_nodes(),10)
-routing_matrix = generate_squared_routing(256, 8, 4)
+routing_matrix = utility.generate_diagonal_route(256,10)
+#routing_matrix = generate_squared_routing(256, 8, 4)
 current_automata.bfs_rout(routing_matrix, None)
 current_automata.draw_switch_box("snort/bfs_routing",current_automata.get_BFS_label_dictionary())
 ga_routing_dic = current_automata.ga_route(routing_template = routing_matrix, avilable_rows = range(256))

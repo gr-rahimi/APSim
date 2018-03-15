@@ -567,7 +567,7 @@ class Automatanetwork(object):
         fit_stats.register('mean', np.mean)
         fit_stats.register('min', np.min)
 
-        pop = toolbox.population(n=400)
+        pop = toolbox.population(n=500)
 
         bfs_set = set(
             self.get_BFS_label_dictionary().values())
@@ -577,8 +577,8 @@ class Automatanetwork(object):
         pop.insert(2, creator.Individual(list(bfs_set)))  # adding bfs solution as an initial guess
 
         result, log = algorithms.eaSimple(pop, toolbox,
-                                          cxpb=0.5, mutpb=0.2,
-                                          ngen=1000, verbose=False,
+                                          cxpb=0.6, mutpb=0.2,
+                                          ngen=500, verbose=False,
                                           stats=fit_stats)
 
         best_individual = tools.selBest(result, k=1)[0]
