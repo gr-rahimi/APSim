@@ -50,7 +50,7 @@ def generate_squared_routing(size, basic_block_WH, overlap):
 
 
 
-automata = atma.parse_anml_file(anml_path[AnmalZoo.Hamming])
+automata = atma.parse_anml_file(anml_path[AnmalZoo.Levenshtein])
 print "Finished processing from anml file. Here is the summary"
 
 automata.remove_ors()
@@ -73,9 +73,9 @@ orig_automatas = automata.get_connected_components_as_automatas()
 
 #exit(0)
 
-current_automata = orig_automatas[10]
-current_automata.set_max_fan_in(4)
-current_automata.set_max_fan_out(4)
+current_automata = orig_automatas[0]
+#current_automata.set_max_fan_in(4)
+#current_automata.set_max_fan_out(4)
 routing_matrix = utility.generate_diagonal_route(256,10)
 #routing_matrix = generate_squared_routing(256, 8, 4)
 current_automata.bfs_rout(routing_matrix, None)

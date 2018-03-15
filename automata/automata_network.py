@@ -395,7 +395,14 @@ class Automatanetwork(object):
         plt.clf()
 
 
-    def get_BFS_label_dictionary(self, set_nodes_idx = True):
+    def get_BFS_label_dictionary(self, start_from_root = True, set_nodes_idx = True):
+        """
+
+        :param start_from_root: if set to True, first all the start nodes will be pushed. Otherwise each
+        start node will be procesessed independently
+        :param set_nodes_idx:
+        :return:
+        """
         node_to_index = {}
         last_assigned_id = -1
         self.unmark_all_nodes()
@@ -405,16 +412,21 @@ class Automatanetwork(object):
         if set_nodes_idx:
             self._clear_mark_idx()
 
+
         for start_node in self._my_graph.neighbors(self._fake_root):
             if start_node.is_marked():
                 continue
             last_assigned_id += 1
             assert not start_node in node_to_index, "This is a bug. Contact Reza!"
-            node_to_index[start_node] = last_assigned_id
-            if set_nodes_idx:
-                start_node.set_mark_idx(last_assigned_id)
-            start_node.set_marked(True)
-            dq.appendleft(start_node)
+            if not start_from_root:
+                node_to_index[start_node] = last_assigned_id
+                if set_nodes_idx:
+                    start_node.set_mark_idx(last_assigned_id)
+                start_node.set_marked(True)
+                dq.appendleft(start_node)
+
+            else:
+                dq.appendleft(self._fake_root)
 
             while dq:
                 current_node = dq.pop()
@@ -464,11 +476,11 @@ class Automatanetwork(object):
 
 
 
-    def draw_switch_box(self, path, node_idx_dictionary):
+    def draw_switch_box(self, path, node_idx_dictionary, **kwargs):
         assert not self._fake_root in node_idx_dictionary
         switch_map = self.get_connectivity_matrix(node_idx_dictionary)
         bounds = [0, 0.5, 1]
-        utility.draw_matrix(path+".png", switch_map, bounds)
+        utility.draw_matrix(path+".png", switch_map, bounds, **kwargs)
 
         with open(path+".txt", "w") as f:
             for cycle in nx.cycle_basis(nx.Graph(self._my_graph)):
