@@ -6,51 +6,12 @@ import pickle
 import matplotlib.pyplot as plt
 from matplotlib import colors
 import utility
+import networkx as nx
+import networkx.algorithms.isomorphism as iso
 
 
 
-
-
-def generate_squared_routing(size, basic_block_WH, overlap):
-    routing_matrix = [[0 for _ in range(size)] for _ in range(size)]
-
-    def generate_pattern(start, size):
-        if size == basic_block_WH:
-            for i in range(size):
-                for j in range(size):
-                    routing_matrix[start + i][start + j] = 1
-
-        else:
-            generate_pattern(start + size / 2, size / 2)
-            generate_pattern(start + overlap, size / 2)
-            for i in range(size):
-                for j in range(overlap):
-                    routing_matrix[start + i][start + j] = 1
-                    routing_matrix[start + j][start + i] = 1
-
-    generate_pattern(0, size)
-
-    def draw_pattern():
-
-        cmap = colors.ListedColormap(['white', 'black'])
-        bounds = [0, 0.5, 1]
-        norm = colors.BoundaryNorm(bounds, cmap.N)
-        fig, ax = plt.subplots()
-        ax.imshow(routing_matrix, cmap=cmap, norm=norm)
-        ax.grid(which='major', axis='both', linestyle='-', color='k', linewidth=0)
-        ax.set_xticks(range(0, size, 15))
-        ax.set_yticks(range(0, size, 15))
-
-        plt.gca().invert_yaxis()
-        plt.savefig("pattern.png")
-        plt.clf()
-
-    draw_pattern()
-    return routing_matrix
-
-
-
-automata = atma.parse_anml_file(anml_path[AnmalZoo.Levenshtein])
+automata = atma.parse_anml_file(anml_path[AnmalZoo.Snort])
 print "Finished processing from anml file. Here is the summary"
 
 automata.remove_ors()
@@ -77,11 +38,23 @@ current_automata = orig_automatas[0]
 #current_automata.set_max_fan_in(4)
 #current_automata.set_max_fan_out(4)
 routing_matrix = utility.generate_diagonal_route(256,10)
-#routing_matrix = generate_squared_routing(256, 8, 4)
+routing_matrix= utility.cut_switch_box(routing_matrix, current_automata.get_number_of_nodes() + 1)
+#routing_matrix = utility.generate_diagonal_route()
+
+routing_matrix_graph = utility.get_graph_from_matrix(routing_matrix, True)
+
+#routing_matrix = utility.generate_squared_routing(256, 8, 4)
 current_automata.bfs_rout(routing_matrix, None)
-current_automata.draw_switch_box("snort/bfs_routing",current_automata.get_BFS_label_dictionary())
-ga_routing_dic = current_automata.ga_route(routing_template = routing_matrix, avilable_rows = range(256))
-current_automata.draw_switch_box("snort/ga_routing", ga_routing_dic)
+bfs_switch_box = current_automata.draw_native_switch_box("snort/bfs_routing", current_automata.get_BFS_label_dictionary(),True,True)
+bfs_switch_box = utility.cut_switch_box(bfs_switch_box ,current_automata.get_number_of_nodes() + 1)
+bfs_switch_box_graph = utility.get_graph_from_matrix(bfs_switch_box, True)
+#GM = iso.GraphMatcher(routing_matrix_graph, bfs_switch_box_graph)
+print routing_matrix_graph.subisomorphic_lad(bfs_switch_box_graph)
+
+
+
+#ga_routing_dic = current_automata.ga_route(routing_template = routing_matrix, avilable_rows = range(256))
+#current_automata.draw_switch_box("snort/ga_routing", ga_routing_dic)
 
 exit(0)
 

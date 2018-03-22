@@ -207,8 +207,13 @@ class Automatanetwork(object):
     #         return tuple(self._start_STEs)
 
 
-    def get_number_of_nodes(self):
-        return len(self._my_graph) -1 # minus one because of fake root
+    def get_number_of_nodes(self, without_fake_root):
+        """
+
+        :param with_fake_root: True if fake root also should be accounted
+        :return: number of nodes in automata
+        """
+        return len(self._my_graph) - without_fake_root # minus one because of fake root
 
     def get_number_of_edges(self):
         return self._my_graph.number_of_edges() - self.get_number_of_start_nodes() # there is a fake edge between fake root and all srtart nodes
@@ -371,7 +376,23 @@ class Automatanetwork(object):
 
 
     def is_homogeneous(self):
+
         return self._is_homogeneous
+
+    def darw_graph_on_ax(self, draw_edge_label, ax, pos = None, color = None):
+        if pos == None:
+            pos = nx.spring_layout(self._my_graph, k=0.5)
+
+        if not color:
+            color = [node.get_color() for node in self._my_graph.nodes()]
+
+        nx.draw(self._my_graph, pos, node_size = 100, width=0.5 , arrowsize=6, node_color=color, ax =ax)
+
+        if draw_edge_label: # draw with edge lable
+            edge_lables = nx.get_edge_attributes(self._my_graph, 'label')
+
+            nx.draw_networkx_edge_labels(self._my_graph, pos, node_size = 20, width = 2, arrowsize = 2,
+                                         node_color= color, font_size= 1 , ax =ax)
 
 
     def draw_graph(self, file_name, draw_edge_label = False):
@@ -381,18 +402,15 @@ class Automatanetwork(object):
         :param draw_edge_label: True if writing edge labels is required
         :return:
         """
-        pos = nx.spring_layout(self._my_graph, k =0.5)
-        node_color = [node.get_color() for node in self._my_graph.nodes()]
-        nx.draw(self._my_graph, pos, node_size = 1, width = 0.2, arrowsize = 2, node_color= node_color)
+        _, ax = plt.subplot()
+        self.darw_graph_on_ax(draw_edge_label , ax)
 
-        if draw_edge_label: # draw with edge lable
-            edge_lables = nx.get_edge_attributes(self._my_graph, 'label')
 
-            nx.draw_networkx_edge_labels(self._my_graph, pos, node_size = 2, width = 0.1, arrowsize = 2,
-                                         node_color= node_color, font_size= 1 )
 
         plt.savefig(file_name, dpi=500)
-        plt.clf()
+        plt.close()
+
+
 
 
     def get_BFS_label_dictionary(self, start_from_root = True, set_nodes_idx = True):
@@ -416,9 +434,10 @@ class Automatanetwork(object):
         for start_node in self._my_graph.neighbors(self._fake_root):
             if start_node.is_marked():
                 continue
-            last_assigned_id += 1
+
             assert not start_node in node_to_index, "This is a bug. Contact Reza!"
             if not start_from_root:
+                last_assigned_id += 1
                 node_to_index[start_node] = last_assigned_id
                 if set_nodes_idx:
                     start_node.set_mark_idx(last_assigned_id)
@@ -461,7 +480,7 @@ class Automatanetwork(object):
         if not node_dictionary:
             node_dictionary = self._generate_standard_index_dictionary()
 
-        nodes_count = self.get_number_of_nodes()
+        nodes_count = self.get_number_of_nodes(True)
         assert nodes_count <= 256, "it only works for small automatas"
         nodes_count = 256
         switch_map = [[0 for _ in range(nodes_count)] for _ in range(nodes_count)]
@@ -474,23 +493,23 @@ class Automatanetwork(object):
         return switch_map
 
 
-
-
-    def draw_switch_box(self, path, node_idx_dictionary, **kwargs):
+    def draw_native_switch_box(self, path, node_idx_dictionary,write_cylec_in_file, **kwargs):
         assert not self._fake_root in node_idx_dictionary
         switch_map = self.get_connectivity_matrix(node_idx_dictionary)
+
+
         bounds = [0, 0.5, 1]
         utility.draw_matrix(path+".png", switch_map, bounds, **kwargs)
-
-        with open(path+".txt", "w") as f:
-            for cycle in nx.cycle_basis(nx.Graph(self._my_graph)):
-                if self._fake_root in cycle:
-                    continue
-                if len(cycle) == 1: # self loops
-                    continue
-                for node in cycle:
-                    f.write(str(node_idx_dictionary[node]) + "->")
-                f.write("\n")
+        if write_cylec_in_file:
+            with open(path+".txt", "w") as f:
+                for cycle in nx.cycle_basis(nx.Graph(self._my_graph)):
+                    if self._fake_root in cycle:
+                        continue
+                    if len(cycle) == 1: # self loops
+                        continue
+                    for node in cycle:
+                        f.write(str(node_idx_dictionary[node]) + "->")
+                    f.write("\n")
         return switch_map
 
 
@@ -517,16 +536,24 @@ class Automatanetwork(object):
 
             self.add_edge(new_nodes_dictionary[src], new_nodes_dictionary[dst])
 
-    def bfs_rout(self,routing_template, available_rows):
-        node_dictionary = self.get_BFS_label_dictionary()
+
+    def get_routing_cost(self, routing_template, node_dictionary):
         assert not self._fake_root in node_dictionary
         cost = 0
         for current_node in node_dictionary:
             for neighb in self._my_graph.neighbors(current_node):
                 if not routing_template[node_dictionary[current_node]][node_dictionary[neighb]]:
                     cost += 1
-        print "BFS cost =", cost
+        return cost
+
+    def bfs_rout(self,routing_template, available_rows):
+        node_dictionary = self.get_BFS_label_dictionary()
+        assert not self._fake_root in node_dictionary
+        cost = self.get_routing_cost(routing_template, node_dictionary)
+        #print "BFS cost =", cost
         return cost, node_dictionary
+
+
 
 
 
@@ -536,7 +563,7 @@ class Automatanetwork(object):
         :param avilable_rows:
         :return:
         """
-        num_nodes  = self.get_number_of_nodes()
+        num_nodes  = self.get_number_of_nodes(True)
         num_nodes = 256
         nodes = list(self.get_nodes())
         nodes.remove(self._fake_root)
@@ -561,7 +588,7 @@ class Automatanetwork(object):
             cost = 0
 
             for node_idx, node_assignee in enumerate(individual):
-                if node_idx >= self.get_number_of_nodes():
+                if node_idx >= self.get_number_of_nodes(True):
                     break
                 current_node = nodes[node_idx]
                 for neighb in self._my_graph.neighbors(current_node):
@@ -579,7 +606,7 @@ class Automatanetwork(object):
         fit_stats.register('mean', np.mean)
         fit_stats.register('min', np.min)
 
-        pop = toolbox.population(n=500)
+        pop = toolbox.population(n=5000)
 
         bfs_set = set(
             self.get_BFS_label_dictionary().values())
@@ -589,8 +616,8 @@ class Automatanetwork(object):
         pop.insert(2, creator.Individual(list(bfs_set)))  # adding bfs solution as an initial guess
 
         result, log = algorithms.eaSimple(pop, toolbox,
-                                          cxpb=0.6, mutpb=0.2,
-                                          ngen=500, verbose=False,
+                                          cxpb=0.5, mutpb=0.2,
+                                          ngen=2000, verbose=False,
                                           stats=fit_stats)
 
         best_individual = tools.selBest(result, k=1)[0]
@@ -658,7 +685,7 @@ class Automatanetwork(object):
     def print_summary(self, print_detailed_final_states = False):
         print"********************Automata Report********************"
         print "report for", self._id
-        print "Number of nodes: ", self.get_number_of_nodes()
+        print "Number of nodes: ", self.get_number_of_nodes(True)
         print "Number of start nodes", self.get_number_of_start_nodes()
         print "Number of report nodes", self.get_number_of_report_nodes()
         print "does have all_input? ", self.does_have_all_input()
@@ -858,6 +885,45 @@ class Automatanetwork(object):
 
             active_states = new_active_states
             yield active_states, is_report
+
+
+
+
+    def count_interconnect_activity(self, input_file_path, inbound_set_list, outbound_set_list):
+        """
+        This function receives an input file and return the acrtivity count. each item in inbound_set_list and outbound_set_list
+        is a set.
+        for inbound_set_list, if any of the predeccors of items in each set is active, I will increment the appropriate counter for that set in the
+        output list.
+        For outbound_set_list, if and of the item in a set is active, I will increment the corresponding counter.
+        :param input_file_path: path of the input file
+        :param inbound_set_list: a list of sets of STEs
+        :param outbound_set_list: a list of sets of STEs
+        :return: two lists of ints. First for inbound STEs and the second one for outbound items
+        """
+
+        input_gen = self.feed_file(input_file_path)
+
+        inb_counter_list = [0 for _ in range(len(inbound_set_list))]
+        out_counter_list = [0 for _ in range(len(outbound_set_list))]
+
+        for active_states, _ in input_gen:
+            for inbound_set_idx, inbound_set in enumerate(inbound_set_list):
+                for current_ste in inbound_set:
+                    if current_ste.get_start() == StartType.all_input:
+                        inb_counter_list[inbound_set_idx] += 1
+                        break
+
+                    preds = set(self._my_graph.predecessors(current_ste))
+                    if inbound_set.intersection(preds):
+                        inb_counter_list[inbound_set_idx] += 1
+                        break
+
+            for outbound_set_idx, outbound_set in enumerate(outbound_set_list):
+                if outbound_set.intersection(active_states):
+                    out_counter_list[outbound_set_idx] += 1
+
+        return inb_counter_list, out_counter_list
 
 
 
@@ -1140,13 +1206,6 @@ class Automatanetwork(object):
 
 
 
-
-
-
-
-
-
-
     def _can_combine_symbol_set(self, fst_ste, sec_ste):
         if fst_ste.get_start() != sec_ste.get_start():
             return  False
@@ -1305,13 +1364,27 @@ class Automatanetwork(object):
         dq.appendleft(self._fake_root)
 
         while dq:
+
+            print len(dq)
             current_node = dq.pop()
+
+            ####
+            f, axarr = plt.subplots(2)
+
+            pos = nx.spring_layout(self._my_graph, k=0.8)
+            node_color = ['red' if node == current_node else'black' for node in self._my_graph.nodes()]
+            self.darw_graph_on_ax(draw_edge_label= False, ax = axarr[0], pos = pos, color = node_color)
+
+            ####
+
             for neighb in self._my_graph.neighbors(current_node):
                 if not neighb.is_marked():
                     neighb.set_marked(True)
                     dq.appendleft(neighb)
 
             if current_node.get_start() == StartType.fake_root: # fake root does not have fan in constrain
+
+                plt.close()
                 continue
 
             is_start = current_node.get_start() == StartType.start_of_data or current_node.get_start() == StartType.all_input
@@ -1329,10 +1402,15 @@ class Automatanetwork(object):
                     predecessors.remove(self._fake_root)
 
                 step_size = max_fan_in - is_self_loop
+
+                _recently_added_nods = []
+
                 for i in range(number_of_new_copies):
 
                     new_STE = S_T_E(start_type = current_node.get_start(), is_report = current_node.is_report(),
                                     is_marked = True, id = self._get_new_id(),symbol_set = set(current_node.get_symbols()))
+
+                    _recently_added_nods.append(new_STE)
 
 
                     self.add_element(new_STE)
@@ -1347,6 +1425,20 @@ class Automatanetwork(object):
                     if neighb != current_node and not neighb in dq:
                         dq.appendleft(neighb)
                 self.delete_node(current_node)
+            ###
+            new_pos = nx.spring_layout(self._my_graph, k=0.5)
+
+            for p in new_pos:
+                if p  in pos:
+                    new_pos[p] = pos[p]
+            node_color = ['black' if node not in _recently_added_nods else'green' for node in self._my_graph.nodes()]
+            self.darw_graph_on_ax(draw_edge_label=False, ax=axarr[1], pos=new_pos, color=node_color)
+            plt.show()
+            plt.close()
+
+            ###
+
+
 
     def set_max_fan_out(self, max_fan_out):
         assert self.is_homogeneous(), "This function works onlyu for homogeneous automatas"
@@ -1418,15 +1510,6 @@ class Automatanetwork(object):
 
         finall_partition.append(final_set)
         finall_partition.append(non_final_set)
-
-
-
-
-
-
-
-
-
 
 
 def compare_strided(only_report, file_path,*automatas ):
