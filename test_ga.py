@@ -38,22 +38,22 @@ current_automata = orig_automatas[0]
 #current_automata.set_max_fan_in(4)
 #current_automata.set_max_fan_out(4)
 routing_matrix = utility.generate_diagonal_route(256,10)
-routing_matrix= utility.cut_switch_box(routing_matrix, current_automata.get_number_of_nodes() + 1)
+#routing_matrix= utility.cut_switch_box(routing_matrix, current_automata.get_number_of_nodes() + 1)
 #routing_matrix = utility.generate_diagonal_route()
 
-routing_matrix_graph = utility.get_graph_from_matrix(routing_matrix, True)
+#routing_matrix_graph = utility.get_graph_from_matrix(routing_matrix, True)
 
 #routing_matrix = utility.generate_squared_routing(256, 8, 4)
 current_automata.bfs_rout(routing_matrix, None)
-bfs_switch_box = current_automata.draw_native_switch_box("snort/bfs_routing", current_automata.get_BFS_label_dictionary(),True,True)
-bfs_switch_box = utility.cut_switch_box(bfs_switch_box ,current_automata.get_number_of_nodes() + 1)
-bfs_switch_box_graph = utility.get_graph_from_matrix(bfs_switch_box, True)
+#bfs_switch_box = current_automata.draw_native_switch_box("snort/bfs_routing", current_automata.get_BFS_label_dictionary(),True,True)
+#bfs_switch_box = utility.cut_switch_box(bfs_switch_box ,current_automata.get_number_of_nodes() + 1)
+#bfs_switch_box_graph = utility.get_graph_from_matrix(bfs_switch_box, True)
 #GM = iso.GraphMatcher(routing_matrix_graph, bfs_switch_box_graph)
-print routing_matrix_graph.subisomorphic_lad(bfs_switch_box_graph)
+#print routing_matrix_graph.subisomorphic_lad(bfs_switch_box_graph)
 
 
 
-#ga_routing_dic = current_automata.ga_route(routing_template = routing_matrix, avilable_rows = range(256))
+ga_routing_dic = current_automata.ga_route(routing_template = routing_matrix, avilable_rows = range(256))
 #current_automata.draw_switch_box("snort/ga_routing", ga_routing_dic)
 
 exit(0)

@@ -535,6 +535,7 @@ class Automatanetwork(object):
                 continue
 
             self.add_edge(new_nodes_dictionary[src], new_nodes_dictionary[dst])
+        return set(new_nodes_dictionary.values())
 
 
     def get_routing_cost(self, routing_template, node_dictionary):
@@ -550,7 +551,7 @@ class Automatanetwork(object):
         node_dictionary = self.get_BFS_label_dictionary()
         assert not self._fake_root in node_dictionary
         cost = self.get_routing_cost(routing_template, node_dictionary)
-        #print "BFS cost =", cost
+        print "BFS cost =", cost
         return cost, node_dictionary
 
 
@@ -563,11 +564,13 @@ class Automatanetwork(object):
         :param avilable_rows:
         :return:
         """
-        num_nodes  = self.get_number_of_nodes(True)
-        num_nodes = 256
+        #num_nodes  = self.get_number_of_nodes(False)
+        num_nodes = len(avilable_rows)
         nodes = list(self.get_nodes())
         nodes.remove(self._fake_root)
-        node_dic = self._generate_standard_index_dictionary()
+        #node_dic = self._generate_standard_index_dictionary()
+        node_dic = self.get_BFS_label_dictionary()
+
         #switch_map = self.get_connectivity_matrix(node_dic)
 
         toolbox = base.Toolbox()
@@ -600,24 +603,33 @@ class Automatanetwork(object):
             return cost,
 
         toolbox.register("evaluate", evaluation)
-        toolbox.register("select", tools.selTournament, tournsize = 3)
+        toolbox.register("select", tools.selTournament, tournsize = 50)
 
         fit_stats = tools.Statistics(key=operator.attrgetter("fitness.values"))
         fit_stats.register('mean', np.mean)
         fit_stats.register('min', np.min)
 
-        pop = toolbox.population(n=5000)
+        pop = toolbox.population(n=200)
 
         bfs_set = set(
             self.get_BFS_label_dictionary().values())
         bfs_set.update(range(num_nodes))
         pop.insert(0, creator.Individual(list(bfs_set))) # adding bfs solution as an initial guess
-        pop.insert(1, creator.Individual(list(bfs_set)))  # adding bfs solution as an initial guess
-        pop.insert(2, creator.Individual(list(bfs_set)))  # adding bfs solution as an initial guess
+        pop.insert(10, creator.Individual(list(bfs_set)))  # adding bfs solution as an initial guess
+        pop.insert(20, creator.Individual(list(bfs_set)))  # adding bfs solution as an initial guess
+        pop.insert(30, creator.Individual(list(bfs_set)))  # adding bfs solution as an initial guess
+        pop.insert(40, creator.Individual(list(bfs_set)))  # adding bfs solution as an initial guess
+        pop.insert(50, creator.Individual(list(bfs_set)))  # adding bfs solution as an initial guess
+        pop.insert(60, creator.Individual(list(bfs_set))) # adding bfs solution as an initial guess
+        pop.insert(70, creator.Individual(list(bfs_set)))  # adding bfs solution as an initial guess
+        pop.insert(80, creator.Individual(list(bfs_set)))  # adding bfs solution as an initial guess
+        pop.insert(90, creator.Individual(list(bfs_set)))  # adding bfs solution as an initial guess
+        pop.insert(100, creator.Individual(list(bfs_set)))  # adding bfs solution as an initial guess
+        pop.insert(110, creator.Individual(list(bfs_set)))  # adding bfs solution as an initial guess
 
         result, log = algorithms.eaSimple(pop, toolbox,
-                                          cxpb=0.5, mutpb=0.2,
-                                          ngen=2000, verbose=False,
+                                          cxpb=0.5, mutpb=0.3,
+                                          ngen=500, verbose=False,
                                           stats=fit_stats)
 
         best_individual = tools.selBest(result, k=1)[0]
@@ -910,9 +922,9 @@ class Automatanetwork(object):
         for active_states, _ in input_gen:
             for inbound_set_idx, inbound_set in enumerate(inbound_set_list):
                 for current_ste in inbound_set:
-                    if current_ste.get_start() == StartType.all_input:
-                        inb_counter_list[inbound_set_idx] += 1
-                        break
+                    #if current_ste.get_start() == StartType.all_input:
+                        #inb_counter_list[inbound_set_idx] += 1
+                        #break
 
                     preds = set(self._my_graph.predecessors(current_ste))
                     if inbound_set.intersection(preds):
@@ -1194,7 +1206,7 @@ class Automatanetwork(object):
                     if first_neighb_node == sec_neighb_node:
                         continue
                     if self._can_combine_symbol_set(fst_ste=first_neighb_node, sec_ste= sec_neighb_node):
-                        print "miow"
+                        #print "miow"
                         for symbol in sec_neighb_node.get_symbols():
                             first_neighb_node.add_symbol(symbol)
                         self.delete_node(sec_neighb_node)
@@ -1365,15 +1377,15 @@ class Automatanetwork(object):
 
         while dq:
 
-            print len(dq)
+            #print len(dq)
             current_node = dq.pop()
 
             ####
-            f, axarr = plt.subplots(2)
-
-            pos = nx.spring_layout(self._my_graph, k=0.8)
-            node_color = ['red' if node == current_node else'black' for node in self._my_graph.nodes()]
-            self.darw_graph_on_ax(draw_edge_label= False, ax = axarr[0], pos = pos, color = node_color)
+            # f, axarr = plt.subplots(2)
+            #
+            # pos = nx.spring_layout(self._my_graph, k=0.8)
+            # node_color = ['red' if node == current_node else'black' for node in self._my_graph.nodes()]
+            # self.darw_graph_on_ax(draw_edge_label= False, ax = axarr[0], pos = pos, color = node_color)
 
             ####
 
@@ -1426,15 +1438,15 @@ class Automatanetwork(object):
                         dq.appendleft(neighb)
                 self.delete_node(current_node)
             ###
-            new_pos = nx.spring_layout(self._my_graph, k=0.5)
-
-            for p in new_pos:
-                if p  in pos:
-                    new_pos[p] = pos[p]
-            node_color = ['black' if node not in _recently_added_nods else'green' for node in self._my_graph.nodes()]
-            self.darw_graph_on_ax(draw_edge_label=False, ax=axarr[1], pos=new_pos, color=node_color)
-            plt.show()
-            plt.close()
+            # new_pos = nx.spring_layout(self._my_graph, k=0.5)
+            #
+            # for p in new_pos:
+            #     if p  in pos:
+            #         new_pos[p] = pos[p]
+            # node_color = ['black' if node not in _recently_added_nods else'green' for node in self._my_graph.nodes()]
+            # self.darw_graph_on_ax(draw_edge_label=False, ax=axarr[1], pos=new_pos, color=node_color)
+            # plt.show()
+            # plt.close()
 
             ###
 

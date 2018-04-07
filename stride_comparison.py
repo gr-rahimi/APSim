@@ -4,17 +4,7 @@ from anml_zoo import anml_path,input_path,AnmalZoo
 from tqdm import tqdm
 import pickle
 
-def minimize_automata(automata):
-    automata.combile_finals_with_same_symbol_set()
-    while True:
-        current_node_cont = automata.get_number_of_nodes()
-        automata.left_merge()
-        automata.right_merge()
-        automata.combine_symbol_sets()
-        new_node_count = automata.get_number_of_nodes()
-        assert new_node_count<= current_node_cont, "it should always be smaller"
-        if new_node_count == current_node_cont:
-            break
+
 
 
 for automata_name, automata_path in anml_path.iteritems():

@@ -12,3 +12,6 @@ AnmalZoo.EntityResolution/
 AnmalZoo.Fermi/
 AnmalZoo.Levenshtein/
 avg_heat_mapResults/
+*.zip
+Results/
+avg_heat_mapResults_with_each/

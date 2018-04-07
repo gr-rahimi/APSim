@@ -3,3 +3,26 @@ module_name, package_name, ClassName, method_name, ExceptionName, function_name,
 
  _40__40_set([((0, 8), (0, 8)), ((33, 255), (14, 31)), ((14, 31), (14, 31)), ((14, 31), (0, 8)), ((33, 255), (0, 8)), ((0, 8), (14, 31)), ((0, 8), (33, 255)), ((14, 31), (33, 255)), ((33, 255), (33, 255))])
 
+
+Brill 0
+Dotstar 1
+EntityResolution    2
+Fermi           3
+Hamming         4
+Levenshtein     5
+PowerEN         6
+Protomata       7
+RandomForest    8
+Snort           9
+SPM             10
+BlockRings     11
+Dotstar03     12
+Dotstar06   13
+Dotstar09    14
+Ranges05     15
+Ranges1       16
+ExactMath     17
+Bro217        18
+TCP           19
+ClamAV        20
+CoreRings     21
