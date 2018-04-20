@@ -647,11 +647,6 @@ class Automatanetwork(object):
 
 
 
-
-
-
-
-
     def _make_homogenous_node(self, curr_node, connectivity_dic, start_type):
 
         new_nodes = []
@@ -1069,6 +1064,26 @@ class Automatanetwork(object):
 
 
         return splitted_automatas
+
+
+    def re_label_automata_states(self, labels_count):
+        """
+        This function receives an integer and randomly assign ONE symbol to each state
+        :param labels_count(int): number of new lables to be assigned to the automata
+        :return: Void
+        """
+        assert self.is_homogeneous(), "Automa should be in homogeneous state"
+        assert not self.does_have_special_elements(), "Automata should not have any special elements"
+
+        for state in self.get_nodes():
+            if state.get_start() == StartType.fake_root:
+                continue
+            random_label = random.randint(0, labels_count - 1)
+            state.set_symbols([(random_label,random_label)])
+
+
+
+
 
 
 
@@ -1590,29 +1605,6 @@ def compare_strided(only_report, file_path,*automatas ):
         print "they are equal"
     else:
         print "something is wrong with the rate of consumption"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def compare_input(only_report, file_path, *automatas):

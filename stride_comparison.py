@@ -3,12 +3,12 @@ from automata.automata_network import compare_input, compare_strided
 from anml_zoo import anml_path,input_path,AnmalZoo
 from tqdm import tqdm
 import pickle
-
+from utility import minimize_automata
 
 
 
 for automata_name, automata_path in anml_path.iteritems():
-    if automata_name == AnmalZoo.EntityResolution or automata_name == AnmalZoo.Synthetic or automata_name == AnmalZoo.RandomForest:
+    if automata_name != AnmalZoo.Levenshtein:
         continue
     automata = atma.parse_anml_file(automata_path)
     print "Finished processing from anml file. Here is the summary", str(automata_name)

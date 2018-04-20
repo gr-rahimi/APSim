@@ -235,6 +235,8 @@ class S_T_E(BaseElement):
 
 
 
+
+
 def _is_symbol_set_sorted(symbol_set):
     if not symbol_set:  # fake root has None symbol set
         return  True
