@@ -26,12 +26,7 @@ class AnmalZoo(Enum):
     TCP = 19
     ClamAV = 20
     Synthetic_CoreRings = 21
-
-
-
-
-
-
+    Custom = 22
 
 anml_path = {}
 anml_path[AnmalZoo.Brill] = os.path.join(_base_address, "Brill/anml/brill.1chip.anml")
@@ -56,7 +51,7 @@ anml_path[AnmalZoo.ExactMath] = os.path.join(_base_address, "ExactMath/anml/exac
 anml_path[AnmalZoo.Ranges1] = os.path.join(_base_address, "Ranges1/anml/ranges1.anml")
 anml_path[AnmalZoo.Ranges05] = os.path.join(_base_address, "Ranges05/anml/ranges05.anml")
 anml_path[AnmalZoo.TCP] = os.path.join(_base_address, "TCP/anml/tcp.anml")
-
+anml_path[AnmalZoo.Custom] = os.path.join(_base_address, "Custom/anml/custom.anml")
 
 input_path = {}
 input_path[AnmalZoo.Brill] = os.path.join(_base_address, "Brill/inputs/brill_1MB.input")
@@ -81,6 +76,7 @@ input_path[AnmalZoo.ExactMath] = os.path.join(_base_address, "ExactMath/inputs/e
 input_path[AnmalZoo.Ranges1] = os.path.join(_base_address, "Ranges1/inputs/ranges1_depth_s0_p0.75.trace.input")
 input_path[AnmalZoo.Ranges05] = os.path.join(_base_address, "Ranges05/inputs/ranges05_depth_s0_p0.75.trace.input")
 input_path[AnmalZoo.TCP] = os.path.join(_base_address, "TCP/inputs/tcp_depth_s0_p0.75.trace.input")
+input_path[AnmalZoo.Custom] = os.path.join(_base_address, "Custom/inputs/input.inp")
 
 
 

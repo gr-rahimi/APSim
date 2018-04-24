@@ -65,7 +65,7 @@ def generate_semi_diagonal_route(basic_block_size, one_dir_copy):
 
 
 def minimize_automata(automata):
-    automata.combile_finals_with_same_symbol_set()
+    #automata._combine_finals_with_same_symbol_set()
     original_node_count = automata.get_number_of_nodes(True)
     while True:
         current_node_cont = automata.get_number_of_nodes(True)
@@ -160,13 +160,21 @@ def get_switch_count(switch_layout):
     return sum(sum_list)
 
 
+def get_star_symbol_set(stride_val):
+    if stride_val == 1:
+        return (0,255)
+    else:
+        return (get_star_symbol_set(stride_val/2),get_star_symbol_set(stride_val/2))
 
 
 
 
+def generate_input(automaton, input_len, file_name):
+    buf= bytearray()
 
-
-
+    with open(file_name, 'wb') as f:
+        for i in range(0,input_len, automaton.get_stride_value()):
+            pass
 
 
 

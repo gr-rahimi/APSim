@@ -215,6 +215,12 @@ class Automatanetwork(object):
         """
         return len(self._my_graph) - without_fake_root # minus one because of fake root
 
+
+    def pick_random_symbol(self, src_ste):
+        out_edges = self._my_graph.out_edges(src_ste, data = True, keys = False)
+
+
+
     def get_number_of_edges(self):
         return self._my_graph.number_of_edges() - self.get_number_of_start_nodes() # there is a fake edge between fake root and all srtart nodes
 
@@ -231,10 +237,10 @@ class Automatanetwork(object):
     def get_single_stride_graph(self):
         """
         This function make a new graph with single stride
-        It assumes that the graph in cyrrent state is a homogeneous graph
+        It assumes that the graph in current state is a homogeneous graph
         :return: a graph with a single step stride
         """
-        assert self.is_homogeneous() and not self.does_have_all_input(), "Automata should be in homogenous mode and without all input nodes"
+        assert not self.does_have_all_input(), "Automata should be in homogenous mode and without all input nodes"
         dq = deque()
         self.unmark_all_nodes()
         strided_graph = Automatanetwork(id = self._id + "_S1",is_homogenous= False, stride= self.get_stride_value()*2)
@@ -247,6 +253,29 @@ class Automatanetwork(object):
             current_ste = dq.pop()
 
             for l1_neigh in self._my_graph.neighbors(current_ste):
+                if l1_neigh.is_report():
+                    if l1_neigh.get_id() + "A"+str(strided_graph.get_stride_value()) not in strided_graph._node_dict:
+                        semi_final_ste = S_T_E(start_type=StartType.unknown, is_report=True,
+                                               is_marked=False, id=l1_neigh.get_id() + "A"+str(strided_graph.get_stride_value()), symbol_set=None)
+                        strided_graph.add_element(semi_final_ste)
+
+
+                        star_symbol_set = utility.get_star_symbol_set(self.get_stride_value())
+                    if self.is_homogeneous(): # homogeneous case
+                        strided_graph.add_edge(strided_graph.get_STE_by_id(current_ste.get_id()),
+                                               strided_graph.get_STE_by_id(l1_neigh.get_id()+"A"+str(strided_graph.get_stride_value())),
+                                               label=tuple((span1, star_symbol_set) for span1 in l1_neigh.get_symbols()),
+                                               start_type=l1_neigh.get_start() if current_ste.get_start() == StartType.fake_root else StartType.non_start)
+                    else: # non homogeneous case
+                        l1_edges = self._my_graph.out_edges(current_ste, data=True, keys=False)
+                        l1_edges = filter(lambda x: x[1] == l1_neigh, l1_edges)
+                        for l1_edge in  l1_edges:
+                            strided_graph.add_edge(strided_graph.get_STE_by_id(current_ste.get_id()),
+                                                   strided_graph.get_STE_by_id(l1_neigh.get_id() + "A"+str(strided_graph.get_stride_value())),
+                                                   label=tuple((span1, star_symbol_set) for span1 in l1_edge[2]['label']),
+                                                   start_type=l1_edge[2]['start_type'] if current_ste.get_start() == StartType.fake_root else StartType.non_start
+                                                   )
+
                 for l2_neigh in self._my_graph.neighbors(l1_neigh):
                     if not l2_neigh.is_marked():
 
@@ -255,14 +284,38 @@ class Automatanetwork(object):
                         strided_graph.add_element(temp_ste)
                         l2_neigh.set_marked(True)
                         dq.appendleft(l2_neigh)
-
-                    strided_graph.add_edge(strided_graph.get_STE_by_id(current_ste.get_id()), strided_graph.get_STE_by_id(l2_neigh.get_id()),
+                    if self.is_homogeneous(): # for homogeneous case
+                        strided_graph.add_edge(strided_graph.get_STE_by_id(current_ste.get_id()), strided_graph.get_STE_by_id(l2_neigh.get_id()),
                                            label=tuple((span1, span2) for span1 in l1_neigh.get_symbols() for span2 in l2_neigh.get_symbols()),
                                            start_type = l1_neigh.get_start() if current_ste.get_start() == StartType.fake_root else StartType.non_start)
+                    else: # non homogeneous case
+                        l1_edges = self._my_graph.out_edges(current_ste, data = True, keys = False)
+                        l1_edges = filter(lambda x: x[1] == l1_neigh, l1_edges)
+                        l2_edges = self._my_graph.out_edges(l1_neigh, data=True, keys=False)
+                        l2_edges = filter(lambda x: x[1] == l2_neigh, l2_edges)
+
+                        for l1_edge in l1_edges:
+                            for l2_edge in l2_edges:
+                                strided_graph.add_edge(strided_graph.get_STE_by_id(current_ste.get_id()), strided_graph.get_STE_by_id(l2_neigh.get_id()),
+                                               label=tuple(
+                                                   (span1, span2) for span1 in l1_edge[2]['label'] for span2 in
+                                                   l2_edge[2]['label']),
+                                                    start_type=l1_edge[2]['start_type'] if current_ste.get_start() == StartType.fake_root else StartType.non_start
+                                               )
+
+
 
         #strided_graph.draw_graph("mid_graph", draw_edge_label= True)
         #strided_graph.make_homogenous()
         return strided_graph
+
+    def _refine_edges(self):
+        """
+        this function removes the redundant edges
+        :return:
+        """
+        assert not self.is_homogeneous(), "this function has been targeted for non homogeneous automatas"
+        pass
 
 
     def get_number_of_start_nodes(self):
@@ -693,6 +746,7 @@ class Automatanetwork(object):
         print"********************Automata Report********************"
         print "report for", self._id
         print "Number of nodes: ", self.get_number_of_nodes(True)
+        print "Number of edges: ", self.get_number_of_edges()
         print "Number of start nodes", self.get_number_of_start_nodes()
         print "Number of report nodes", self.get_number_of_report_nodes()
         print "does have all_input? ", self.does_have_all_input()
@@ -705,7 +759,7 @@ class Automatanetwork(object):
         print "#######################################################"
 
 
-    def combile_finals_with_same_symbol_set(self):
+    def _combine_finals_with_same_symbol_set(self):
         """
         This function merges all the final nodes that
         does not have self loop and out edge, but with the same symbol sets
@@ -958,6 +1012,11 @@ class Automatanetwork(object):
 
                 input = bytearray(input)
 
+                ##
+                #for i in range(len(input)):
+                #    input[i] = input[i] % 4
+                ##
+
                 is_report, new_active_states = self._find_next_states(current_active_states=active_states, input=input)
 
                 if self.is_homogeneous():
@@ -1050,7 +1109,7 @@ class Automatanetwork(object):
 
     def get_connected_components_as_automatas(self):
         assert not self.does_have_special_elements(), "This function does not support automatas with special elements"
-        assert self.is_homogeneous(), "Graph should be in homogeneous state"
+        #assert self.is_homogeneous(), "Graph should be in homogeneous state"
         undirected_graph = self._my_graph.to_undirected()
         undirected_graph.remove_node("fake_root")
         ccs =  nx.connected_components(undirected_graph)

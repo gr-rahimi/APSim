@@ -186,6 +186,42 @@ class S_T_E(BaseElement):
     def is_S_T_E(self):
         return True
 
+    # def is_symbolset_a_subsetof_self_symbolset(self, other_symbol_set):
+    #     """
+    #
+    #     :param other_symbol_set: the symbol set that is going to be checked
+    #     :return: true if the input symbol set is a subset of the current subset
+    #     """
+    #     my_symbol_set = sorted(self.get_symbols())
+    #     other_symbol_set = sorted(other_symbol_set)
+    #
+    #     dim_size = _get_symbol_dim(other_symbol_set[0])
+    #     assert dim_size == _get_symbol_dim(self.get_symbols()[0]), "dimesnsions should be equal"
+    #
+    #     def cube_point_generator(interval):
+    #         from itertools import product
+    #
+    #         product_generator = product([0,1], repeat = dim_size)
+    #
+    #         def point_calculator(x ,p , d):
+    #             if d == 1:
+    #                 return [x[p[0]]]
+    #             else:
+    #                 return point_calculator(x[0], p[0:len(p)/2], d/2) + (point_calculator(x[1], p[len(p)/2:], d/2))
+    #
+    #         for p in product_generator:
+    #             yield point_calculator(interval, p, dim_size)
+    #
+    #     for interval in other_symbol_set:
+    #         g = cube_point_generator(interval)
+    #         for point in g:
+    #             can_accept , _ =self.can_accept(point)
+    #             if can_accept:
+    #                 continue
+    #             else:
+    #                 return False
+    #     return  True
+
     def is_symbolset_a_subsetof_self_symbolset(self, other_symbol_set):
         """
 
@@ -198,28 +234,19 @@ class S_T_E(BaseElement):
         dim_size = _get_symbol_dim(other_symbol_set[0])
         assert dim_size == _get_symbol_dim(self.get_symbols()[0]), "dimesnsions should be equal"
 
-        def cube_point_generator(interval):
-            from itertools import product
-
-            product_generator = product([0,1], repeat = dim_size)
-
-            def point_calculator(x ,p , d):
-                if d == 1:
-                    return [x[p[0]]]
-                else:
-                    return point_calculator(x[0], p[0:len(p)/2], d/2) + (point_calculator(x[1], p[len(p)/2:], d/2))
-
-            for p in product_generator:
-                yield point_calculator(interval, p, dim_size)
-
-        for interval in other_symbol_set:
-            g = cube_point_generator(interval)
-            for point in g:
-                can_accept , _ =self.can_accept(point)
+        start_idx = 0
+        for input_interval in other_symbol_set:
+            for dst_interval in my_symbol_set[start_idx:]:
+                can_accept = self._check_interval([input_interval[0]],dst_interval) and\
+                             self._check_interval([input_interval[1]], dst_interval)
+                start_idx += 1
                 if can_accept:
-                    continue
+                    break
                 else:
-                    return False
+                    continue
+
+            if not can_accept:
+                return False
         return  True
 
 
