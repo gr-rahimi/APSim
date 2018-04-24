@@ -6,6 +6,7 @@ APSim uses NetworkX as its underlying data straucture to maintain the automataon
 APSim works closely with [ANMLZoo](https://github.com/jackwadden/ANMLZoo).
 
 There are two steps required to use APSim:
-First: in CPP folder, run comile.sh script.
-Second: after cloning ANMLZoo, just update the path in  anml_zoo.py (_base_address) to directly use them in APSim.
+
+* In CPP folder, run comile.sh script.
+* After cloning ANMLZoo, just update the path in  anml_zoo.py (_base_address) to directly use them in APSim.
 
