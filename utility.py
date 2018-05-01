@@ -64,13 +64,17 @@ def generate_semi_diagonal_route(basic_block_size, one_dir_copy):
 
 
 
-def minimize_automata(automata):
-    #automata._combine_finals_with_same_symbol_set()
+def minimize_automata(automata, merge_reports = False, same_residuals_only = False):
     original_node_count = automata.get_number_of_nodes(True)
+
+
     while True:
         current_node_cont = automata.get_number_of_nodes(True)
+        print current_node_cont
+        if merge_reports:
+            automata._combine_finals_with_same_symbol_set(same_residuals_only= same_residuals_only)
         automata.left_merge()
-        automata.right_merge()
+        #automata.right_merge()
         automata.combine_symbol_sets()
         new_node_count = automata.get_number_of_nodes(True)
         assert new_node_count<= current_node_cont, "it should always be smaller"
@@ -176,11 +180,41 @@ def generate_input(automaton, input_len, file_name):
         for i in range(0,input_len, automaton.get_stride_value()):
             pass
 
+def symbol_range_border_extractor(symbol_range, map):
+    """
+
+    :param symbol_range: a symbol range like ((0,5),(0,255)) =>0*
+    :param map: a bit wise mapping to extract boundry => [0,1] => [0,255], [1,1] => [5,255] etc.
+    :return: border point
+    """
+    l = len(map)
+    assert _get_symbol_dim(symbol_range) == l, "length of map should be half of the input range"
+
+
+    if l == 1:
+        return [symbol_range[map[0]]]
+    else:
+        out_list = symbol_range_border_extractor(symbol_range[0], map[0:l/2])
+        out_list.extend(symbol_range_border_extractor(symbol_range[1], map[l/2:]))
+        return out_list
 
 
 
 
 
+def _get_symbol_dim(input_symbol):
+    import collections
+    if not isinstance(input_symbol, collections.Sequence):
+        return 0.5
+    else:
+        return int(2 * _get_symbol_dim(input_symbol[0]))
 
 
 
+def _is_symbol_set_sorted(symbol_set):
+    if not symbol_set:  # fake root has None symbol set
+        return  True
+    for  prev_pt, next_pt in zip(symbol_set[:-1], symbol_set[1:]):
+        if next_pt< prev_pt:
+            return False
+    return  True

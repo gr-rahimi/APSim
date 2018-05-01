@@ -2,13 +2,13 @@ import automata as atma
 from automata.automata_network import compare_input, compare_strided
 from anml_zoo import anml_path,input_path,AnmalZoo
 from tqdm import tqdm
+tqdm.monitor_interval = 0
 import pickle
 from utility import minimize_automata
 
 
-
 for automata_name, automata_path in anml_path.iteritems():
-    if automata_name != AnmalZoo.Custom:
+    if automata_name != AnmalZoo.Levenshtein:
         continue
     automata = atma.parse_anml_file(automata_path)
     print "Finished processing from anml file. Here is the summary", str(automata_name)
@@ -19,17 +19,37 @@ for automata_name, automata_path in anml_path.iteritems():
 
     orig_automatas = automata.get_connected_components_as_automatas()
 
-    for orig_cc in tqdm(orig_automatas, unit="automata"):
-
+    for orig_cc_idx, orig_cc in tqdm(enumerate(orig_automatas[2:]), unit="automata"):
+        print "Start processing CC", orig_cc_idx
         orig_cc.remove_all_start_nodes()
         minimize_automata(orig_cc)
-        print "original automata:"
-        orig_cc.print_summary()
+        orig_cc.print_summary(logo="OH")
+        #orig_cc.draw_graph("orig.svg", use_dot= True)
+        print orig_cc.get_number_of_start_nodes()
         fst_st_atm = orig_cc.get_single_stride_graph()
-        sec_st_atm = fst_st_atm.get_single_stride_graph()
-        thd_st_atm = sec_st_atm.get_single_stride_graph()
-        thd_st_atm.make_homogenous()
-        thd_st_atm.print_summary()
+        fst_st_atm = orig_cc.get_single_stride_graph()
+        #fst_st_atm = fst_st_atm.get_single_stride_graph()
+        #fst_st_atm = fst_st_atm.get_single_stride_graph()
+        #fst_st_atm = fst_st_atm.get_single_stride_graph()
+        fst_st_atm.print_summary(logo = "SN")
+        #fst_st_atm.draw_graph("nonhomo_fst.svg",use_dot= True)
+
+        fst_st_atm.make_homogenous()
+        fst_st_atm.print_summary(logo="SH")
+        #fst_st_atm.draw_graph("homo_fst.svg", use_dot=True)
+
+
+        minimize_automata(fst_st_atm,merge_reports= True, same_residuals_only= True)
+
+
+        #fst_st_atm.draw_graph("homo_fst_minimized.svg", use_dot=True)
+        fst_st_atm.print_summary(logo="SHM")
+
+        atma.compare_input(True, True, input_path[automata_name], orig_cc, fst_st_atm)
+
+
+
+
         #frt_st_atm = thd_st_atm.get_single_stride_graph()
 
         #frt_st_atm.make_homogenous()
@@ -45,7 +65,7 @@ for automata_name, automata_path in anml_path.iteritems():
 
 
 
-        atma.compare_input(True,input_path[automata_name], orig_cc, thd_st_atm)
+
 
 
 

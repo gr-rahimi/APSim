@@ -1,6 +1,7 @@
 import networkx as nx
 import CPP.VASim as VASim
 from element import BaseElement, StartType
+import utility
 
 class S_T_E(BaseElement):
     known_attributes = {'start', 'symbol-set', 'id'}
@@ -9,14 +10,17 @@ class S_T_E(BaseElement):
 
 
 
-    def __init__(self, start_type, is_report, is_marked = False, id = None, symbol_set= set(), adjacent_S_T_E_s = []):
+    def __init__(self, start_type, is_report, is_marked = False, id = None, symbol_set= set(), adjacent_S_T_E_s = [],
+                 report_residual = -1):
         super(S_T_E, self).__init__(is_report = is_report, is_marked = is_marked, id = id)
         self._start_type = start_type
         #assert _is_symbol_set_sorted(symbol_set), "symbol set should be sorted"
         self._symbol_set = symbol_set
         self._adjacent_S_T_Es = adjacent_S_T_E_s
-
         self._mark_idx = -1
+        assert not is_report or report_residual > -1, "for report states, report residual should be a valid number"
+        self._report_residual = report_residual
+
 
     def set_mark_idx(self, idx):
         self._mark_idx = idx
@@ -87,6 +91,7 @@ class S_T_E(BaseElement):
 
         parameter_dict['adjacent_S_T_E_s'] = adjacent_S_T_E_s
         parameter_dict['is_report'] = is_report
+        parameter_dict['report_residual'] = 0 if is_report else -1
 
         return S_T_E(**parameter_dict)
 
@@ -173,15 +178,15 @@ class S_T_E(BaseElement):
 
         return (False, False)
 
-    def _check_interval(self, input, symbol_set):
-        assert len(symbol_set) == 2
+    def _check_interval(self, input, symbol_interval):
+        assert len(symbol_interval) == 2
         if len(input) ==1:
-            left_margin , right_margin = symbol_set
+            left_margin , right_margin = symbol_interval
             can_accept = left_margin<=input[0] and input[0]<= right_margin
             return  can_accept
         else:
-            return self._check_interval(input[:len(input)/2],symbol_set[0]) and\
-                   self._check_interval(input[len(input)/2:],symbol_set[1])
+            return self._check_interval(input[:len(input)/2], symbol_interval[0]) and \
+                   self._check_interval(input[len(input)/2:], symbol_interval[1])
 
     def is_S_T_E(self):
         return True
@@ -222,6 +227,8 @@ class S_T_E(BaseElement):
     #                 return False
     #     return  True
 
+
+
     def is_symbolset_a_subsetof_self_symbolset(self, other_symbol_set):
         """
 
@@ -231,14 +238,19 @@ class S_T_E(BaseElement):
         my_symbol_set = sorted(self.get_symbols())
         other_symbol_set = sorted(other_symbol_set)
 
-        dim_size = _get_symbol_dim(other_symbol_set[0])
-        assert dim_size == _get_symbol_dim(self.get_symbols()[0]), "dimesnsions should be equal"
+        dim_size = utility._get_symbol_dim(other_symbol_set[0])
+        assert dim_size == utility._get_symbol_dim(self.get_symbols()[0]), "dimesnsions should be equal"
+
+
 
         start_idx = 0
         for input_interval in other_symbol_set:
+            left_point = utility.symbol_range_border_extractor(input_interval,[0] * dim_size)
+            right_point = utility.symbol_range_border_extractor(input_interval, [1] * dim_size)
             for dst_interval in my_symbol_set[start_idx:]:
-                can_accept = self._check_interval([input_interval[0]],dst_interval) and\
-                             self._check_interval([input_interval[1]], dst_interval)
+
+                can_accept = self._check_interval(left_point,dst_interval) and self._check_interval(right_point,dst_interval)
+
                 start_idx += 1
                 if can_accept:
                     break
@@ -250,6 +262,9 @@ class S_T_E(BaseElement):
         return  True
 
 
+    @property
+    def report_residual(self):
+        return self._report_residual
 
 
 
@@ -264,20 +279,11 @@ class S_T_E(BaseElement):
 
 
 
-def _is_symbol_set_sorted(symbol_set):
-    if not symbol_set:  # fake root has None symbol set
-        return  True
-    for  prev_pt, next_pt in zip(symbol_set[:-1], symbol_set[1:]):
-        if next_pt< prev_pt:
-            return False
-    return  True
 
-def _get_symbol_dim(input_symbol):
-    import collections
-    if not isinstance(input_symbol, collections.Sequence):
-        return 0.5
-    else:
-        return int(2 * _get_symbol_dim(input_symbol[0]))
+
+
+
+
 
 
 

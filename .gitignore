@@ -15,3 +15,4 @@ avg_heat_mapResults/
 *.zip
 Results/
 avg_heat_mapResults_with_each/
+*.svg
