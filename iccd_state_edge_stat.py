@@ -44,13 +44,15 @@ for automata_name, automata_path in anml_path.iteritems():
             result.append((scc.get_number_of_nodes(without_fake_root=True), scc.get_number_of_edges()))
             minimize_automata(scc, merge_reports = False, same_residuals_only = False, same_report_code = False)
             result.append((scc.get_number_of_nodes(without_fake_root=True), scc.get_number_of_edges()))
-            minimize_automata(scc, merge_reports=True, same_residuals_only=False, same_report_code=False)
+            minimize_automata(scc, merge_reports=True, same_residuals_only=True, same_report_code=True)
             result.append((scc.get_number_of_nodes(without_fake_root=True), scc.get_number_of_edges()))
             minimize_automata(scc, merge_reports=True, same_residuals_only=True, same_report_code=False)
             result.append((scc.get_number_of_nodes(without_fake_root=True), scc.get_number_of_edges()))
-            minimize_automata(scc, merge_reports=True, same_residuals_only=True, same_report_code=True)
+            minimize_automata(scc, merge_reports=True, same_residuals_only=False, same_report_code=False)
             result.append((scc.get_number_of_nodes(without_fake_root=True), scc.get_number_of_edges()))
             total_result.append(result)
+            
+    del orig_automatas, strides_list
 
     with open(os.path.join(result_path, str(automata_name)+".csv"), 'w') as csvfile:
         field_names = ['Snn','Sne','SHnn','SHne',
