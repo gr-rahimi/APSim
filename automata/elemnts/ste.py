@@ -11,15 +11,16 @@ class S_T_E(BaseElement):
 
 
     def __init__(self, start_type, is_report, is_marked = False, id = None, symbol_set= set(), adjacent_S_T_E_s = [],
-                 report_residual = -1):
+                 report_residual = -1, report_code = None):
         super(S_T_E, self).__init__(is_report = is_report, is_marked = is_marked, id = id)
         self._start_type = start_type
         #assert _is_symbol_set_sorted(symbol_set), "symbol set should be sorted"
         self._symbol_set = symbol_set
         self._adjacent_S_T_Es = adjacent_S_T_E_s
         self._mark_idx = -1
-        assert not is_report or report_residual > -1, "for report states, report residual should be a valid number"
+        assert not is_report or report_residual > 0, "for report states, report residual should be a valid number"
         self._report_residual = report_residual
+        self._report_code = report_code
 
 
     def set_mark_idx(self, idx):
@@ -74,6 +75,7 @@ class S_T_E(BaseElement):
 
         adjacent_S_T_E_s = []
         is_report = False
+        report_code = None
 
         for child in xml_node:
             if child.tag == 'activate-on-match':
@@ -84,6 +86,8 @@ class S_T_E(BaseElement):
                 S_T_E._check_validity_rom(child)
                 # TODO we should consider reportcode
                 is_report = True
+                if "reportcode" in child.attrib:
+                    report_code = child.attrib['reportcode']
             elif child.tag == 'layout':
                 continue  # Elaheh said it is not important
             else:
@@ -91,7 +95,8 @@ class S_T_E(BaseElement):
 
         parameter_dict['adjacent_S_T_E_s'] = adjacent_S_T_E_s
         parameter_dict['is_report'] = is_report
-        parameter_dict['report_residual'] = 0 if is_report else -1
+        parameter_dict['report_code'] = report_code
+        parameter_dict['report_residual'] = 1 if is_report else -1 # we assume the anml files are single strided
 
         return S_T_E(**parameter_dict)
 
@@ -251,10 +256,10 @@ class S_T_E(BaseElement):
 
                 can_accept = self._check_interval(left_point,dst_interval) and self._check_interval(right_point,dst_interval)
 
-                start_idx += 1
                 if can_accept:
                     break
                 else:
+                    start_idx += 1
                     continue
 
             if not can_accept:
@@ -265,6 +270,12 @@ class S_T_E(BaseElement):
     @property
     def report_residual(self):
         return self._report_residual
+
+    @property
+    def report_code(self):
+        return self._report_code
+
+
 
 
 
