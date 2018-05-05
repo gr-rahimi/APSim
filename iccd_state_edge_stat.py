@@ -18,8 +18,10 @@ else:
     os.makedirs(result_path)  # make directory if it does not exist
 
 for automata_name, automata_path in anml_path.iteritems():
-    if automata_name == AnmalZoo.Custom:
+    if automata_name == AnmalZoo.Custom or automata_name == AnmalZoo.Synthetic_CoreRings or\
+                    automata_name == AnmalZoo.TCP:
         continue
+
 
     print "start processing ", str(automata_name)
 
@@ -51,8 +53,8 @@ for automata_name, automata_path in anml_path.iteritems():
             minimize_automata(scc, merge_reports=True, same_residuals_only=False, same_report_code=False)
             result.append((scc.get_number_of_nodes(without_fake_root=True), scc.get_number_of_edges()))
             total_result.append(result)
-            
-    del orig_automatas, strides_list
+
+    del orig_automatas, strides_list, automata
 
     with open(os.path.join(result_path, str(automata_name)+".csv"), 'w') as csvfile:
         field_names = ['Snn','Sne','SHnn','SHne',

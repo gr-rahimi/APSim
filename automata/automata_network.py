@@ -354,6 +354,73 @@ class Automatanetwork(object):
         self._my_graph.remove_node(node)
         del self._node_dict[node.get_id()]
 
+
+    def _make_homogeneous_STE(self, current_ste, delete_original_ste):
+        """
+
+        :param current_ste: the STE that needs to be homogeneos
+        :return:
+        """
+
+        src_dict_non_start = {}
+        src_dict_all_start = {}
+        src_dict_start_of_data = {}
+
+        # src_nodes = list(self._my_graph.predecessors(current_ste))
+        # edges = self._my_graph.edges(src_nodes, data = True, keys = False)
+        edges = self._my_graph.in_edges(current_ste, data=True, keys=False)
+
+        for edge in edges:
+
+            label = edge[2]['label']
+            start_type = edge[2]['start_type']
+
+            if start_type == StartType.non_start:
+                src_dict_non_start.setdefault(edge[0], set()).update(label)
+            elif start_type == StartType.start_of_data:
+                src_dict_start_of_data.setdefault(edge[0], set()).update(label)
+            elif start_type == StartType.all_input:
+                src_dict_all_start.setdefault(edge[0], set()).update(label)
+            else:
+                assert False  # It should not happen
+
+        new_nodes = []
+        new_all_input_nodes = self._make_homogenous_node(curr_node=current_ste, connectivity_dic=src_dict_all_start,
+                                                         start_type=StartType.all_input)
+        new_nodes.extend(new_all_input_nodes)
+
+        new_start_of_data_nodes = self._make_homogenous_node(curr_node=current_ste,
+                                                             connectivity_dic=src_dict_start_of_data,
+                                                             start_type=StartType.start_of_data)
+        new_nodes.extend(new_start_of_data_nodes)
+
+        new_non_start_nodes = self._make_homogenous_node(curr_node=current_ste, connectivity_dic=src_dict_non_start,
+                                                         start_type=StartType.non_start)
+        new_nodes.extend(new_non_start_nodes)
+
+        if current_ste in self._my_graph.neighbors(current_ste):  # handling self loop nodes
+
+            for neighb, on_edge_char_set in src_dict_non_start.iteritems():
+                if neighb == current_ste:
+                    self_loop_handler = S_T_E(start_type=StartType.non_start, is_report=current_ste.is_report(),
+                                              is_marked=True, id=self._get_new_id(),
+                                              symbol_set=on_edge_char_set,
+                                              report_residual=current_ste.report_residual,
+                                              report_code=current_ste.report_code)  # self loop handlers are always non start nodes
+                    self.add_element(self_loop_handler)
+                    self.add_edge(self_loop_handler, self_loop_handler)
+                    for node in new_nodes:
+                        self.add_edge(node, self_loop_handler)
+
+                    out_edges = self._my_graph.out_edges(current_ste, data=True, keys=False)
+                    for edge in out_edges:
+                        if edge[0] == edge[1]:  # self loop node
+                            continue
+                        self.add_edge(self_loop_handler, edge[1], label=edge[2]['label'],
+                                      start_type=edge[2]['start_type'])
+        if delete_original_ste:
+            self.delete_node(current_ste)
+
     def make_homogenous(self):
         """
         :return:
@@ -380,64 +447,8 @@ class Automatanetwork(object):
                     neighb.set_marked(True)
                     dq.appendleft(neighb)
 
-            src_dict_non_start = {}
-            src_dict_all_start = {}
-            src_dict_start_of_data = {}
+            self._make_homogeneous_STE(current_ste= current_ste, delete_original_ste = True)
 
-            #src_nodes = list(self._my_graph.predecessors(current_ste))
-            #edges = self._my_graph.edges(src_nodes, data = True, keys = False)
-            edges = self._my_graph.in_edges(current_ste, data = True, keys = False)
-
-
-            for edge in edges:
-
-                label = edge[2]['label']
-                start_type = edge[2]['start_type']
-
-                if start_type == StartType.non_start:
-                    src_dict_non_start.setdefault(edge[0], set()).update(label)
-                elif start_type == StartType.start_of_data:
-                    src_dict_start_of_data.setdefault(edge[0], set()).update(label)
-                elif start_type == StartType.all_input:
-                    src_dict_all_start.setdefault(edge[0], set()).update(label)
-                else:
-                    assert False # It should not happen
-
-            new_nodes = []
-            new_all_input_nodes = self._make_homogenous_node(curr_node = current_ste, connectivity_dic = src_dict_all_start,
-                                       start_type = StartType.all_input )
-            new_nodes.extend(new_all_input_nodes)
-
-            new_start_of_data_nodes = self._make_homogenous_node(curr_node=current_ste, connectivity_dic=src_dict_start_of_data,
-                                       start_type=StartType.start_of_data)
-            new_nodes.extend(new_start_of_data_nodes)
-
-            new_non_start_nodes =  self._make_homogenous_node(curr_node=current_ste, connectivity_dic=src_dict_non_start,
-                                       start_type=StartType.non_start)
-            new_nodes.extend(new_non_start_nodes)
-
-            if current_ste in self._my_graph.neighbors(current_ste): # handling self loop nodes
-
-                for neighb, on_edge_char_set in src_dict_non_start.iteritems():
-                    if neighb == current_ste:
-                        self_loop_handler = S_T_E(start_type = StartType.non_start, is_report= current_ste.is_report(),
-                                                  is_marked= True, id =  self._get_new_id(),
-                                                  symbol_set= on_edge_char_set,
-                                                  report_residual = current_ste.report_residual,
-                                                  report_code=current_ste.report_code) #self loop handlers are always non start nodes
-                        self.add_element(self_loop_handler)
-                        self.add_edge(self_loop_handler, self_loop_handler)
-                        for node in new_nodes:
-                            self.add_edge(node, self_loop_handler)
-
-                        out_edges = self._my_graph.out_edges(current_ste, data= True, keys = False)
-                        for edge in out_edges:
-                            if edge[0] == edge[1]: # self loop node
-                                continue
-                            self.add_edge(self_loop_handler, edge[1], label = edge[2]['label'], start_type = edge[2]['start_type'])
-
-
-            self.delete_node(current_ste)
 
         self._is_homogeneous = True
 
@@ -1793,6 +1804,7 @@ def compare_strided(only_report, file_path,*automatas ):
 def compare_real_approximate(file_path, automata):
     stride_value = automata.get_stride_value()
     false_reports_exact, false_actives, false_reports_each_cycle, true_total_reports = 0, 0, 0, 0
+    false_stat_per_state={}
     real_atm_gen, apprx_atm_gen = automata.feed_file(file_path), automata.emulate_AP(file_path)
 
     def print_results():
@@ -1808,7 +1820,7 @@ def compare_real_approximate(file_path, automata):
             appx_active_states, appx_is_report, appx_report_residual_details = next(apprx_atm_gen)
 
             real_minus_app = real_active_states - appx_active_states
-            assert len(real_minus_app) == 0, "this brings false positive under question"
+            #assert len(real_minus_app) == 0, "this brings false positive under question"
 
             app_minus_real = appx_active_states - real_active_states
 
@@ -1817,15 +1829,21 @@ def compare_real_approximate(file_path, automata):
             false_reports_each_cycle += 1 if real_is_report != appx_is_report else 0
             true_total_reports += sum([1 if real_ste.is_report() else 0 for real_ste in real_active_states])
 
+            for app_ste in app_minus_real:
+                false_stat_per_state[app_ste] = false_stat_per_state.get(app_ste, 0) + 1
+
 
             itr+=1
-            if itr % 1000 == 0:
+            if itr % 100000 == 0:
                 print_results()
+                break
+
 
     except StopIteration:
         pass
 
     print_results()
+    return false_actives, false_reports_exact, false_reports_each_cycle, true_total_reports
 
 
 def compare_input(only_report, check_residuals, file_path, *automatas):
@@ -1855,7 +1873,7 @@ def compare_input(only_report, check_residuals, file_path, *automatas):
                 assert total_report_residual_details[-1]==result[0][2][-1] # check report states
                 if check_residuals:
                     assert len(total_report_residual_details) == max_stride, "This is a fact"
-                    for report_op1,report_op2  in zip(report_residual_details,result[0][2]):
+                    for report_op1,report_op2  in zip(report_residual_details, result[0][2]):
                         assert report_op1 == report_op2, "This should not happen!"
                 if not only_report:
                     assert active_state == result[0][0] # check current states

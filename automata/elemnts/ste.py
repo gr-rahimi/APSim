@@ -3,6 +3,13 @@ import CPP.VASim as VASim
 from element import BaseElement, StartType
 import utility
 
+class SymbolSet(object):
+    def __init__(self, symbols = ()):
+        self._symbol_set = set(symbols)
+
+
+
+
 class S_T_E(BaseElement):
     known_attributes = {'start', 'symbol-set', 'id'}
     aom_known_attributes = {'element'}
