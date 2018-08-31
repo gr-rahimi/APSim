@@ -4,17 +4,6 @@
 *.pyc
 *.so
 *.png
-ANMLZoo/
 *.pkl
-snort/
-AnmalZoo.Brill/
-AnmalZoo.EntityResolution/
-AnmalZoo.Fermi/
-AnmalZoo.Levenshtein/
-avg_heat_mapResults/
 *.zip
-Results/
-avg_heat_mapResults_with_each/
 *.svg
-CSV_ICCD/
-APPX_CSV_ICCD/
