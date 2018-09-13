@@ -1,4 +1,6 @@
 from enum import Enum
+from abc import ABCMeta, abstractproperty
+from . import ElementsType
 
 class StartType(Enum):
     non_start = 0
@@ -8,46 +10,90 @@ class StartType(Enum):
     fake_root = 4
 
 class BaseElement(object):
+    known_attributes = {'id'}
 
-    def __init__(self, is_report, is_marked = False, id = None):
+    __metaclass__ = ABCMeta
+
+    def __init__(self, is_report, is_marked , id, start_type,
+                 report_residual, adjacent_nodes, report_code, original_id=None ):
         self._is_report = is_report
         self._marked = is_marked
         self._id = id
+        self._start_type = start_type
 
         '''
         when we make the automata form XML node,
         we need this to build the graph after parsing the whole xmldelete_adjacency_list
         '''
-        self._adjacent_S_T_Es = []
+        #TODO renme this from STE to something general
+        self._adjacent_S_T_Es = adjacent_nodes
+        assert not is_report or report_residual >= 0, "for report states, report residual should be a valid number"
+        self._report_residual = report_residual
+        self._report_code = report_code
+        self.original_id = original_id
 
-    @classmethod
-    def get_element_type(cls):
-        return cls.__name__
+        #TODO is this property still necessary? better to be removed or move to a base class
+        #this is used for labeling
+        self._mark_idx = -1
+
+
+    @property
+    def mark_index(self):
+        return self._mark_idx
+
+    @mark_index.setter
+    def mark_index(self, idx):
+        self._mark_idx = idx
+
+    @abstractproperty
+    def type(self):
+        pass
 
     def __hash__(self):
-        return hash(self._id)
+        return hash(self.id)
 
+    #TODO should we check the instance of other? Now only networkx can use it
     def __eq__(self, other):
-        return self._id == str(other)
+        return self.id == other
 
     def __str__(self):
-        return  self._id
+        return  str(self.id)
 
     def __repr__(self):
-        return self._id
+        return self.id
 
-    def is_marked(self):
+    @property
+    def marked(self):
         return self._marked
 
-    def set_marked(self, m):
-        self._marked = m
+    @marked.setter
+    def marked(self, marked):
+        self._marked = marked
 
-    def is_report(self):
+    #TODO rename to is_report
+    @property
+    def report(self):
         return self._is_report
 
-    def get_id(self):
+    @property
+    def id(self):
         return self._id
 
+    @property
+    def start_type(self):
+        return self._start_type
+
+    @start_type.setter
+    def start_type(self, start_type):
+        self._start_type = start_type
+
+    @property
+    def report_residual(self):
+        return self._report_residual
+
+    @property
+    def report_code(self):
+        return self._report_code
 
     def get_adjacency_list(self):
         return self._adjacent_S_T_Es
@@ -61,32 +107,58 @@ class BaseElement(object):
 
     @classmethod
     def from_xml_node_to_dict(cls, xml_node, attrib_dic):
-
+        attr_set = set(xml_node.attrib)
+        assert attr_set.issubset(cls.known_attributes)
         # find state id
-        attrib_dic['id'] = xml_node.attrib['id']
+        attrib_dic['original_id'] = xml_node.attrib['id']
 
 
     @classmethod
     def check_validity(cls, xml_node):
-        assert 'id' in xml_node.attrib
-
-    def is_S_T_E(self):
-        return  False
-
-    def is_OR(self):
-        return False
+        #TODO this need to be fixed. It brings ste attr that is not subset
+        return True
+        attr_set = set(xml_node.attrib)
+        assert attr_set.issubset(BaseElement.known_attributes)
 
     def is_special_element(self):
-        return False
-
-
+        if self.type == ElementsType.OR:
+            return True
+        else:
+            return False
 
     def is_start(self):
-        return  False # currently only STEs can be start elemnts
+        return self.start_type == StartType.all_input or\
+               self.start_type == StartType.start_of_data
 
-    def get_symbols(self):
-        return tuple()
+    def get_color(self):
 
-    def get_start(self):
-        return StartType.non_start
+        if self.start_type == StartType.fake_root:
+            return  (0,0,0,1) # Black
+        elif self.start_type == StartType.start_of_data:
+            return (0,1,0,1) # Green
+        elif self.start_type == StartType.all_input:
+            return (0,1,0,0.5) # Light Green
+        elif self.report:
+            return (0,0,1,1) # Blue
+        elif self.start_type == StartType.unknown:
+            return (1,1,0,1)  # Yellow
+        else:
+            return (1,0,0,1) # Red
+
+
+class FakeRoot(BaseElement):
+    fake_root_id = 0
+
+    def __init__(self):
+        super(FakeRoot, self).__init__(is_report=False, is_marked=False, id=FakeRoot.fake_root_id,
+                                       start_type=StartType.fake_root, report_residual=None,
+                                       adjacent_nodes=None,report_code=None)
+
+    @property
+    def type(self):
+        return ElementsType.FAKE_ROOT
+
+
+
+
 

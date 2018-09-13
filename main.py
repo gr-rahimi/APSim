@@ -8,11 +8,9 @@ from utility import minimize_automata
 
 automata1 = atma.parse_anml_file(anml_path[AnmalZoo.Snort])
 automata1.remove_ors()
-
-automata2 = atma.parse_anml_file(anml_path[AnmalZoo.Snort])
-automata2.remove_ors()
-
-atma.compare_input(True, input_path[AnmalZoo.Snort], automata1, automata2)
+automata1.print_summary()
+automatas = automata1.get_connected_components_as_automatas()
+automatas[0].print_summary()
 
 
 

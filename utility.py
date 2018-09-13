@@ -71,7 +71,7 @@ def minimize_automata(automata, merge_reports = False, same_residuals_only = Fal
         current_node_cont = automata.get_number_of_nodes(True)
         print current_node_cont
         if merge_reports:
-            automata._combine_finals_with_same_symbol_set(same_residuals_only=same_residuals_only,
+            automata.combine_finals_with_same_symbol_set(same_residuals_only=same_residuals_only,
                                                           same_report_code=same_report_code )
         automata.left_merge(merge_reports , same_residuals_only , same_report_code )
         automata.right_merge(merge_reports, same_residuals_only, same_report_code)
@@ -180,27 +180,6 @@ def generate_input(automaton, input_len, file_name):
         for i in range(0,input_len, automaton.get_stride_value()):
             pass
 
-def symbol_range_border_extractor(symbol_range, map):
-    """
-
-    :param symbol_range: a symbol range like ((0,5),(0,255)) =>0*
-    :param map: a bit wise mapping to extract boundry => [0,1] => [0,255], [1,1] => [5,255] etc.
-    :return: border point
-    """
-    l = len(map)
-    assert _get_symbol_dim(symbol_range) == l, "length of map should be half of the input range"
-
-
-    if l == 1:
-        return [symbol_range[map[0]]]
-    else:
-        out_list = symbol_range_border_extractor(symbol_range[0], map[0:l/2])
-        out_list.extend(symbol_range_border_extractor(symbol_range[1], map[l/2:]))
-        return out_list
-
-
-
-
 
 def _get_symbol_dim(input_symbol):
     import collections
@@ -218,3 +197,9 @@ def _is_symbol_set_sorted(symbol_set):
         if next_pt< prev_pt:
             return False
     return  True
+
+
+def multi_byte_stream(file_path, chunk_size):
+    with open(file_path,'rb') as f:
+        for read_bytes in iter(f.read(chunk_size, b'')):
+            yield bytearray(read_bytes)
