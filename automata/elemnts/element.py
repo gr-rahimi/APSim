@@ -9,6 +9,8 @@ class StartType(Enum):
     unknown = 3 # for non homogeneous graphs, yes but will be determined
     fake_root = 4
 
+
+
 class BaseElement(object):
     known_attributes = {'id'}
 
@@ -57,7 +59,12 @@ class BaseElement(object):
         return self.id == other
 
     def __str__(self):
-        return  str(self.id)
+        if self.report:
+            return str(self.id)+','+\
+                   str(self.report_code)+','+\
+                   str(self.report_residual)
+        else:
+            return str(self.id)
 
     def __repr__(self):
         return self.id
@@ -75,6 +82,10 @@ class BaseElement(object):
     def report(self):
         return self._is_report
 
+    @report.setter
+    def report(self, is_report):
+        self._is_report= is_report
+
     @property
     def id(self):
         return self._id
@@ -91,9 +102,17 @@ class BaseElement(object):
     def report_residual(self):
         return self._report_residual
 
+    @report_residual.setter
+    def report_residual(self, report_residual):
+        self._report_residual = report_residual
+
     @property
     def report_code(self):
         return self._report_code
+
+    @report_code.setter
+    def report_code(self, report_code):
+        self._report_code = report_code
 
     def get_adjacency_list(self):
         return self._adjacent_S_T_Es

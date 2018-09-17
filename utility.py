@@ -201,5 +201,5 @@ def _is_symbol_set_sorted(symbol_set):
 
 def multi_byte_stream(file_path, chunk_size):
     with open(file_path,'rb') as f:
-        for read_bytes in iter(f.read(chunk_size, b'')):
+        for read_bytes in iter(lambda: f.read(chunk_size), b''):
             yield bytearray(read_bytes)

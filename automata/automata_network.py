@@ -52,10 +52,11 @@ class Automatanetwork(object):
 
     @classmethod
     # this function is used in connecteed components detection
-    def _from_graph(cls, id ,is_homogenous, graph ,stride):
+    def _from_graph(cls, id ,is_homogenous, graph ,stride, last_assigned_id):
         assert is_homogenous, "graph should be in homogenous state"
 
         automata = Automatanetwork(id = id,is_homogenous = True, stride = stride)
+        automata.last_assigned_id = last_assigned_id
         del automata._my_graph
         automata._my_graph = graph
         automata.add_element(FakeRoot())
@@ -176,8 +177,32 @@ class Automatanetwork(object):
         if not 'start_type' in kwargs:
             kwargs['start_type'] = dest.start_type
 
-        self._my_graph.add_edge(src, dest, **kwargs)
+        self._my_graph.add_edge(src,dest,**kwargs)
         self._has_modified = True
+        return
+
+        if self.is_homogeneous:
+            if self._my_graph.has_edge(src, dest):
+                return
+            else:
+                self._my_graph.add_edge(src, dest, **kwargs)
+                self._has_modified = True
+        else:
+            if self._my_graph.has_edge(src, dest):
+                edge_data = self._my_graph.get_edge_data(src, dest, key=False)
+                if edge_data['start_type'] == kwargs['start_type']:
+                    for intvl in kwargs['label']:
+                        edge_data['label'].add_interval(intvl)
+                else:
+                    self._my_graph.add_edge(src, dest, **kwargs)
+                    self._has_modified = True
+
+            else:
+                self._my_graph.add_edge(src, dest, **kwargs)
+                self._has_modified = True
+
+
+
 
 
     def get_single_stride_graph(self):
@@ -193,18 +218,19 @@ class Automatanetwork(object):
         self.fake_root.marked = True
         ###
         dq.appendleft(self.fake_root)
+        residual_STEs_dic = {}
         new_STEs_dic = {self.fake_root.id:strided_graph.fake_root}
         star_symbol_set = PackedIntervalSet.get_star(self.stride_value)
 
         while dq:
-            #print len(dq)
+
             current_ste = dq.pop()
 
 
-            for l1_neigh in self._my_graph.neighbors(current_ste):
-                if l1_neigh.is_report():
+            for l1_neighb_idx, l1_neigh in enumerate(self._my_graph.neighbors(current_ste)):
+                if l1_neigh.report:
 
-                    if l1_neigh.id not in new_STEs_dic:
+                    if l1_neigh.id not in residual_STEs_dic:
                         new_id = strided_graph.get_new_id()
 
                         semi_final_ste = S_T_E(start_type=StartType.unknown, is_report=True,
@@ -214,12 +240,12 @@ class Automatanetwork(object):
                                                else l1_neigh.report_residual,
                                                report_code= l1_neigh.report_code)
                         strided_graph.add_element(semi_final_ste)
-                        new_STEs_dic[l1_neigh.id] = semi_final_ste
+                        residual_STEs_dic[l1_neigh.id] = semi_final_ste
 
 
-                    if self.is_homogeneous(): # homogeneous case
+                    if self.is_homogeneous: # homogeneous case
                         strided_graph.add_edge(new_STEs_dic[current_ste.id],
-                                               new_STEs_dic[l1_neigh.id],
+                                               residual_STEs_dic[l1_neigh.id],
                                                label=PackedIntervalSet.combine(l1_neigh.symbols, star_symbol_set),
                                                start_type=l1_neigh.start_type
                                                if current_ste.start_type == StartType.fake_root else
@@ -229,15 +255,17 @@ class Automatanetwork(object):
                         #TODO Is there any API in networkx for getting these esdges directly
                         l1_edges = filter(lambda x: x[1] == l1_neigh, l1_edges)
                         for l1_edge in  l1_edges:
+                            print "*"
                             strided_graph.add_edge(new_STEs_dic[current_ste.id],
-                                                   semi_final_ste,
+                                                   residual_STEs_dic[l1_neigh.id],
                                                    label=PackedIntervalSet.combine(l1_edge[2]['label'],
                                                                                    star_symbol_set),
                                                    start_type=l1_edge[2]['start_type'] if
                                                    current_ste.start_type == StartType.fake_root
                                                    else StartType.non_start)
 
-                for l2_neigh in self._my_graph.neighbors(l1_neigh):
+                for l2_neighb_idx, l2_neigh in enumerate(self._my_graph.neighbors(l1_neigh)):
+                    print len(dq), l1_neighb_idx, l2_neighb_idx
                     if not l2_neigh.marked:
                         is_report = l2_neigh.report
                         new_id = strided_graph.get_new_id()
@@ -251,12 +279,12 @@ class Automatanetwork(object):
                                          report_code = l2_neigh.report_code)
                         strided_graph.add_element(temp_ste)
                         new_STEs_dic[l2_neigh.id] = temp_ste
-                        l2_neigh.set_marked(True)
+                        l2_neigh.marked = True
                         dq.appendleft(l2_neigh)
 
-                    if self.is_homogeneous(): # for homogeneous case
+                    if self.is_homogeneous: # for homogeneous case
                         strided_graph.add_edge(new_STEs_dic[current_ste.id], new_STEs_dic[l2_neigh.id],
-                                               label= PackedIntervalSet(l1_neigh.symbols, l2_neigh.symbols),
+                                               label= PackedIntervalSet.combine(l1_neigh.symbols, l2_neigh.symbols),
                                            start_type = l1_neigh.start_type
                                            if current_ste.start_type == StartType.fake_root else StartType.non_start)
                     else: # non homogeneous case
@@ -267,6 +295,7 @@ class Automatanetwork(object):
 
                         for l1_edge in l1_edges:
                             for l2_edge in l2_edges:
+                                print "!"
                                 strided_graph.add_edge(new_STEs_dic[current_ste.id], new_STEs_dic[l2_neigh.id],
                                                        label=PackedIntervalSet.combine(l1_edge[2]['label'],
                                                                                        l2_edge[2]['label']),
@@ -441,12 +470,27 @@ class Automatanetwork(object):
             plt.savefig(file_name, dpi=500)
             plt.close()
         else: # use dot and graphviz
+
+            for node in self.nodes:
+                if node.start_type == StartType.fake_root:
+                    self.nodes[node.id]['color'] = 'black'
+                elif node.start_type == StartType.start_of_data:
+                    self.nodes[node.id]['color'] = 'green'
+                elif node.start_type == StartType.all_input:
+                    self.nodes[node.id]['color'] = 'greenyellow'
+                elif node.report:
+                    self.nodes[node.id]['color'] = 'blue'
+                elif node.start_type == StartType.unknown:
+                    self.nodes[node.id]['color'] = 'yellow'
+                else:
+                    self.nodes[node.id]['color'] = 'red'
+
             write_dot(self._my_graph, '/tmp/Rezasim_pydot.dot')
             #TODO what is this?
             if not write_node_labels:
                 pass
 
-
+            #TODO check return error
             os.system('dot -Tsvg /tmp/Rezasim_pydot.dot -o {}'.format(file_name))
 
 
@@ -888,7 +932,7 @@ class Automatanetwork(object):
                     if can_accept:
                         new_active_states.add(neighb)
                         if temp_report:
-                            report_residual_details[neighb.report_residual] = True
+                            report_residual_details[(neighb.report_residual-1)% self.stride_value] = True
             else:
                 out_edges = self._my_graph.out_edges(act_st, data=True, keys=False)
                 for edge in out_edges:
@@ -898,17 +942,16 @@ class Automatanetwork(object):
                     if can_accept:
                         new_active_states.add(edge[1])
                         if temp_report:
-                            report_residual_details[edge[1].report_residual] = True
+                            report_residual_details[(edge[1].report_residual-1) %self.stride_value] = True
 
         return is_report, new_active_states, report_residual_details
 
     def feed_input(self, input_stream, offset, jump):
 
-        my_stride = self.stride_value
+
         assert offset<jump, "this condition should be met"
 
-        temp_g = (itertools.islice(input_stream, offset + i, len(input_stream), jump) for i in range(my_stride))
-        g = itertools.izip(*temp_g)
+        mask = [1 if offset <= i < (offset + self.stride_value) else 0 for i in range(jump)]
 
         active_states = {self.fake_root}
 
@@ -920,8 +963,8 @@ class Automatanetwork(object):
                                self._my_graph.out_edges(self.fake_root, data=True, keys=False)
                                if all_start_edge[2]['start_type'] == StartType.all_input]
 
-        for input in g:
-
+        for input in input_stream:
+            input=tuple(itertools.compress(input, mask))
             is_report, new_active_states, report_residual_details =\
                 self._find_next_states(current_active_states=active_states, input=input)
 
@@ -933,7 +976,7 @@ class Automatanetwork(object):
                     if can_accept:
                         new_active_states.add(all_start_state)
                         if temp_report:
-                            report_residual_details[all_start_state.report_residual] = True
+                            report_residual_details[(all_start_state.report_residual-1) % self.stride_value] = True
             else:
                 for all_start_edge in all_start_edges:
                     can_accept = all_start_edge[2]['label'].can_accept(input=input)
@@ -942,7 +985,7 @@ class Automatanetwork(object):
                     if can_accept:
                         new_active_states.add(all_start_edge[1])
                         if temp_report:
-                            report_residual_details[all_start_edge.report_residual] = True
+                            report_residual_details[(all_start_edge.report_residual-1) % self.stride_value] = True
 
             active_states = new_active_states
             #TODO isn't it better to return report codes?
@@ -1026,14 +1069,21 @@ class Automatanetwork(object):
 
 
     def remove_ors(self):
+        assert self.is_homogeneous, "automata should be homogeneous"
         to_be_deleted_ors= []
         for node in self._my_graph.nodes:
             if node == self.fake_root:
                 continue
             if node.type == ElementsType.OR:
+                #TODO remove s at the end
                 for pre_childs in self._my_graph.predecessors(node):
-                    if pre_childs == node :
+                    if pre_childs == node:
                         continue
+
+                    if node.report:
+                        pre_childs.report = True
+                        pre_childs.report_code = node.report_code
+                        pre_childs.report_residual = node.report_residual
 
                     for post_childs in self._my_graph.neighbors(node):
                         if post_childs == node:
@@ -1069,20 +1119,20 @@ class Automatanetwork(object):
         if not self.does_have_all_input():
             return
 
-        star_node = S_T_E(start_type = StartType.start_of_data, is_report = False, is_marked = False,
-                          id = "all_input_handler", symbol_set=PackedIntervalSet.get_star(dim=1), adjacent_S_T_E_s=None,
+        star_node = S_T_E(start_type = StartType.start_of_data, is_report=False, is_marked=False,
+                          id=self.get_new_id(), symbol_set=PackedIntervalSet.get_star(dim=1), adjacent_S_T_E_s=None,
                           report_residual=-1, report_code=-1)
 
         self.add_element(to_add_element = star_node, connect_to_fake_root = True)
 
         self.add_edge(star_node, star_node)
 
-        for node in self._my_graph.neighbors(self._fake_root):
+        for node in self._my_graph.neighbors(self.fake_root):
 
             if node == star_node:
                 continue
-            if node.get_start() == StartType.all_input:
-                node.set_start(StartType.start_of_data)
+            if node.start_type == StartType.all_input:
+                node.start_type=StartType.start_of_data
                 self.add_edge(star_node,node)
 
 
@@ -1103,7 +1153,7 @@ class Automatanetwork(object):
             sg = self._my_graph.subgraph(cc)
             new_graph = nx.MultiDiGraph(sg)
             new_autoama = Automatanetwork._from_graph(id=self._id + str(cc_idx),is_homogenous=True, graph = new_graph,
-                                                      stride=self.stride_value)
+                                                      stride=self.stride_value, last_assigned_id=self.last_assigned_id)
             splitted_automatas.append(new_autoama)
 
         return splitted_automatas
@@ -1628,8 +1678,8 @@ def compare_input(only_report, check_residuals, file_path, *automatas):
     max_stride = max([sv.stride_value for sv in automatas])
 
     for a in automatas:
-        assert max_stride % a.get_stride_value() == 0
-        g = a.feed_input(utility.multi_byte_stream(file_path, a.stride_value))
+        assert max_stride % a.stride_value == 0
+        g = a.feed_input(utility.multi_byte_stream(file_path, a.stride_value), offset=0, jump=a.stride_value)
         gens.append(g)
 
     try:
@@ -1637,21 +1687,18 @@ def compare_input(only_report, check_residuals, file_path, *automatas):
             for idx_g, (g, automata) in enumerate(zip(gens, automatas)):
 
                 total_report_residual_details = []
+                is_report = False
                 for _ in range(int(max_stride / automata.stride_value)):
                     temp_active_states, temp_is_report, report_residual_details = next(g)
                     total_report_residual_details.extend(report_residual_details)
+                    is_report = is_report or temp_is_report
 
-                #if automata.get_stride_value()==1:
-                    #total_report_residual_details = [total_report_residual_details[-1]] + total_report_residual_details[0:-1]
-                result[idx_g] =(temp_active_states, temp_is_report, total_report_residual_details)
+                result[idx_g] =(temp_active_states, is_report, total_report_residual_details)
 
             for active_state, report_state, total_report_residual_details in result[1:]:
-                #print active_state, report_state, "* correct = ",result[0]
-                assert total_report_residual_details[-1]==result[0][2][-1] # check report states
+                assert report_state==result[0][1] # check report states
                 if check_residuals:
-                    assert len(total_report_residual_details) == max_stride, "This is a fact"
-                    for report_op1,report_op2  in zip(report_residual_details, result[0][2]):
-                        assert report_op1 == report_op2, "This should not happen!"
+                    assert total_report_residual_details == result[0][2]
                 if not only_report:
                     assert active_state == result[0][0] # check current states
 

@@ -4,7 +4,19 @@ from . import ElementsType
 from itertools import chain
 import utility
 
-class PackedInput(object):
+class ComparableMixin(object):
+  def __eq__(self, other):
+    return not self<other and not other<self
+  def __ne__(self, other):
+    return self<other or other<self
+  def __gt__(self, other):
+    return other<self
+  def __ge__(self, other):
+    return not self<other
+  def __le__(self, other):
+    return not other<self
+
+class PackedInput(ComparableMixin):
     def __init__(self, alphabet_point):
         self._point = alphabet_point
         self._iter_idx = -1
@@ -17,6 +29,9 @@ class PackedInput(object):
 
     def __lt__(self, other):
         return self.point < other.point
+
+    def __str__(self):
+        return str(self._point)
 
     @property
     def dim(self):
@@ -51,7 +66,7 @@ class PackedInterval(object):
 
     def can_accept(self, point):
         assert point.dim == self.dim
-        for l,p,r in zip(self._left_pt, point,self._right_pt):
+        for l,p,r in zip(self.left, point,self.right):
             if l <= p <= r:
                 continue
             else:
@@ -60,6 +75,9 @@ class PackedInterval(object):
 
     def __lt__(self, other):
         return self.left < other.left
+
+    def __str__(self):
+        return '[' + str(self.left) + ',' + str(self.right) + ']'
 
 
 class PackedIntervalSet(object):
@@ -129,6 +147,7 @@ class PackedIntervalSet(object):
                 return False
         return True
 
+
     @classmethod
     def combine(cls, left_set, right_set):
         #TODO I think it is better to not use add_interval.
@@ -138,8 +157,8 @@ class PackedIntervalSet(object):
         new_set = []
         for l_int in left_set:
             for r_int in right_set:
-                left_pt = tuple(l for l in chain(l_int.left, r_int.left))
-                right_pt = tuple (r for r in chain(l_int.right, r_int.right))
+                left_pt = PackedInput(tuple(l for l in chain(l_int.left, r_int.left)))
+                right_pt = PackedInput(tuple (r for r in chain(l_int.right, r_int.right)))
                 new_set.append(PackedInterval(left_pt, right_pt))
 
         return PackedIntervalSet(new_set)
@@ -155,7 +174,16 @@ class PackedIntervalSet(object):
 
         return False
 
+    def __str__(self):
 
+        if len(self._interval_set) == 0:
+            return ''
+        else:
+            to_return_str = str(self._interval_set[0])
+            for item in self._interval_set[1:]:
+                to_return_str = to_return_str + ',' + str(item)
+
+            return "*" + to_return_str + "*"
 
 
 class S_T_E(BaseElement):
