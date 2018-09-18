@@ -65,10 +65,10 @@ def generate_semi_diagonal_route(basic_block_size, one_dir_copy):
 
 
 def minimize_automata(automata, merge_reports = False, same_residuals_only = False, same_report_code = False):
-    original_node_count = automata.get_number_of_nodes(True)
+    original_node_count = automata.nodes_count
 
     while True:
-        current_node_cont = automata.get_number_of_nodes(True)
+        current_node_cont = automata.nodes_count
         print current_node_cont
         if merge_reports:
             automata.combine_finals_with_same_symbol_set(same_residuals_only=same_residuals_only,
@@ -76,11 +76,11 @@ def minimize_automata(automata, merge_reports = False, same_residuals_only = Fal
         automata.left_merge(merge_reports , same_residuals_only , same_report_code )
         automata.right_merge(merge_reports, same_residuals_only, same_report_code)
         automata.combine_symbol_sets()
-        new_node_count = automata.get_number_of_nodes(True)
+        new_node_count = automata.nodes_count
         assert new_node_count<= current_node_cont, "it should always be smaller"
         if new_node_count == current_node_cont:
             break
-    final_node_count = automata.get_number_of_nodes(True)
+    final_node_count = automata.nodes_count
 
     print "saved %d nodes"%(original_node_count- final_node_count,)
 
@@ -156,7 +156,6 @@ def get_graph_from_matrix(routing_matrix, is_igraph):
             if routing_matrix[i][j]:
 
                 G.add_edge(i, j)
-
     return G
 
 def get_switch_count(switch_layout):
@@ -169,9 +168,6 @@ def get_star_symbol_set(stride_val):
         return (0,255)
     else:
         return (get_star_symbol_set(stride_val/2),get_star_symbol_set(stride_val/2))
-
-
-
 
 def generate_input(automaton, input_len, file_name):
     buf= bytearray()

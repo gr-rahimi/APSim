@@ -255,7 +255,6 @@ class Automatanetwork(object):
                         #TODO Is there any API in networkx for getting these esdges directly
                         l1_edges = filter(lambda x: x[1] == l1_neigh, l1_edges)
                         for l1_edge in  l1_edges:
-                            print "*"
                             strided_graph.add_edge(new_STEs_dic[current_ste.id],
                                                    residual_STEs_dic[l1_neigh.id],
                                                    label=PackedIntervalSet.combine(l1_edge[2]['label'],
@@ -295,7 +294,6 @@ class Automatanetwork(object):
 
                         for l1_edge in l1_edges:
                             for l2_edge in l2_edges:
-                                print "!"
                                 strided_graph.add_edge(new_STEs_dic[current_ste.id], new_STEs_dic[l2_neigh.id],
                                                        label=PackedIntervalSet.combine(l1_edge[2]['label'],
                                                                                        l2_edge[2]['label']),
@@ -359,11 +357,14 @@ class Automatanetwork(object):
             start_type = edge[2]['start_type']
 
             if start_type == StartType.non_start:
-                src_dict_non_start.setdefault(edge[0], set()).update(label)
+                for l in label:
+                    src_dict_non_start.setdefault(edge[0], PackedIntervalSet([])).add_interval(l)
             elif start_type == StartType.start_of_data:
-                src_dict_start_of_data.setdefault(edge[0], set()).update(label)
+                for l in label:
+                    src_dict_start_of_data.setdefault(edge[0], PackedIntervalSet([])).add_interval(l)
             elif start_type == StartType.all_input:
-                src_dict_all_start.setdefault(edge[0], set()).update(label)
+                for l in label:
+                    src_dict_all_start.setdefault(edge[0], PackedIntervalSet([])).add_interval(l)
             else:
                 assert False  # It should not happen
 
@@ -386,7 +387,7 @@ class Automatanetwork(object):
             for neighb, on_edge_char_set in src_dict_non_start.iteritems():
                 if neighb == current_ste:
                     self_loop_handler = S_T_E(start_type=StartType.non_start, is_report=current_ste.report,
-                                              is_marked=True, id=self._get_new_id(),
+                                              is_marked=True, id=self.get_new_id(),
                                               symbol_set=on_edge_char_set,
                                               adjacent_S_T_E_s=None,
                                               report_residual=current_ste.report_residual,
@@ -410,7 +411,7 @@ class Automatanetwork(object):
         :return:
         """
         self.unmark_all_nodes()
-        assert not self.is_homogeneous() # only works for non-homogeneous graph
+        assert not self.is_homogeneous # only works for non-homogeneous graph
         dq = deque()
         self.fake_root.marked = True
         dq.appendleft(self.fake_root)
@@ -484,6 +485,9 @@ class Automatanetwork(object):
                     self.nodes[node.id]['color'] = 'yellow'
                 else:
                     self.nodes[node.id]['color'] = 'red'
+
+            for edge in self._my_graph.edges(data=True,):
+                edge[2]['fontsize'] = 6
 
             write_dot(self._my_graph, '/tmp/Rezasim_pydot.dot')
             #TODO what is this?
@@ -729,7 +733,7 @@ class Automatanetwork(object):
         for neighb, on_edge_char_set in connectivity_dic.iteritems():
             if curr_node != neighb:
                 new_node = S_T_E(start_type=start_type, is_report=curr_node.report, is_marked=True,
-                                 id=self._get_new_id(),
+                                 id=self.get_new_id(),
                                  symbol_set=on_edge_char_set,
                                  adjacent_S_T_E_s=None,
                                  report_residual= curr_node.report_residual,
@@ -1165,12 +1169,12 @@ class Automatanetwork(object):
         return False
 
     def left_merge(self, merge_reports=False, same_residuals_only=False, same_report_code=False):
-        assert self.is_homogeneous(), "This function is working only for homogeneous case!"
+        assert self.is_homogeneous, "This function is working only for homogeneous case!"
         self.unmark_all_nodes()
         dq = deque()
 
-        self._fake_root.marked = True
-        dq.appendleft(self._fake_root)
+        self.fake_root.marked = True
+        dq.appendleft(self.fake_root)
 
         while dq:
 
@@ -1205,7 +1209,7 @@ class Automatanetwork(object):
 
             for children in self._my_graph.neighbors(current_node):
                 if not children.marked:
-                    children.set_marked(True)
+                    children.marked = True
                     dq.appendleft(children)
 
     def right_merge(self, merge_reports=False, same_residuals_only=False, same_report_code=False):
@@ -1216,7 +1220,7 @@ class Automatanetwork(object):
 
         report_nodes = self.get_filtered_nodes(lambda n: n.report)
         for report_node in report_nodes:
-            report_node.set_marked(True)
+            report_node.marked = True
             dq.appendleft(report_node)
 
         while dq:
@@ -1253,7 +1257,7 @@ class Automatanetwork(object):
 
             for parent in self._my_graph.predecessors(current_node):
                 if not parent.marked:
-                    parent.set_marked(True)
+                    parent.marked = True
                     dq.appendleft(parent)
 
     def combine_symbol_sets(self):
@@ -1286,11 +1290,11 @@ class Automatanetwork(object):
 
             for node in self._my_graph.neighbors(current_node):
                 if not node.marked:
-                    node.set_marked(True)
+                    node.marked = True
                     dq.appendleft(node)
 
     def _can_combine_symbol_set(self, fst_ste, sec_ste):
-        if fst_ste.start_type != sec_ste.get_start():
+        if fst_ste.start_type != sec_ste.start_type:
             return False
 
         if fst_ste.report != sec_ste.report:
@@ -1374,14 +1378,14 @@ class Automatanetwork(object):
 
     def _can_right_merge_stes(self,fst_ste, sec_ste, merge_reports = False, same_residuals_only = False, same_report_code = False):
 
-        if fst_ste.get_start() != sec_ste.get_start():
+        if fst_ste.start_type != sec_ste.start_type:
             return  False
 
         if fst_ste.report != sec_ste.report:
             return  False
 
-        if not fst_ste.is_symbolset_a_subsetof_self_symbolset(sec_ste.get_symbols()) or not \
-                sec_ste.is_symbolset_a_subsetof_self_symbolset(fst_ste.get_symbols()):
+        if not fst_ste.symbols.is_symbolset_a_subset(sec_ste.symbols) or not \
+                sec_ste.symbols.is_symbolset_a_subset(fst_ste.symbols):
             return False
 
         if self.does_STE_has_self_loop(fst_ste) != self.does_STE_has_self_loop(sec_ste):
@@ -1683,7 +1687,9 @@ def compare_input(only_report, check_residuals, file_path, *automatas):
         gens.append(g)
 
     try:
-        while True:
+        file_size = os.path.getsize(file_path)
+
+        for _ in tqdm(itertools.count(), total=math.ceil(file_size/max_stride), unit='symbol'):
             for idx_g, (g, automata) in enumerate(zip(gens, automatas)):
 
                 total_report_residual_details = []
