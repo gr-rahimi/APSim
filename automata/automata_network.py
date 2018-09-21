@@ -254,7 +254,7 @@ class Automatanetwork(object):
                         l1_edges = self._my_graph.out_edges(current_ste, data=True, keys=False)
                         #TODO Is there any API in networkx for getting these esdges directly
                         l1_edges = filter(lambda x: x[1] == l1_neigh, l1_edges)
-                        for l1_edge in  l1_edges:
+                        for l1_edge in l1_edges:
                             strided_graph.add_edge(new_STEs_dic[current_ste.id],
                                                    residual_STEs_dic[l1_neigh.id],
                                                    label=PackedIntervalSet.combine(l1_edge[2]['label'],
@@ -264,7 +264,7 @@ class Automatanetwork(object):
                                                    else StartType.non_start)
 
                 for l2_neighb_idx, l2_neigh in enumerate(self._my_graph.neighbors(l1_neigh)):
-                    print len(dq), l1_neighb_idx, l2_neighb_idx
+                    #print len(dq), l1_neighb_idx, l2_neighb_idx
                     if not l2_neigh.marked:
                         is_report = l2_neigh.report
                         new_id = strided_graph.get_new_id()
@@ -1285,7 +1285,7 @@ class Automatanetwork(object):
                         continue
                     if self._can_combine_symbol_set(fst_ste=first_neighb_node, sec_ste= sec_neighb_node):
                         for interval in sec_neighb_node.symbols:
-                            first_neighb_node.add_interval(interval)
+                            first_neighb_node.symbols.add_interval(interval)
                         self.delete_node(sec_neighb_node)
 
             for node in self._my_graph.neighbors(current_node):
