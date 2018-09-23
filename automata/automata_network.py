@@ -413,26 +413,57 @@ class Automatanetwork(object):
         self.unmark_all_nodes()
         assert not self.is_homogeneous # only works for non-homogeneous graph
         dq = deque()
-        self.fake_root.marked = True
-        dq.appendleft(self.fake_root)
+        #self.fake_root.marked = True
+        #dq.appendleft(self.fake_root)
+
+        report_nodes = self.get_filtered_nodes(lambda node:node.report)
+        for r_node in report_nodes:
+            r_node.marked = True
+            dq.append(r_node)
 
         while dq:
             current_ste = dq.pop()
             if current_ste.start_type == StartType.fake_root: # fake root does need processing
-                for start_node in self._my_graph.neighbors(current_ste):
-                    assert not start_node.marked
-                    start_node.marked = True
-                    dq.appendleft(start_node)
                 continue # process next node from the queue
 
-            for neighb in self._my_graph.neighbors(current_ste):
-                if not neighb.marked:
-                    neighb.marked = True
-                    dq.appendleft(neighb)
+            for pred in self._my_graph.predecessors(current_ste):
+                if not pred.marked:
+                    pred.marked = True
+                    dq.appendleft(pred)
 
             self._make_homogeneous_STE(current_ste= current_ste, delete_original_ste = True)
 
         self.is_homogeneous = True
+
+
+    #
+    # def make_homogenous(self):
+    #     """
+    #     :return:
+    #     """
+    #     self.unmark_all_nodes()
+    #     assert not self.is_homogeneous # only works for non-homogeneous graph
+    #     dq = deque()
+    #     self.fake_root.marked = True
+    #     dq.appendleft(self.fake_root)
+    #
+    #     while dq:
+    #         current_ste = dq.pop()
+    #         if current_ste.start_type == StartType.fake_root: # fake root does need processing
+    #             for start_node in self._my_graph.neighbors(current_ste):
+    #                 assert not start_node.marked
+    #                 start_node.marked = True
+    #                 dq.appendleft(start_node)
+    #             continue # process next node from the queue
+    #
+    #         for neighb in self._my_graph.neighbors(current_ste):
+    #             if not neighb.marked:
+    #                 neighb.marked = True
+    #                 dq.appendleft(neighb)
+    #
+    #         self._make_homogeneous_STE(current_ste= current_ste, delete_original_ste = True)
+    #
+    #     self.is_homogeneous = True
 
     @property
     def is_homogeneous(self):
@@ -471,6 +502,7 @@ class Automatanetwork(object):
             plt.savefig(file_name, dpi=500)
             plt.close()
         else: # use dot and graphviz
+            #TODO draw edge label does not work
 
             for node in self.nodes:
                 if node.start_type == StartType.fake_root:

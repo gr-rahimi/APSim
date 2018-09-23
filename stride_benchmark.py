@@ -15,16 +15,16 @@ from utility import minimize_automata, multi_byte_stream
 #
 # pickle.dump(to_save_automatas, open("snort1-10.pkl", "wb"))
 
-automatas = pickle.load(open('snort1-10.pkl','rb'))
+automatas = pickle.load(open('snort_bug.pkl','rb'))
 
-atm = automatas[0]
-atm.remove_all_start_nodes()
+atm = automatas
+#atm.remove_all_start_nodes()
 
 
 st2= atm.get_single_stride_graph()
 st4=st2.get_single_stride_graph()
-st8=st4.get_single_stride_graph()
-st8.print_summary()
+st4.make_homogenous()
+st4.print_summary()
 
 #st16=st8.get_single_stride_graph()
 #st16.print_summary()
