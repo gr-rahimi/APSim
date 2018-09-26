@@ -169,6 +169,16 @@ class Automatanetwork(object):
     def get_number_of_edges(self):
         return self._my_graph.number_of_edges() - self.number_of_start_nodes
 
+    def get_average_intervals(self):
+
+        intervals_sum = 0
+        for node in self.nodes:
+            if node.start_type == StartType.fake_root:
+                continue
+            intervals_sum += len(node.symbols)
+
+        return intervals_sum / self.nodes_count
+
     def add_edge(self, src, dest,**kwargs):
         if self.is_homogeneous:
             assert not self._my_graph.has_edge(src, dest)
@@ -807,14 +817,15 @@ class Automatanetwork(object):
     def print_summary(self, print_detailed_final_states = False, logo = ""):
         print"******************** Summary {}********************".format(logo)
         print "report for", self._id
-        print "Number of nodes: ", self.nodes_count
-        print "Number of edges: ", self.get_number_of_edges()
-        print "Number of start nodes", self.number_of_start_nodes
-        print "Number of report nodes", self.number_of_report_nodes
-        print "does have all_input? ", self.does_have_all_input()
-        print "does have special element?", self.does_have_special_elements()
-        print "is Homogenous?", self.is_homogeneous
+        print "Number of nodes = ", self.nodes_count
+        print "Number of edges = ", self.get_number_of_edges()
+        print "Number of start nodes = ", self.number_of_start_nodes
+        print "Number of report nodes = ", self.number_of_report_nodes
+        print "does have all_input = ", self.does_have_all_input()
+        print "does have special element = ", self.does_have_special_elements()
+        print "is Homogenous = ", self.is_homogeneous
         print "stride value = ", self.stride_value
+        print "average number of intervals per STE = ", self.get_average_intervals()
         if print_detailed_final_states:
             self._print_final_states_detail()
 
@@ -898,14 +909,16 @@ class Automatanetwork(object):
         assert self.is_homogeneous, "This operation is available only for homogeneous"
         assert not self.does_have_special_elements()
 
-        left_automata = Automatanetwork(id = self._id+"_split1",is_homogenous= True, stride= self.stride_value/2)
-        right_automata = Automatanetwork(id = self._id+"_split2", is_homogenous=True, stride=self.stride_value/2)
+        left_automata = Automatanetwork(id = self._id+"_split1",is_homogenous= True, stride= int(self.stride_value/2))
+        right_automata = Automatanetwork(id = self._id+"_split2", is_homogenous=True, stride=int(self.stride_value/2))
         self.unmark_all_nodes()
         self.fake_root.marked = True  # fake root has been added in the constructor for both splited graphs
 
         self._split_node(self.fake_root, left_automata = left_automata, right_automata= right_automata,
                          id_dic={FakeRoot.fake_root_id:FakeRoot.fake_root_id})
 
+        left_automata.last_assigned_id = self.last_assigned_id
+        right_automata.last_assigned_id = self.last_assigned_id
         return left_automata, right_automata
 
     def _split_node(self, node, left_automata, right_automata, id_dic):
@@ -922,17 +935,17 @@ class Automatanetwork(object):
             if not neighb.marked:
                 neighb.marked = True
                 left_symbols, right_symbols = neighb.split_symbols()
-                new_left_id, new_right_id = left_automata.get_new_id(), right_automata.get_new_id()
-                assert new_left_id == new_right_id, "ID's should stay similar"
-                id_dic[neighb.id] = new_left_id
+                #new_left_id, new_right_id = left_automata.get_new_id(), right_automata.get_new_id()
+                #assert new_left_id == new_right_id, "ID's should stay similar"
+                id_dic[neighb.id] = neighb.id
 
                 left_ste = S_T_E(start_type=neighb.start_type, is_report = neighb.report,
-                                 is_marked = True, id=new_left_id, symbol_set= left_symbols, adjacent_S_T_E_s=None,
+                                 is_marked = True, id=neighb.id, symbol_set= left_symbols, adjacent_S_T_E_s=None,
                                  report_residual=neighb.report_residual, report_code=neighb.report_code)
                 left_automata.add_element(left_ste)
 
                 right_ste = S_T_E(start_type=neighb.start_type, is_report = neighb.report,
-                                 is_marked=True, id=new_right_id, symbol_set=right_symbols, adjacent_S_T_E_s=None,
+                                 is_marked=True, id=neighb.id, symbol_set=right_symbols, adjacent_S_T_E_s=None,
                                   report_residual=neighb.report_residual, report_code=neighb.report_code)
                 right_automata.add_element(right_ste)
 
@@ -940,11 +953,13 @@ class Automatanetwork(object):
 
             left_ste_src = left_automata.get_STE_by_id(id_dic[node.id])
             left_ste_dst = left_automata.get_STE_by_id(id_dic[neighb.id])
-            left_automata.add_edge(left_ste_src, left_ste_dst)
+            if not left_ste_src.start_type == StartType.fake_root:
+                left_automata.add_edge(left_ste_src, left_ste_dst)
 
             right_ste_src = right_automata.get_STE_by_id(id_dic[node.id])
             right_ste_dst = right_automata.get_STE_by_id(id_dic[neighb.id])
-            right_automata.add_edge(right_ste_src, right_ste_dst)
+            if not right_ste_src.start_type == StartType.fake_root:
+                right_automata.add_edge(right_ste_src, right_ste_dst)
 
     def _find_next_states(self, current_active_states, input):
         """
@@ -1597,12 +1612,12 @@ class Automatanetwork(object):
 
 
 def compare_strided(only_report, file_path,*automatas ):
-    with open(file_path, 'rb') as f:
-        file_content = f.read()
+    # with open(file_path, 'rb') as f:
+    #     file_content = f.read()
+    # #TODO does not work for big files
+    # byte_file_content = bytearray(file_content)
 
-    byte_file_content = bytearray(file_content)
-
-    strides = [sum(stride for stride in map(lambda x:x.get_stride_value(), automata)) for automata in automatas]
+    strides = [sum(stride for stride in map(lambda x:x.stride_value, automata)) for automata in automatas]
     max_stride = max(strides)
     gens =[]
 
@@ -1610,25 +1625,30 @@ def compare_strided(only_report, file_path,*automatas ):
         sum_stride_value = 0
         strided_gen =[]
         for strided_automata in automata:
-            strided_gen.append(strided_automata.feed_input(byte_file_content, offset= sum_stride_value, jump = strides[idx]))
-            sum_stride_value += strided_automata.get_stride_value()
+            strided_gen.append(strided_automata.feed_input(
+                utility.multi_byte_stream(file_path=file_path,
+                                          chunk_size=strides[idx]),
+                offset=sum_stride_value,
+                jump=strides[idx]))
+            sum_stride_value += strided_automata.stride_value
         gens.append(strided_gen)
 
 
-    stopped_automata = 0
 
-    while stopped_automata == 0:
+    file_size = os.path.getsize(file_path)
+
+    for _ in tqdm(itertools.count(), total=math.ceil(file_size / max_stride), unit='symbol'):
 
         first_automata_ste_set = None
         first_automata_report = False
         for idx, generator_set in enumerate(gens):
 
             try:
-                for _ in range(max_stride/strides[idx]):
+                for _ in range(int(max_stride/strides[idx])):
 
                     temp_result_set_list=[]
                     for gen in generator_set:
-                        result_set, _ = next(gen)
+                        result_set, _, _ = next(gen)
                         temp_result_set_list.append(result_set)
 
                     intersection_set = set(temp_result_set_list[0])
@@ -1656,12 +1676,9 @@ def compare_strided(only_report, file_path,*automatas ):
 
 
             except StopIteration:
-                stopped_automata +=1
+                print "they are equal"
+                return
 
-    if stopped_automata == len(automatas):
-        print "they are equal"
-    else:
-        print "something is wrong with the rate of consumption"
 
 def compare_real_approximate(file_path, automata):
     stride_value = automata.get_stride_value()

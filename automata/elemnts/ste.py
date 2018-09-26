@@ -33,6 +33,9 @@ class PackedInput(ComparableMixin):
     def __str__(self):
         return str(self._point)
 
+    def __getitem__(self, item):
+        return self._point[item]
+
     @property
     def dim(self):
         return len(self._point)
@@ -90,6 +93,9 @@ class PackedIntervalSet(object):
     def __len__(self):
         return len(self._interval_set)
 
+    def __getitem__(self, item):
+        return self._interval_set[item]
+
     @classmethod
     def get_star(cls, dim):
         left_pt = PackedInput(tuple(0 for _ in range(dim)))
@@ -119,6 +125,8 @@ class PackedIntervalSet(object):
 
             self._interval_set.append(interval)
             self._interval_set.sort()
+        else:
+            return
 
     def is_symbolset_a_subset(self, other_symbol_set):
         """
@@ -154,14 +162,14 @@ class PackedIntervalSet(object):
         #  Can we say that this new intervals are independent?
 
         assert left_set.dim == right_set.dim, "This condition is necessary"
-        new_set = []
+        new_packed_list = []
         for l_int in left_set:
             for r_int in right_set:
                 left_pt = PackedInput(tuple(l for l in chain(l_int.left, r_int.left)))
                 right_pt = PackedInput(tuple (r for r in chain(l_int.right, r_int.right)))
-                new_set.append(PackedInterval(left_pt, right_pt))
+                new_packed_list.append(PackedInterval(left_pt, right_pt))
 
-        return PackedIntervalSet(new_set)
+        return PackedIntervalSet(new_packed_list)
 
     def clone(self):
         return PackedIntervalSet([interval for interval in self._interval_set])
@@ -320,12 +328,13 @@ class S_T_E(BaseElement):
         left_set = PackedIntervalSet(packed_interval_set=[])
         right_set = PackedIntervalSet(packed_interval_set=[])
         dim = self.symbols.dim
+        #assert dim > 1 and dim%2 == 0
         for ivl in self.symbols:
             left_pt = ivl.left
             right_pt = ivl.right
 
-            left_set.add_interval(PackedInterval(PackedInput(left_pt[:dim/2], right_pt[:dim/2])))
-            right_set.add_interval(PackedInterval(PackedInput(left_pt[dim / 2:], right_pt[dim / 2:])))
+            left_set.add_interval(PackedInterval(PackedInput(left_pt[:dim/2]), PackedInput(right_pt[:dim/2])))
+            right_set.add_interval(PackedInterval(PackedInput(left_pt[dim/2:]), PackedInput(right_pt[dim/2:])))
 
         return left_set, right_set
 

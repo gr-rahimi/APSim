@@ -69,7 +69,7 @@ def minimize_automata(automata, merge_reports = False, same_residuals_only = Fal
 
     while True:
         current_node_cont = automata.nodes_count
-        print current_node_cont
+        #print current_node_cont
         if merge_reports:
             automata.combine_finals_with_same_symbol_set(same_residuals_only=same_residuals_only,
                                                           same_report_code=same_report_code )
@@ -82,7 +82,7 @@ def minimize_automata(automata, merge_reports = False, same_residuals_only = Fal
             break
     final_node_count = automata.nodes_count
 
-    print "saved %d nodes"%(original_node_count- final_node_count,)
+    #print "saved %d nodes"%(original_node_count- final_node_count,)
 
 
 
