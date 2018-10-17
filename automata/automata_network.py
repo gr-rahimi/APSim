@@ -180,21 +180,25 @@ class Automatanetwork(object):
         return intervals_sum / self.nodes_count
 
     def add_edge(self, src, dest,**kwargs):
-        if self.is_homogeneous:
-            assert not self._my_graph.has_edge(src, dest)
-        if not 'label' in kwargs and dest.type==ElementsType.STE:
-            kwargs['label'] = dest.symbols
-        if not 'start_type' in kwargs:
-            kwargs['start_type'] = dest.start_type
-
-        self._my_graph.add_edge(src,dest,**kwargs)
-        self._has_modified = True
-        return
+        # if self.is_homogeneous:
+        #     assert not self._my_graph.has_edge(src, dest)
+        # if not 'label' in kwargs and dest.type==ElementsType.STE:
+        #     kwargs['label'] = dest.symbols
+        # if not 'start_type' in kwargs:
+        #     kwargs['start_type'] = dest.start_type
+        #
+        # self._my_graph.add_edge(src,dest,**kwargs)
+        # self._has_modified = True
+        # return
 
         if self.is_homogeneous:
             if self._my_graph.has_edge(src, dest):
                 return
             else:
+                if not 'label' in kwargs and dest.type==ElementsType.STE:
+                     kwargs['label'] = dest.symbols
+                if not 'start_type' in kwargs:
+                     kwargs['start_type'] = dest.start_type
                 self._my_graph.add_edge(src, dest, **kwargs)
                 self._has_modified = True
         else:
@@ -968,6 +972,7 @@ class Automatanetwork(object):
         :param input: an iterable symbol set
         :return: (True/False) if there is a report element in new states, (Set) new states
         """
+
 
         assert len(input) == self.stride_value
         new_active_states = set()

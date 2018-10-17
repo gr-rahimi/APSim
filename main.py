@@ -1,5 +1,5 @@
 import automata as atma
-from automata.automata_network import compare_input, compare_strided
+from automata.automata_network import compare_input, compare_strided, StartType
 from anml_zoo import anml_path,input_path,AnmalZoo
 from tqdm import tqdm
 import pickle
@@ -28,22 +28,51 @@ from utility import minimize_automata, multi_byte_stream
 # exit(0)
 
 
-automatas = pickle.load(open('snort1-10.pkl','rb'))
+#automatas = pickle.load(open('atm61.pkl','rb'))
 
-atm = automatas[0]
-atm.remove_all_start_nodes()
+automata1 = atma.parse_anml_file(anml_path[AnmalZoo.EntityResolution])
+automata1.remove_ors()
+automata1.print_summary()
+automatas = automata1.get_connected_components_as_automatas()
+faulty_automats =[]
 
-atm.draw_graph('1.svg', draw_edge_label=False, use_dot=True, write_node_labels=True)
-st2= atm.get_single_stride_graph()
-st2.draw_graph('2.svg', draw_edge_label=False, use_dot=True, write_node_labels=True)
-st4=st2.get_single_stride_graph()
-st4.draw_graph('4.svg', draw_edge_label=False, use_dot=True, write_node_labels=True)
-st4.make_homogenous()
+for atm_idx, atm in enumerate(automatas):
+    print "idx=", atm_idx
+    atm.remove_all_start_nodes()
+    atm.remove_ors()
 
-minimize_automata(st4,merge_reports=True, same_residuals_only=True, same_report_code=True)
-st4.draw_graph('4HM.svg', draw_edge_label=False, use_dot=True, write_node_labels=True)
-st4.print_summary()
-compare_input(True, True, input_path[AnmalZoo.Snort],*(atm, st4))
+    #atm.draw_graph(file_name='1.svg', draw_edge_label=True, use_dot=True, write_node_labels=True)
+    atm2=atm.get_single_stride_graph()
+    #atm2.draw_graph(file_name='2.svg', draw_edge_label=True, use_dot=True, write_node_labels=True)
+    atm2.make_homogenous()
+    #atm2.draw_graph(file_name='1-5.svg', draw_edge_label=True, use_dot=True, write_node_labels=True)
+    #minimize_automata(atm2, merge_reports=True, same_residuals_only=True, same_report_code=True)
+    #atm2.draw_graph(file_name='2H.svg', draw_edge_label=True, use_dot=True, write_node_labels=True)
+    atm2=atm2.get_single_stride_graph()
+    #atm2.draw_graph(file_name='4.svg', draw_edge_label=True, use_dot=True, write_node_labels=True)
+    atm2.make_homogenous()
+    #atm2.draw_graph(file_name='4H.svg', draw_edge_label=True, use_dot=True, write_node_labels=True)
+    minimize_automata(atm2,merge_reports=True,same_residuals_only=True,same_report_code=True)
+    #atm2.draw_graph(file_name='4HM.svg', draw_edge_label=True, use_dot=True, write_node_labels=True)
+    #atm2l, atm2r = atm2.split()
+
+    for n in atm2.nodes:
+        if n.start_type==StartType.fake_root:
+            continue
+        s=n.is_symbolset_splitable()
+        print s
+        if not s:
+            faulty_automats.append(atm_idx)
+            break
+
+    #compare_input(True,True,input_path[AnmalZoo.Snort], atm2,atm)
+    #compare_strided(False,input_path[AnmalZoo.Snort],(atm2l,atm2r), (atm2,))
+
+print faulty_automats
+
+
+
+
 
 
 

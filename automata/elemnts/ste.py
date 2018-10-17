@@ -1,8 +1,9 @@
 import CPP.VASim as VASim
 from .element import BaseElement, StartType
 from . import ElementsType
-from itertools import chain
+from itertools import chain, product
 import utility
+from heapq import heappush, heappop
 
 class ComparableMixin(object):
   def __eq__(self, other):
@@ -95,6 +96,84 @@ class PackedIntervalSet(object):
 
     def __getitem__(self, item):
         return self._interval_set[item]
+
+    def is_splittable(self):
+        for p in self._split_corner_gen():
+            if not self.can_accept(p):
+                return False
+        return True
+
+    def _split_corner_gen(self):
+        intervals = []
+        for d in range(self.dim):
+
+            ranges = [(ivl.left[d], ivl.right[d]) for ivl in self._interval_set]
+            ranges = sorted(set(ranges))
+            curr_time = 0
+            processed_range_idx = -1
+            finish_list = []
+            last_covered_time = -1
+            test_points = []
+
+            while curr_time < ranges[-1][1] or finish_list:
+
+                if len(finish_list) == 0:
+                    processed_range_idx +=1
+                    curr_time = ranges[processed_range_idx][0]
+                    last_covered_time = ranges[processed_range_idx][1]
+                    heappush(finish_list, ranges[processed_range_idx][1])
+                    continue
+
+                if processed_range_idx + 1 < len(ranges) and \
+                    ranges[processed_range_idx+1][0] < last_covered_time and \
+                        ranges[processed_range_idx+1][0] < finish_list[0]:
+                    processed_range_idx +=1
+
+                    if last_covered_time < ranges[processed_range_idx][1]:
+                        last_covered_time = ranges[processed_range_idx][1]
+
+                    heappush(finish_list, ranges[processed_range_idx][1])
+
+                    test_points.append(int((curr_time + ranges[processed_range_idx][0])/2))
+                    curr_time = ranges[processed_range_idx][0]
+                else:
+                    new_time = heappop(finish_list)
+
+                    test_points.append(int((curr_time + new_time)/2))
+                    curr_time = new_time
+
+            test_points = sorted(set(test_points))
+            intervals.append(test_points)
+
+
+        for corner in product(*intervals):
+            yield PackedInput(corner)
+
+
+
+
+            #####
+        #
+        #     merged = [False] * len(ranges)
+        #     for range_idx, range_val in enumerate(ranges[:-1]):
+        #         if not merged[range_idx]:
+        #             for cand_idx, cand_ivl in enumerate(ranges[range_idx+1:]):
+        #                 if cand_ivl[0]<range_val[1]< cand_ivl[1]:
+        #                     merged[range_idx+1+cand_idx] = True
+        #                     range_val[1] = cand_ivl[1]
+        #                 elif range_val[1] > cand_ivl[1]:
+        #                     merged[range_idx + 1 + cand_idx] = True
+        #                 else:
+        #                     break
+        #     flat_list=[]
+        #     flat_list.extend([range_ivl[0] for range_idx, range_ivl in enumerate(ranges) if not merged[range_idx]])
+        #     flat_list.extend([range_ivl[1] for range_idx, range_ivl in enumerate(ranges) if not merged[range_idx]])
+        #     flat_list=sorted(set(flat_list)) # remove repeated elements
+        #     intervals.append(flat_list)
+        #
+        # for corner in product(*intervals):
+        #     yield PackedInput(corner)
+
 
     @classmethod
     def get_star(cls, dim):
@@ -286,6 +365,9 @@ class S_T_E(BaseElement):
         parameter_dict['is_marked']= False
 
         return S_T_E(**parameter_dict)
+
+    def is_symbolset_splitable(self):
+        return self.symbols.is_splittable()
 
     @classmethod
     def from_xml_node_to_dict(cls, xml_node, attrib_dic):
