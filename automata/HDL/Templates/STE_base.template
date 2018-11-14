@@ -1,0 +1,21 @@
+{%macro ste() -%}
+module STE #(parameter integer fan_in)(
+           input clk,
+           input run,
+           input reset,
+           input [fan_in - 1 : 0] income_edges,
+           input match,
+           output reg active_state);
+
+wire is_potential;
+assign is_potential = |income_edges;
+
+always @ (posedge clk)
+begin
+    if (reset == 1)
+        active_state <= 0;
+    else if (run == 1)
+        active_state <= is_potential & match;
+end
+endmodule
+{%- endmacro %}

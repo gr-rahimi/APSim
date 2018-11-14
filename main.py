@@ -30,7 +30,7 @@ from utility import minimize_automata, multi_byte_stream
 
 #automatas = pickle.load(open('atm61.pkl','rb'))
 
-automata1 = atma.parse_anml_file(anml_path[AnmalZoo.EntityResolution])
+automata1 = atma.parse_anml_file(anml_path[AnmalZoo.Snort])
 automata1.remove_ors()
 automata1.print_summary()
 automatas = automata1.get_connected_components_as_automatas()
@@ -40,19 +40,26 @@ for atm_idx, atm in enumerate(automatas):
     print "idx=", atm_idx
     atm.remove_all_start_nodes()
     atm.remove_ors()
+    atm.print_summary()
 
     #atm.draw_graph(file_name='1.svg', draw_edge_label=True, use_dot=True, write_node_labels=True)
     atm2=atm.get_single_stride_graph()
     #atm2.draw_graph(file_name='2.svg', draw_edge_label=True, use_dot=True, write_node_labels=True)
     atm2.make_homogenous()
     #atm2.draw_graph(file_name='1-5.svg', draw_edge_label=True, use_dot=True, write_node_labels=True)
-    #minimize_automata(atm2, merge_reports=True, same_residuals_only=True, same_report_code=True)
+    #minimize_automata(atm2, merge_reports=True, same_residuals_only=True, same_report_code=True,
+    #                  combine_symbols=False)
     #atm2.draw_graph(file_name='2H.svg', draw_edge_label=True, use_dot=True, write_node_labels=True)
+
     atm2=atm2.get_single_stride_graph()
+
     #atm2.draw_graph(file_name='4.svg', draw_edge_label=True, use_dot=True, write_node_labels=True)
     atm2.make_homogenous()
+    atm2.print_summary()
     #atm2.draw_graph(file_name='4H.svg', draw_edge_label=True, use_dot=True, write_node_labels=True)
-    minimize_automata(atm2,merge_reports=True,same_residuals_only=True,same_report_code=True)
+    minimize_automata(atm2,merge_reports=True,same_residuals_only=True,same_report_code=True,
+                      combine_symbols=True)
+    atm2.print_summary()
     #atm2.draw_graph(file_name='4HM.svg', draw_edge_label=True, use_dot=True, write_node_labels=True)
     #atm2l, atm2r = atm2.split()
 
@@ -60,8 +67,8 @@ for atm_idx, atm in enumerate(automatas):
         if n.start_type==StartType.fake_root:
             continue
         s=n.is_symbolset_splitable()
-        print s
         if not s:
+            print s
             faulty_automats.append(atm_idx)
             break
 

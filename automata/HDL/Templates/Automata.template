@@ -1,0 +1,66 @@
+{% import 'STE_base.template' as ste_base %}
+{% import 'LUT_match.template' as lut_match %}
+
+{{ste_base.ste()}}
+
+{% for node in automata.nodes  if not node.id == 0 %} {# 0 is the default id of fake root#}
+{{lut_match.LUT_match(node.id, node.symbols)}}
+{% endfor %}
+
+
+module automata_top(input clk,
+           input run,
+           input reset,
+           input [{{automata.stride_value * 8 - 1}} : 0] symbols
+           {%for node in automata.nodes if node.report%}
+           , output w_out_{{node.id}}
+           {%- endfor -%}
+           );
+
+reg prev_reset;
+wire start_of_data;
+
+always @(posedge clk)
+begin
+    prev_reset <= reset;
+end
+
+assign start_of_data = prev_reset & ~reset;
+
+
+
+{% for node in automata.nodes  if not node.id == 0 %} {# 0 is the default id of fake root#}
+{%- if not node.report -%}
+wire w_out_{{node.id}};
+{%- endif -%}
+wire w_match_{{node.id}};
+{% endfor %}
+
+{%for node in automata.nodes  if not node.id == 0 %}
+    {% set n_preds = predecessors(node)|list%}
+    {%set pred_wire_str = []%}
+    {% for p in n_preds %}
+        {%- if p.id != 0 -%}
+            {% do pred_wire_str.append('w_out_' + p.id|string) %}
+        {%- elif p.start_type|string == 'StartType.start_of_data' -%}
+            {% do pred_wire_str.append('~reset') %}
+        {%- else -%} {# all start case #}
+            {% do pred_wire_str.append('start_of_data') %}
+        {%- endif -%}
+    {% endfor %}
+
+LUT_match_{{node.id}} #({{automata.stride_value * 8}}) lut_match_{{node.id}}(
+                .clk(clk),
+                .symbols(symbols),
+                .match(w_match_{{node.id}}));
+
+STE #({{n_preds|length}}) ste_{{node.id}} (
+                .clk(clk),
+                .run(run),
+                .reset(reset),
+                .income_edges({ {{pred_wire_str|join(', ')}} }),
+                .match(w_match_{{node.id}}),
+                .active_state(w_out_{{node.id}}));
+{% endfor %}
+
+endmodule

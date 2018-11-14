@@ -64,7 +64,10 @@ def generate_semi_diagonal_route(basic_block_size, one_dir_copy):
 
 
 
-def minimize_automata(automata, merge_reports = False, same_residuals_only = False, same_report_code = False):
+def minimize_automata(automata,
+                      merge_reports = False, same_residuals_only = False,
+                      same_report_code = False, left_merge = True, right_merge = True,
+                      combine_symbols = True):
     original_node_count = automata.nodes_count
 
     while True:
@@ -73,9 +76,12 @@ def minimize_automata(automata, merge_reports = False, same_residuals_only = Fal
         if merge_reports:
             automata.combine_finals_with_same_symbol_set(same_residuals_only=same_residuals_only,
                                                           same_report_code=same_report_code )
-        automata.left_merge(merge_reports , same_residuals_only , same_report_code )
-        automata.right_merge(merge_reports, same_residuals_only, same_report_code)
-        automata.combine_symbol_sets()
+        if left_merge:
+            automata.left_merge(merge_reports , same_residuals_only , same_report_code )
+        if right_merge:
+            automata.right_merge(merge_reports, same_residuals_only, same_report_code)
+        if combine_symbols:
+            automata.combine_symbol_sets()
         new_node_count = automata.nodes_count
         assert new_node_count<= current_node_cont, "it should always be smaller"
         if new_node_count == current_node_cont:

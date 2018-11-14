@@ -70,7 +70,7 @@ class PackedInterval(object):
 
     def can_accept(self, point):
         assert point.dim == self.dim
-        for l,p,r in zip(self.left, point,self.right):
+        for l,p,r in zip(self.left, point, self.right):
             if l <= p <= r:
                 continue
             else:

@@ -1,0 +1,18 @@
+{%macro LUT_match(name, intervals)%}
+module LUT_match_{{name}} #(parameter integer width)(
+        input clk,
+        input [width-1:0] symbols,
+        output reg match);
+
+always @ (posedge clk)
+begin
+    if({% for  ivl in intervals %}({% set left, right = ivl.left, ivl.right %}{% for i in range(left|length) %}(symbols[{{ loop.index * 8 -1 }}-:8] >= 8'd{{left[i]}}) &&(symbols[{{ loop.index*8 -1}}-:8] <= 8'd{{right [i]}}) &&{% endfor %} 1) ||
+     {% endfor %} 0)
+        match <= 1;
+    else
+        match <= 0;
+    end
+
+endmodule
+{% endmacro%}
+
