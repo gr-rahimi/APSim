@@ -1,5 +1,5 @@
 {%macro LUT_match(name, intervals)%}
-module LUT_match_{{name}} #(parameter integer width)(
+module LUT_Match_{{name}} #(parameter integer width = 8)(
         input clk,
         input [width-1:0] symbols,
         output reg match);

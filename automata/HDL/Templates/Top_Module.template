@@ -1,0 +1,56 @@
+{% from 'Automata.template' import automata_macro %}
+{% import 'STE_base.template' as ste_base %}
+
+{%if single_file%}
+{{ste_base.ste()}}
+{% for atm in automatas%}
+{{automata_macro(atm)}}
+{%endfor%}
+{%endif%}
+
+module Automata_Top(input clk,
+                    input run,
+                    input reset,
+                    input [{{automatas[0].stride_value * 8}} : 0] symbols
+                    {%if single_out == false %}
+                    {%-for atm in automatas-%}
+                    {%-for node in atm.nodes if node.report-%}
+                    , output {{atm.id}}_w_out_{{node.id}}
+                    {%-endfor%}
+                    {%endfor%}
+                    {%-else-%}
+                    ,output single_out
+                    {%-endif-%}
+                    );
+
+{%- if single_out -%}
+{%set report_list=[]%}
+{%for atm in automatas%}
+{%-for node in atm.nodes if node.report-%}
+{% do report_list.append(atm.id|string+'_w_out_'+node.id|string)%}
+wire {{atm.id}}_w_out_{{node.id}};
+
+{%-endfor-%}
+{%-endfor-%}
+
+
+{# wire {{report_list|join(', ')}}; #}
+assign single_out = {{report_list|join(' | ')}};
+
+{%endif%}
+
+
+{%for atm in automatas%}
+Automata_{{atm.id}} automata_{{atm.id}} (.clk(clk),
+                     .run(run),
+                     .reset(reset),
+                     .symbols(symbols)
+                     {% for node in atm.nodes if node.report -%}
+                      , .{{atm.id}}_w_out_{{node.id}}({{atm.id}}_w_out_{{node.id}})
+                     {%- endfor -%}
+                    );
+{%endfor%}
+
+
+endmodule
+

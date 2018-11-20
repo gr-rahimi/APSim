@@ -69,6 +69,14 @@ class Automatanetwork(object):
 
 
     @property
+    def id(self):
+        return self._id
+
+    @id.setter
+    def id(self, new_id):
+        self._id = new_id
+
+    @property
     def fake_root(self):
         return self._my_graph.nodes[FakeRoot.fake_root_id][Automatanetwork.node_data_key]
 

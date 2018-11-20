@@ -1,5 +1,5 @@
 {%macro ste() -%}
-module STE #(parameter integer fan_in)(
+module STE #(parameter integer fan_in = 1)(
            input clk,
            input run,
            input reset,

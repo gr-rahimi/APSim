@@ -8,19 +8,25 @@ import automata.HDL.hdl_generator as hd_gen
 
 
 
-automatas = pickle.load(open('snort1-10.pkl', 'rb'))
+strided_automatas = []
+#automatas = pickle.load(open('snort1-10.pkl', 'rb'))
+automatas = atma.parse_anml_file(anml_path[AnmalZoo.Snort])
+automatas.remove_ors()
+automatas = automatas.get_connected_components_as_automatas()
+for atm_idx, atm in enumerate(automatas):
+    atm.remove_all_start_nodes()
+    atm.remove_ors()
+    atm.print_summary()
 
-atm = automatas[0]
-atm.remove_all_start_nodes()
-atm.remove_ors()
-atm.print_summary()
-
-atm2=atm.get_single_stride_graph()
-atm2.make_homogenous()
-minimize_automata(atm2, merge_reports=True, same_residuals_only=True, same_report_code=True,
+    atm2=atm.get_single_stride_graph()
+    atm2.make_homogenous()
+    minimize_automata(atm2, merge_reports=True, same_residuals_only=True, same_report_code=True,
                       combine_symbols=True)
+    strided_automatas.append(atm2)
+    atm2.draw_graph(file_name='atm'+str(atm_idx)+'.svg', draw_edge_label=False, use_dot=True, write_node_labels=False)
+    atm2.print_summary()
 
-hd_gen.generate_full_lut(atm2)
+hd_gen.generate_full_lut(strided_automatas, single_file=False, folder_name='snortall')
 
 
 
