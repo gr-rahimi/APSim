@@ -67,7 +67,7 @@ class BaseElement(object):
             return str(self.id)
 
     def __repr__(self):
-        return self.id
+        return str(self.id)
 
     @property
     def marked(self):

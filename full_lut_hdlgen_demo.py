@@ -19,14 +19,18 @@ for atm_idx, atm in enumerate(automatas):
     atm.print_summary()
 
     atm2=atm.get_single_stride_graph()
-    atm2.make_homogenous()
-    minimize_automata(atm2, merge_reports=True, same_residuals_only=True, same_report_code=True,
+    atm4=atm2.get_single_stride_graph()
+    atm8=atm4.get_single_stride_graph()
+    print "starting making homogeneous"
+    atm8.make_homogenous()
+    print "starting minimization"
+    minimize_automata(atm8, merge_reports=True, same_residuals_only=True, same_report_code=True,
                       combine_symbols=True)
-    strided_automatas.append(atm2)
-    atm2.draw_graph(file_name='atm'+str(atm_idx)+'.svg', draw_edge_label=False, use_dot=True, write_node_labels=False)
-    atm2.print_summary()
+    strided_automatas.append(atm8)
+    #atm2.draw_graph(file_name='atm'+str(atm_idx)+'.svg', draw_edge_label=False, use_dot=True, write_node_labels=False)
+    atm8.print_summary()
 
-hd_gen.generate_full_lut(strided_automatas, single_file=False, folder_name='snortall')
-
+hd_gen.generate_full_lut(strided_automatas, capture_symbol=False,single_file=False, folder_name='snortall8S_nocap')
+hd_gen.generate_full_lut(strided_automatas, capture_symbol=True,single_file=False, folder_name='snortall8S_cap')
 
 

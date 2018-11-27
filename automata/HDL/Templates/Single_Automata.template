@@ -1,6 +1,6 @@
 {% from 'Automata.template' import automata_macro %}
 
-{{automata_macro(automata)}}
+{{automata_macro(automata, capture_symbol)}}
 
 
 

@@ -11,7 +11,7 @@
 module Automata_Top(input clk,
                     input run,
                     input reset,
-                    input [{{automatas[0].stride_value * 8}} : 0] symbols
+                    input [{{automatas[0].stride_value * 8 -1}} : 0] symbols
                     {%if single_out == false %}
                     {%-for atm in automatas-%}
                     {%-for node in atm.nodes if node.report-%}

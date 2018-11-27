@@ -7,7 +7,10 @@ module STE #(parameter integer fan_in = 1)(
            input match,
            output reg active_state);
 
+initial active_state = 1'b0;
+
 wire is_potential;
+
 assign is_potential = |income_edges;
 
 always @ (posedge clk)

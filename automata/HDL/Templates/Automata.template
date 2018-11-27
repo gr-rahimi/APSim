@@ -1,6 +1,6 @@
 {% import 'LUT_match.template' as lut_match %}
 
-{%macro automata_macro(automata) -%}
+{%macro automata_macro(automata, capture_symbol ) -%}
 
 
 {% for node in automata.nodes  if not node.id == 0 %} {# 0 is the default id of fake root#}
@@ -52,7 +52,14 @@ wire {{automata.id}}_w_match_{{node.id}};
 LUT_Match_{{automata.id}}_{{node.id}} #({{automata.stride_value * 8}}) lut_match_{{automata.id}}_{{node.id}}(
                 .clk(clk),
                 .symbols(symbols),
-                .match({{automata.id}}_w_match_{{node.id}}));
+                .match({% if not capture_symbol -%}
+                        {{automata.id}}_w_match_{{node.id}}
+                        {%- endif -%}
+                ),
+                .new_match(
+                {%- if capture_symbol -%}
+                {{automata.id}}_w_match_{{node.id}} {% endif %})
+                );
 
 STE #({{n_preds|length}}) {{automata.id}}_ste_{{node.id}} (
                 .clk(clk),

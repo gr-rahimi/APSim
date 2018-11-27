@@ -2,16 +2,28 @@
 module LUT_Match_{{name}} #(parameter integer width = 8)(
         input clk,
         input [width-1:0] symbols,
-        output reg match);
+        output reg match,
+        output new_match);
+
+reg [width-1:0] input_capture;
+
 
 always @ (posedge clk)
 begin
-    if({% for  ivl in intervals %}({% set left, right = ivl.left, ivl.right %}{% for i in range(left|length) %}(symbols[{{ loop.index * 8 -1 }}-:8] >= 8'd{{left[i]}}) &&(symbols[{{ loop.index*8 -1}}-:8] <= 8'd{{right [i]}}) &&{% endfor %} 1) ||
-     {% endfor %} 0)
-        match <= 1;
+    if({% for  ivl in intervals %}({% set left, right = ivl.left, ivl.right %}{% for i in range(left|length) %}(symbols[{{ loop.index * 8 -1 }}:{{ loop.index * 8 - 8 }}] >= 8'd{{left[i]}}) &&(symbols[{{ loop.index*8 -1}}:{{ loop.index * 8 - 8 }}] <= 8'd{{right [i]}}) &&{% endfor %} 1'b1) ||
+     {% endfor %} 1'b0)
+        match <= 1'b1;
     else
-        match <= 0;
-    end
+        match <= 1'b0;
+end
+
+always @(posedge clk)
+begin
+    input_capture <= symbols;
+end
+
+assign new_match = ({% for  ivl in intervals %}({% set left, right = ivl.left, ivl.right %}{% for i in range(left|length) %}(input_capture[{{ loop.index * 8 -1 }}:{{ loop.index * 8 - 8 }}] >= 8'd{{left[i]}}) &&(input_capture[{{ loop.index*8 -1}}:{{ loop.index * 8 - 8 }}] <= 8'd{{right [i]}}) &&{% endfor %} 1'b1) ||
+     {% endfor %} 1'b0) ? 1'b1 : 1'b0;
 
 endmodule
 {% endmacro%}

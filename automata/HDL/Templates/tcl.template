@@ -1,0 +1,20 @@
+create_project -force project_1 ./ -part xcvu9p-flgb2104-1-i
+set verilog_files [glob *.v]
+add_files $verilog_files
+#add_files -fileset clk_constrain -norecurse ./clk_constrain.xdc
+read_xdc -mode out_of_context ./clk_constrain.xdc
+
+synth_design -mode out_of_context -flatten_hierarchy rebuilt -top Automata_Top
+
+write_checkpoint synth.dcp
+
+set_property HD.PARTITION 1 [current_design]
+
+opt_design
+place_design
+phys_opt_design
+route_design
+
+report_timing_summary -file ./timing_summary.txt
+
+report_utilization -hierarchical  -file ./utilization.txt
