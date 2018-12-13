@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import matplotlib
 import networkx as nx
 import igraph
+from automata.elemnts import ElementsType
+import logging
 
 def draw_matrix(file_to_save, matrix, boundries, **kwargs):
     """
@@ -70,17 +72,25 @@ def minimize_automata(automata,
                       combine_symbols = True):
     original_node_count = automata.nodes_count
 
+    for ste in automata.nodes:
+        if ste.type is not ElementsType.FAKE_ROOT:
+            ste.symbols.prone()
+
     while True:
         current_node_cont = automata.nodes_count
-        #print current_node_cont
+        logging.debug("minimization, current count{}".format(current_node_cont))
         if merge_reports:
+            logging.debug("start report merge")
             automata.combine_finals_with_same_symbol_set(same_residuals_only=same_residuals_only,
                                                           same_report_code=same_report_code )
         if left_merge:
+            logging.debug("start left merge")
             automata.left_merge(merge_reports , same_residuals_only , same_report_code )
         if right_merge:
+            logging.debug("start right merge")
             automata.right_merge(merge_reports, same_residuals_only, same_report_code)
         if combine_symbols:
+            logging.debug("combine symbol set")
             automata.combine_symbol_sets()
         new_node_count = automata.nodes_count
         assert new_node_count<= current_node_cont, "it should always be smaller"

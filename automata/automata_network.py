@@ -16,6 +16,7 @@ from deap import algorithms, base, creator, tools
 import numpy as np
 import utility
 from networkx.drawing.nx_agraph import write_dot
+import logging
 
 
 random.seed(a = None)
@@ -246,6 +247,8 @@ class Automatanetwork(object):
 
         while dq:
 
+            logging.debug("striding queue len= {}".format(len(dq)))
+
             current_ste = dq.pop()
 
 
@@ -444,6 +447,7 @@ class Automatanetwork(object):
             dq.append(r_node)
 
         while dq:
+            logging.debug("Making homogeneous len:{}".format(len(dq)))
             current_ste = dq.pop()
             if current_ste.start_type == StartType.fake_root: # fake root does need processing
                 continue # process next node from the queue
@@ -847,18 +851,28 @@ class Automatanetwork(object):
         assert self.is_homogeneous, "This operation works only for homogeneous"
         equal_nodes = {}
         final_nodes = self.get_filtered_nodes(lambda node: node.report)
-        for f_node in final_nodes:
+        for f_node_idx, f_node in enumerate(final_nodes):
+            logging.debug("processing {}".format(f_node_idx))
             set_found = False
             f_node_neighbors = set(self._my_graph.neighbors(f_node)) - set([f_node])
             for equal_key in equal_nodes:
-                if (not same_residuals_only or (f_node.report_residual == equal_key.report_residual))and\
-                        f_node.symbols.is_symbolset_a_subset(equal_key.symbols) and \
-                        equal_key.symbols.is_symbolset_a_subset(f_node.symbols) and \
+
+                # if (not same_residuals_only or (f_node.report_residual == equal_key.report_residual))and \
+                #         (not same_report_code or (f_node.report_code == equal_key.report_code)) and\
+                #         len(f_node.symbols) == len(equal_key.symbols) and\
+                #         f_node.symbols.is_symbolset_a_subset(equal_key.symbols) and \
+                #         equal_key.symbols.is_symbolset_a_subset(f_node.symbols) and \
+                #         self.does_STE_has_self_loop(equal_key) == self.does_STE_has_self_loop(f_node) and \
+                #         f_node_neighbors == (set(self._my_graph.neighbors(equal_key)) - set([equal_key])):
+
+                if (not same_residuals_only or (f_node.report_residual == equal_key.report_residual)) and \
+                        (not same_report_code or (f_node.report_code == equal_key.report_code)) and \
+                         f_node.symbols == equal_key.symbols and \
                         self.does_STE_has_self_loop(equal_key) == self.does_STE_has_self_loop(f_node) and \
-                        f_node_neighbors == (set(self._my_graph.neighbors(equal_key)) - set([equal_key]) )and \
-                        (not same_report_code or (f_node.report_code == equal_key.report_code)):
+                        f_node_neighbors == (set(self._my_graph.neighbors(equal_key)) - set([equal_key])):
                     set_found = True
                     equal_nodes[equal_key].add(f_node)
+
                     break
 
             if not set_found:
@@ -1346,6 +1360,7 @@ class Automatanetwork(object):
                     if self._can_combine_symbol_set(fst_ste=first_neighb_node, sec_ste= sec_neighb_node):
                         for interval in sec_neighb_node.symbols:
                             first_neighb_node.symbols.add_interval(interval)
+                        first_neighb_node.symbols.prone()
                         self.delete_node(sec_neighb_node)
 
             for node in self._my_graph.neighbors(current_node):
@@ -1412,8 +1427,11 @@ class Automatanetwork(object):
         if fst_ste.report != sec_ste.report:
             return False
 
-        if not fst_ste.symbols.is_symbolset_a_subset(sec_ste.symbols) or not \
-                sec_ste.symbols.is_symbolset_a_subset(fst_ste.symbols):
+        # if not fst_ste.symbols.is_symbolset_a_subset(sec_ste.symbols) or not \
+        #         sec_ste.symbols.is_symbolset_a_subset(fst_ste.symbols):
+        #     return False
+
+        if fst_ste.symbols != sec_ste.symbols:
             return False
 
         if self.does_STE_has_self_loop(fst_ste) != self.does_STE_has_self_loop(sec_ste):
@@ -1444,8 +1462,11 @@ class Automatanetwork(object):
         if fst_ste.report != sec_ste.report:
             return  False
 
-        if not fst_ste.symbols.is_symbolset_a_subset(sec_ste.symbols) or not \
-                sec_ste.symbols.is_symbolset_a_subset(fst_ste.symbols):
+        # if not fst_ste.symbols.is_symbolset_a_subset(sec_ste.symbols) or not \
+        #         sec_ste.symbols.is_symbolset_a_subset(fst_ste.symbols):
+        #     return False
+
+        if fst_ste.symbols != sec_ste.symbols:
             return False
 
         if self.does_STE_has_self_loop(fst_ste) != self.does_STE_has_self_loop(sec_ste):

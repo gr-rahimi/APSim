@@ -1,9 +1,13 @@
 import CPP.VASim as VASim
 from .element import BaseElement, StartType
 from . import ElementsType
-from itertools import chain, product
+from itertools import chain, product, izip
 import utility
 from heapq import heappush, heappop
+import point_comperator
+
+
+CYTHON_CAN_ACCEPT_FUNC =  point_comperator.cython_can_accept
 
 class ComparableMixin(object):
   def __eq__(self, other):
@@ -18,9 +22,11 @@ class ComparableMixin(object):
     return not other<self
 
 class PackedInput(ComparableMixin):
+
     def __init__(self, alphabet_point):
-        self._point = alphabet_point
+        self._point = bytearray(alphabet_point)
         self._iter_idx = -1
+        self._dim = len(self._point)
 
     def __iter__(self):
         return self._point.__iter__()
@@ -32,14 +38,15 @@ class PackedInput(ComparableMixin):
         return self.point < other.point
 
     def __str__(self):
-        return str(self._point)
+        int_list=[int(i) for i in self.point]
+        return str(int_list)
 
     def __getitem__(self, item):
         return self._point[item]
 
     @property
     def dim(self):
-        return len(self._point)
+        return self._dim
 
     @property
     def point(self):
@@ -47,6 +54,8 @@ class PackedInput(ComparableMixin):
 
 
 class PackedInterval(object):
+
+    _pos_stat, _neg_stat = 0, 0
     def __init__(self, p1, p2):
         self._left_pt = p1
         self._right_pt = p2
@@ -68,20 +77,45 @@ class PackedInterval(object):
         return PackedInput(tuple((l if m == 0 else r for l, m, r in
                                   zip(self._left_pt, min_max_filter, self._right_pt))))
 
-    def can_accept(self, point):
-        assert point.dim == self.dim
-        for l,p,r in zip(self.left, point, self.right):
-            if l <= p <= r:
-                continue
-            else:
-                return False
-        return True
+    def can_interval_accept(self, point):
+        return (self.left <= point <= self.right)
+        #assert point.dim == self.dim
+        acceptance_result = CYTHON_CAN_ACCEPT_FUNC(self.left.point, point.point, self.right.point)
+        assert le_res == acceptance_result
+
+        # python_result = True
+        # for l,p,r in izip(self.left, point, self.right):
+        #     if l <= p <= r:
+        #         continue
+        #     else:
+        #         python_result = False
+        #         break
+        #
+        # assert python_result == acceptance_result
+
+
+        if acceptance_result:
+            PackedInterval._pos_stat+=1
+        else:
+            PackedInterval._neg_stat+=1
+
+        if(PackedInterval._pos_stat + PackedInterval._neg_stat) % 100000 == 0:
+            print "pos={},neg={}".format(PackedInterval._pos_stat,
+                                         PackedInterval._neg_stat)
+        return acceptance_result
+
 
     def __lt__(self, other):
         return self.left < other.left
 
     def __str__(self):
         return '[' + str(self.left) + ',' + str(self.right) + ']'
+
+    def __eq__(self, other):
+        return self.left == other.left and self.right == other.right
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 
 class PackedIntervalSet(object):
@@ -102,6 +136,12 @@ class PackedIntervalSet(object):
             if not self.can_accept(p):
                 return False
         return True
+
+    def __eq__(self, other):
+        return self._interval_set == other._interval_set
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def _split_corner_gen(self):
         intervals = []
@@ -191,19 +231,26 @@ class PackedIntervalSet(object):
             return self._interval_set[0].dim
 
     def add_interval(self, interval):
+        import bisect
         assert isinstance(interval, PackedInterval), "argument should be an instance of PackedInterval"
+        bisect.insort(self._interval_set, interval)
+        return
+
+
 
         temp_symbol_set = PackedIntervalSet([interval])
         if not self.is_symbolset_a_subset(temp_symbol_set):
-            for ivl in self._interval_set:
-                left_pt = ivl.left
-                right_pt = ivl.right
-                if interval.can_accept(left_pt) and interval.can_accept(right_pt):
-                    self._interval_set.remove(ivl)
-                    continue #check for next intervals
+            # for ivl in self._interval_set:
+            #     left_pt = ivl.left
+            #     right_pt = ivl.right
+            #     if interval.can_accept(left_pt) and interval.can_accept(right_pt):
+            #         self._interval_set.remove(ivl)
+            #         continue #check for next intervals
 
-            self._interval_set.append(interval)
-            self._interval_set.sort()
+            #self._interval_set.append(interval)
+            #self._interval_set.sort()
+            bisect.insort(self._interval_set, interval)
+
         else:
             return
 
@@ -221,8 +268,8 @@ class PackedIntervalSet(object):
             right_point = input_interval.right
             can_accept = False
             for dst_interval in self._interval_set[start_idx:]:
-                can_accept = dst_interval.can_accept(left_point) and\
-                             dst_interval.can_accept(right_point)
+                can_accept = dst_interval.can_interval_accept(left_point) and\
+                             dst_interval.can_interval_accept(right_point)
 
                 if can_accept:
                     break
@@ -248,6 +295,10 @@ class PackedIntervalSet(object):
                 right_pt = PackedInput(tuple (r for r in chain(l_int.right, r_int.right)))
                 new_packed_list.append(PackedInterval(left_pt, right_pt))
 
+        #temp_list = new_packed_list[:]
+        #temp_ret = PackedIntervalSet(temp_list)
+        #temp_ret.prone()
+
         return PackedIntervalSet(new_packed_list)
 
     def clone(self):
@@ -256,7 +307,7 @@ class PackedIntervalSet(object):
     def can_accept(self, input_pt):
         assert isinstance(input_pt, PackedInput)
         for intvl in self._interval_set:
-            if intvl.can_accept(input_pt):
+            if intvl.can_interval_accept(input_pt):
                 return True
 
         return False
@@ -271,6 +322,33 @@ class PackedIntervalSet(object):
                 to_return_str = to_return_str + ',' + str(item)
 
             return "*" + to_return_str + "*"
+
+    def prone(self):
+        """
+        This function removes already covered intervals from the list
+        :return:
+            None
+        """
+        if self._interval_set:
+
+            to_be_deleted = [] # keeps inexes of items that are going to be deleted
+
+            current_master = 0 # this is the index of the item that others will be compared to
+
+            for i in range(1, len(self._interval_set)):
+
+                if self._interval_set[current_master].can_interval_accept(self._interval_set[i].left) and \
+                        self._interval_set[current_master].can_interval_accept(self._interval_set[i].right):
+                    to_be_deleted.append(i)
+
+                elif self._interval_set[i].can_interval_accept(self._interval_set[current_master].left) and \
+                        self._interval_set[i].can_interval_accept(self._interval_set[current_master].right):
+                    to_be_deleted.append(current_master)
+                    current_master = i
+
+            for idx, item in enumerate(to_be_deleted):
+                del self._interval_set[item-idx]
+
 
 
 class S_T_E(BaseElement):
@@ -423,6 +501,8 @@ class S_T_E(BaseElement):
     @property
     def type(self):
         return ElementsType.STE
+
+
 
 
 

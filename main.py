@@ -37,10 +37,22 @@ automatas = automata1.get_connected_components_as_automatas()
 faulty_automats =[]
 
 for atm_idx, atm in enumerate(automatas):
+
     print "idx=", atm_idx
     atm.remove_all_start_nodes()
     atm.remove_ors()
     atm.print_summary()
+
+    ###########
+    atm= atm.get_single_stride_graph()
+    atm = atm.get_single_stride_graph()
+    atm = atm.get_single_stride_graph()
+    atm.make_homogenous()
+    minimize_automata(atm, merge_reports=True, same_residuals_only=True, same_report_code=True,
+                      combine_symbols=True)
+    atm.print_summary()
+
+    ###########
 
     #atm.draw_graph(file_name='1.svg', draw_edge_label=True, use_dot=True, write_node_labels=True)
     atm2=atm.get_single_stride_graph()
