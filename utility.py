@@ -2,9 +2,11 @@ from matplotlib import colors
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
+from mpl_toolkits.mplot3d import Axes3D
 import networkx as nx
 import igraph
 from automata.elemnts import ElementsType
+from automata.elemnts.element import FakeRoot
 import logging
 
 def draw_matrix(file_to_save, matrix, boundries, **kwargs):
@@ -215,3 +217,94 @@ def multi_byte_stream(file_path, chunk_size):
     with open(file_path,'rb') as f:
         for read_bytes in iter(lambda: f.read(chunk_size), b''):
             yield bytearray(read_bytes)
+
+def draw_symbols_len_histogram(atm):
+    """
+    this function draws a histogram based on the length of the symbols of all the nodes in the input automata
+    :param atm: the under process automata
+    :return: None
+    """
+
+    all_nodes = filter( lambda n : n.id != FakeRoot.fake_root_id, atm.nodes) # filter fake root
+    all_nodes_symbols_len_count = [len(n.symbols) for n in all_nodes]
+
+    fig = plt.figure(figsize=plt.figaspect(0.5))
+    #fig, ax = plt.subplots(2, 3)
+
+    ax_symbol = fig.add_subplot(231)
+    n, bins, patches = ax_symbol.hist(x=all_nodes_symbols_len_count, bins='auto', color='#0504aa',
+                                alpha=0.7, rwidth=0.85)
+    ax_symbol.grid(axis='y', alpha=0.75)
+    ax_symbol.set_xlabel('Symbol size')
+    ax_symbol.set_ylabel('Frequency')
+    max_sym_count = n.max()
+    ax_symbol.set_ylim(ymax=np.ceil(max_sym_count / 10) * 10 if max_sym_count % 10 else max_sym_count + 10)
+
+    all_nodes_fan_in = atm.get_STEs_in_degree()
+    ax_fan_in = fig.add_subplot(232)
+    n, bins, patches = ax_fan_in.hist(x=all_nodes_fan_in, bins='auto', color='#0504aa',
+                                alpha=0.7, rwidth=0.85)
+    ax_fan_in.grid(axis='y', alpha=0.75)
+    ax_fan_in.set_xlabel('fan in size')
+    ax_fan_in.set_ylabel('Frequency')
+    max_fanin_count = n.max()
+    ax_fan_in.set_ylim(ymax=np.ceil(max_fanin_count / 10) * 10 if max_fanin_count % 10 else max_fanin_count + 10)
+
+    all_nodes_fan_out = atm.get_STEs_out_degree()
+    ax_fan_out = fig.add_subplot(233)
+    n, bins, patches = ax_fan_out.hist(x=all_nodes_fan_out, bins='auto', color='#0504aa',
+                                alpha=0.7, rwidth=0.85)
+    ax_fan_out.grid(axis='y', alpha=0.75)
+    ax_fan_out.set_xlabel('fan out size')
+    ax_fan_out.set_ylabel('Frequency')
+    max_fan_out_count = n.max()
+    ax_fan_out.set_ylim(ymax=np.ceil(max_fan_out_count / 10) * 10 if max_fan_out_count % 10 else max_fan_out_count + 10)
+
+
+    sym_fan_in_ax = fig.add_subplot(234, projection='3d')
+    hist, xedges, yedges = np.histogram2d(all_nodes_symbols_len_count, all_nodes_fan_in, bins=20,
+                                          range=[[0, max(all_nodes_symbols_len_count)], [0, max(all_nodes_fan_in)]])
+    xpos, ypos = np.meshgrid(xedges[:-1] + 2, yedges[:-1] + 2, indexing="ij")
+    xpos = xpos.ravel()
+    ypos = ypos.ravel()
+    zpos = 0
+    dx = dy = 5 * np.ones_like(zpos)
+    dz = hist.ravel()
+    sym_fan_in_ax.bar3d(xpos, ypos, zpos, dx, dy, dz, color='b', zsort='average')
+
+    sym_fan_in_ax.set_xlabel('symbol size')
+    sym_fan_in_ax.set_ylabel('fan in')
+
+    sym_fan_out_ax = fig.add_subplot(235, projection='3d')
+    hist, xedges, yedges = np.histogram2d(all_nodes_symbols_len_count, all_nodes_fan_out, bins=20,
+                                          range=[[0, max(all_nodes_symbols_len_count)], [0, max(all_nodes_fan_out)]])
+    xpos, ypos = np.meshgrid(xedges[:-1] + 2, yedges[:-1] + 2, indexing="ij")
+    xpos = xpos.ravel()
+    ypos = ypos.ravel()
+    zpos = 0
+    dx = dy = 5 * np.ones_like(zpos)
+    dz = hist.ravel()
+    sym_fan_out_ax.bar3d(xpos, ypos, zpos, dx, dy, dz, color='b', zsort='average')
+
+    sym_fan_out_ax.set_xlabel('symbol size')
+    sym_fan_out_ax.set_ylabel('fan out')
+
+    fan_in_fan_out_ax = fig.add_subplot(236, projection='3d')
+    hist, xedges, yedges = np.histogram2d(all_nodes_fan_in, all_nodes_fan_out, bins=20,
+                                          range=[[0, max(all_nodes_fan_in)], [0, max(all_nodes_fan_out)]])
+    xpos, ypos = np.meshgrid(xedges[:-1] + 1, yedges[:-1] + 1, indexing="ij")
+    xpos = xpos.ravel()
+    ypos = ypos.ravel()
+    zpos = 0
+    dx = dy = 2 * np.ones_like(zpos)
+    dz = hist.ravel()
+    fan_in_fan_out_ax.bar3d(xpos, ypos, zpos, dx, dy, dz, color='b', zsort='average')
+
+    fan_in_fan_out_ax.set_xlabel('fan in')
+    fan_in_fan_out_ax.set_ylabel('fan out')
+
+
+    plt.show()
+
+
+

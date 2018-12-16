@@ -30,7 +30,7 @@ from utility import minimize_automata, multi_byte_stream
 
 #automatas = pickle.load(open('atm61.pkl','rb'))
 
-automata1 = atma.parse_anml_file(anml_path[AnmalZoo.Snort])
+automata1 = atma.parse_anml_file(anml_path[AnmalZoo.Hamming])
 automata1.remove_ors()
 automata1.print_summary()
 automatas = automata1.get_connected_components_as_automatas()
@@ -43,16 +43,7 @@ for atm_idx, atm in enumerate(automatas):
     atm.remove_ors()
     atm.print_summary()
 
-    ###########
-    atm= atm.get_single_stride_graph()
-    atm = atm.get_single_stride_graph()
-    atm = atm.get_single_stride_graph()
-    atm.make_homogenous()
-    minimize_automata(atm, merge_reports=True, same_residuals_only=True, same_report_code=True,
-                      combine_symbols=True)
-    atm.print_summary()
 
-    ###########
 
     #atm.draw_graph(file_name='1.svg', draw_edge_label=True, use_dot=True, write_node_labels=True)
     atm2=atm.get_single_stride_graph()
@@ -70,7 +61,7 @@ for atm_idx, atm in enumerate(automatas):
     atm2.print_summary()
     #atm2.draw_graph(file_name='4H.svg', draw_edge_label=True, use_dot=True, write_node_labels=True)
     minimize_automata(atm2,merge_reports=True,same_residuals_only=True,same_report_code=True,
-                      combine_symbols=True)
+                      combine_symbols=False)
     atm2.print_summary()
     #atm2.draw_graph(file_name='4HM.svg', draw_edge_label=True, use_dot=True, write_node_labels=True)
     #atm2l, atm2r = atm2.split()

@@ -830,22 +830,28 @@ class Automatanetwork(object):
     def does_STE_has_self_loop(self, node):
         return node in self._my_graph.neighbors(node)
 
-    def print_summary(self, print_detailed_final_states = False, logo = ""):
-        print"******************** Summary {}********************".format(logo)
-        print "report for", self._id
-        print "Number of nodes = ", self.nodes_count
-        print "Number of edges = ", self.get_number_of_edges()
-        print "Number of start nodes = ", self.number_of_start_nodes
-        print "Number of report nodes = ", self.number_of_report_nodes
-        print "does have all_input = ", self.does_have_all_input()
-        print "does have special element = ", self.does_have_special_elements()
-        print "is Homogenous = ", self.is_homogeneous
-        print "stride value = ", self.stride_value
-        print "average number of intervals per STE = ", self.get_average_intervals()
+
+
+    def get_summary(self, print_detailed_final_states = False, logo = ""):
+        str_list = []
+        str_list.append("******************** Summary {}********************".format(logo))
+        str_list.append("report for {}".format(self._id))
+        str_list.append("Number of nodes = {}".format(self.nodes_count))
+        str_list.append("Number of edges = {}".format(self.get_number_of_edges()))
+        str_list.append("Number of start nodes = {}".format(self.number_of_start_nodes))
+        str_list.append("Number of report nodes = {}".format(self.number_of_report_nodes))
+        str_list.append("does have all_input = {}".format(self.does_have_all_input()))
+        str_list.append("does have special element = {}".format(self.does_have_special_elements()))
+        str_list.append("is Homogenous = {}".format(self.is_homogeneous))
+        str_list.append("stride value = {}".format(self.stride_value))
+        if self.is_homogeneous:
+            str_list.append("average number of intervals per STE = {}".format(self.get_average_intervals()))
         if print_detailed_final_states:
             self._print_final_states_detail()
 
-        print "#######################################################"
+        str_list.append("#######################################################")
+
+        return "\n".join(str_list)
 
     def combine_finals_with_same_symbol_set(self, same_residuals_only, same_report_code):
         assert self.is_homogeneous, "This operation works only for homogeneous"
@@ -1502,7 +1508,7 @@ class Automatanetwork(object):
     def get_STEs_in_degree(self):
         in_degree_list = []
         for node in self.nodes:
-            if node.get_start() == StartType.fake_root:
+            if node.start_type == StartType.fake_root:
                 continue
 
             in_degree_list.append(self._my_graph.in_degree(node))

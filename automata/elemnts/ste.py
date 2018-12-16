@@ -295,9 +295,11 @@ class PackedIntervalSet(object):
                 right_pt = PackedInput(tuple (r for r in chain(l_int.right, r_int.right)))
                 new_packed_list.append(PackedInterval(left_pt, right_pt))
 
-        #temp_list = new_packed_list[:]
-        #temp_ret = PackedIntervalSet(temp_list)
-        #temp_ret.prone()
+        # temp_list = new_packed_list[:]
+        # temp_ret = PackedIntervalSet(temp_list)
+        # temp_ret.prone()
+
+        # assert len(temp_ret) == len (new_packed_list)
 
         return PackedIntervalSet(new_packed_list)
 

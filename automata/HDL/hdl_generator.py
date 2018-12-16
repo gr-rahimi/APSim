@@ -1,6 +1,35 @@
 from jinja2 import Environment, FileSystemLoader
 import networkx
 import shutil, os
+from automata.automata_network import Automatanetwork
+from automata.elemnts.element import FakeRoot
+
+
+
+def _get_top_module_summary(atms):
+    total_nodes = 0
+    total_reports = 0
+    total_edges = 0
+    total_sym_count = 0
+
+    for atm in atms:
+        total_nodes += atm.nodes_count
+        total_reports += sum (1 for r in atm.get_filtered_nodes(lambda ste: ste.report))
+        total_edges += atm.get_number_of_edges()
+        for n in atm.nodes:
+            if n.id != FakeRoot.fake_root_id:
+                total_sym_count += len(n.symbols)
+
+
+    str_list = ['******************** Summary {}********************']
+
+    str_list.append("total nodes = {}".format(total_nodes))
+    str_list.append("total reports = {}".format(total_reports))
+    str_list.append("total edges = {}".format(total_edges))
+    str_list.append("average symbols len = {}".format(float(total_sym_count) / total_nodes))
+    str_list.append('#######################################################')
+
+    return '\n'.join(str_list)
 
 
 def generate_full_lut(atms, capture_symbol = True , single_file = True, folder_name = None):
@@ -26,14 +55,15 @@ def generate_full_lut(atms, capture_symbol = True , single_file = True, folder_n
 
         template = env.get_template('Single_Automata.template')
         template.globals['predecessors'] = networkx.MultiDiGraph.predecessors
+        template.globals['get_summary'] = Automatanetwork.get_summary # maybe better to move to utility module
         for automata in atms:
             rendered_content = template.render(automata=automata, capture_symbol=capture_symbol)
-            print rendered_content
             with open(os.path.join(total_path, automata.id+'.v',), 'w') as f:
                 f.writelines(rendered_content)
 
         template = env.get_template('Top_Module.template')
-        rendered_content = template.render(automatas=atms, single_file=single_file, single_out=False)
+        rendered_content = template.render(automatas=atms, single_file=single_file, single_out=False,
+                                           summary_str=_get_top_module_summary(atms))
         with open(os.path.join(total_path, 'top_module.v'), 'w') as f:
             f.writelines(rendered_content)
 

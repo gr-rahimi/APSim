@@ -1,6 +1,9 @@
 {% from 'Automata.template' import automata_macro %}
 {% import 'STE_base.template' as ste_base %}
 
+/*
+{{summary_str}}
+*/
 {%if single_file%}
 {{ste_base.ste()}}
 {% for atm in automatas%}
