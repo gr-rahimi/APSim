@@ -314,6 +314,9 @@ class PackedIntervalSet(object):
 
         return False
 
+    def __repr__(self):
+        pass
+
     def __str__(self):
 
         if len(self._interval_set) == 0:

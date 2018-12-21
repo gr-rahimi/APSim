@@ -14,14 +14,14 @@ logging.getLogger().setLevel(logging.WARNING)
 #csv_writer = csv.writer(csv_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
 
 strided_automatas = []
-#automatas = pickle.load(open('snort1-20.pkl', 'rb'))
-automatas = atma.parse_anml_file(anml_path[AnmalZoo.Snort])
-automatas.remove_ors()
-automatas = automatas.get_connected_components_as_automatas()
+automatas = pickle.load(open('snort1-20.pkl', 'rb'))
+#automatas = atma.parse_anml_file(anml_path[AnmalZoo.Snort])
+#automatas.remove_ors()
+#automatas = automatas.get_connected_components_as_automatas()
 
 
 
-for atm_idx, atm in enumerate(automatas[:100]):
+for atm_idx, atm in enumerate(automatas[:10]):
     atm.remove_all_start_nodes()
     atm.remove_ors()
     print atm.get_summary()
@@ -50,7 +50,7 @@ for atm_idx, atm in enumerate(automatas[:100]):
 
     atm2 = atm.get_single_stride_graph()
 
-    #atm2.make_homogenous()
+    atm2.make_homogenous()
     atm4 = atm2.get_single_stride_graph()
     #atm8 = atm4.get_single_stride_graph()
     # atm16 = atm8.get_single_stride_graph()
@@ -64,8 +64,8 @@ for atm_idx, atm in enumerate(automatas[:100]):
 
     atm4.make_homogenous()
     minimize_automata(atm4, merge_reports=True, same_residuals_only=True, same_report_code=True,
-                      combine_symbols=True)
-    print atm.get_summary()
+                      combine_symbols=False)
+    #print atm.get_summary()
     #draw_symbols_len_histogram(atm4)
 
     #atm8.make_homogenous()
@@ -96,7 +96,7 @@ for atm_idx, atm in enumerate(automatas[:100]):
 
     #exit(0)
 
-hd_gen.generate_full_lut(strided_automatas, capture_symbol=False,single_file=False, folder_name='Snort100_4S_nocap')
-hd_gen.generate_full_lut(strided_automatas, capture_symbol=True,single_file=False, folder_name='Snort100_4S_cap')
+hd_gen.generate_full_lut(strided_automatas, single_out=False, before_match_reg=False, after_match_reg=True, ste_type=1, folder_name='SnortSHS')
+hd_gen.generate_full_lut(strided_automatas, single_out=False, before_match_reg=False, after_match_reg=True, ste_type=2, folder_name='SnortSHS')
 
 

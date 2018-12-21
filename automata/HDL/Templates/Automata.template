@@ -1,13 +1,20 @@
 {% import 'LUT_match.template' as lut_match %}
 
-{%macro automata_macro(automata, capture_symbol ) -%}
+{% macro automata_macro(automata, before_match_reg, after_match_reg, bram_match_id_list ) -%}
+
+{#
+@param automata : under process automata
+@param before_match_reg : True/False if True, puts a register exactly after the input
+@param after_match_reg : True/False if True, puts a register exactly after the match if it is LUT based
+@param bram_match_id_list : this is a list of nodes that the matching will be in a block ram
+#}
 
 /*
 {{get_summary(automata)}}
 */
 
-{% for node in automata.nodes  if not node.id == 0 %} {# 0 is the default id of fake root#}
-{{lut_match.LUT_match( automata.id +'_'+node.id|string, node.symbols)}}
+{% for node in automata.nodes  if not node.id == 0 and node.id not in bram_match_dictionary %} {# 0 is the default id of fake root#}
+{{lut_match.LUT_match( automata.id +'_'+node.id|string, node.symbols, before_match_reg, after_match_reg)}}
 {% endfor %}
 
 
@@ -15,6 +22,9 @@ module Automata_{{automata.id}}(input clk,
            input run,
            input reset,
            input [{{automata.stride_value * 8 - 1}} : 0] symbols
+           {% for node_id in bram_match_id_list %}
+           ,input {{automata.id}}_w_match_{{node_id}}
+           {%- endfor -%}
            {%for node in automata.nodes if node.report%}
            , output {{automata.id}}_w_out_{{node.id}}
            {%- endfor -%}
@@ -36,7 +46,9 @@ assign start_of_data = prev_reset & ~reset;
 {%- if not node.report -%}
 wire {{automata.id}}_w_out_{{node.id}};
 {%- endif -%}
+{% if node.id not in bram_match_id_list %}
 wire {{automata.id}}_w_match_{{node.id}};
+{% endif %}
 {% endfor %}
 
 {%for node in automata.nodes  if not node.id == 0 %}
@@ -51,28 +63,22 @@ wire {{automata.id}}_w_match_{{node.id}};
             {% do pred_wire_str.append('start_of_data') %}
         {%- endif -%}
     {% endfor %}
-
+{% if node.id not in bram_match_id_list %}
 LUT_Match_{{automata.id}}_{{node.id}} #({{automata.stride_value * 8}}) lut_match_{{automata.id}}_{{node.id}}(
                 .clk(clk),
                 .symbols(symbols),
-                .match({% if not capture_symbol -%}
-                        {{automata.id}}_w_match_{{node.id}}
-                        {%- endif -%}
-                ),
-                .new_match(
-                {%- if capture_symbol -%}
-                {{automata.id}}_w_match_{{node.id}} {% endif %})
-                );
+                .match({{automata.id}}_w_match_{{node.id}}));
+{% endif %}
 
 STE #({{n_preds|length}}) {{automata.id}}_ste_{{node.id}} (
                 .clk(clk),
                 .run(run),
                 .reset(reset),
                 .income_edges({ {{pred_wire_str|join(', ')}} }),
-                .match({{automata.id}}_w_match_{{node.id}}),
+                .match({{automata.id}}_w_match_{{node.id}}) ,
                 .active_state({{automata.id}}_w_out_{{node.id}}));
 {% endfor %}
 
 endmodule
-{% endmacro%}
+{% endmacro %}
 

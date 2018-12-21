@@ -1,6 +1,5 @@
 {% from 'Automata.template' import automata_macro %}
 
-{{automata_macro(automata, capture_symbol)}}
 
-
+{{automata_macro(automata, before_match_reg, after_match_reg, bram_match_id_list)}}
 

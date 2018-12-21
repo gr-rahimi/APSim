@@ -1,0 +1,48 @@
+{% from 'bram.template' import single_bram_macro %}
+{#
+@param mod_name: verilog module name
+@stride_val : stride value 1, 2, 4 , 8 ....
+@after_match_reg : True/False put a register after the matching if True
+@before_match_reg : True/False put a register after the matching if True
+@contents : a 2d array for  the content
+#}
+
+
+module {{mod_name}}(
+    input clk,
+    input [{{stride_val * 8 - 1}}: 0 ] symbols,
+    output{% if after_match_reg%} reg{% endif %} [71:0] match
+    );
+{%- if before_match_reg %}
+reg [{{stride_val * 8 -1}}:0] input_capture;
+always @(posedge clk)
+begin
+    input_capture <= symbols;
+end
+{% else %}
+wire [{{stride_val * 8 -1}}:0] input_capture;
+assign input_capture = symbols;
+{%- endif %}
+wire [71:0] bram_out_vector[0:{{stride_val - 1}}];
+reg [71:0] match_wire;
+
+integer i=0;
+always @* begin
+    for (i = 0; i < {{stride_val}}; i = i + 1) begin
+        match_wire = match_wire & bram_out_vector[i];
+    end
+end
+
+{% if after_match_reg %}
+always @(posedge clk) begin
+    match <= match_wire;
+end
+{% else %}
+assign match = match_wire;
+{% endif %}
+
+{% for i in range(stride_val)%}
+{{single_bram_macro(i, contents[i])}}
+{%endfor%}
+
+endmodule
