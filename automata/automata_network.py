@@ -25,7 +25,8 @@ random.seed(a = None)
 
 class Automatanetwork(object):
     known_attributes = {'id', 'name'}
-    node_data_key = "data" # this string is used to attach node to the
+    node_data_key = 'data' # this string is used to attach node to the
+    symbol_data_key = 'symbol_set'
 
 
     def __init__(self, id ,is_homogenous, stride):

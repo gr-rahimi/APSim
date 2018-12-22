@@ -164,7 +164,7 @@ def generate_full_lut(atms, single_out ,before_match_reg, after_match_reg, ste_t
 
 
     folder_name += str(len(atms)) + '_stride' + str(atms[0].stride_value) + ('_before' if before_match_reg else '') + ('_after' if after_match_reg else '') +\
-                   ('_ste' + str(ste_type)) + 'withbram' if use_bram else 'nobram'
+                   ('_ste' + str(ste_type)) + ('_withbram' if use_bram else '_nobram')
 
     env = Environment(loader=FileSystemLoader('automata/HDL/Templates'), extensions=['jinja2.ext.do'])
 
@@ -183,7 +183,7 @@ def generate_full_lut(atms, single_out ,before_match_reg, after_match_reg, ste_t
             with open(os.path.join(total_path, 'bram_module_'+ str(bram_idx)+'_ste.v'), 'w') as f:
                 f.writelines(rendered_content)
     else:
-        bram_list, bram_match_id_list_all = [], [[] for _ in len(atms)]
+        bram_list, bram_match_id_list_all = [], [[]] * len(atms)
 
     template = env.get_template('single_STE.template')
     rendered_content = template.render(ste_type=ste_type)

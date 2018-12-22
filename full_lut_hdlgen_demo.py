@@ -21,7 +21,7 @@ automatas = pickle.load(open('snort1-20.pkl', 'rb'))
 
 
 
-for atm_idx, atm in enumerate(automatas[:10]):
+for atm_idx, atm in enumerate(automatas):
     atm.remove_all_start_nodes()
     atm.remove_ors()
     print atm.get_summary()
@@ -91,12 +91,14 @@ for atm_idx, atm in enumerate(automatas[:10]):
 #csv_file.close()
 
     strided_automatas.append(atm4)
-    #atm2.draw_graph(file_name='atm'+str(atm_idx)+'.svg', draw_edge_label=False, use_dot=True, write_node_labels=False)
+    atm4.draw_graph(file_name='atm'+str(atm_idx)+'.svg', draw_edge_label=False, use_dot=True, write_node_labels=False)
     #atm8.print_summary()
 
     #exit(0)
 
-hd_gen.generate_full_lut(strided_automatas, single_out=False, before_match_reg=False, after_match_reg=True, ste_type=1, folder_name='SnortSHS')
-hd_gen.generate_full_lut(strided_automatas, single_out=False, before_match_reg=False, after_match_reg=True, ste_type=2, folder_name='SnortSHS')
+hd_gen.generate_full_lut(strided_automatas, single_out=False, before_match_reg=False, after_match_reg=True,
+                         ste_type=1, folder_name='SnortSHS', use_bram=False, bram_criteria=lambda n: len(n.symbols) > 4)
 
+hd_gen.generate_full_lut(strided_automatas, single_out=False, before_match_reg=False, after_match_reg=True,
+                         ste_type=2, folder_name='SnortSHS', use_bram=False, bram_criteria=lambda n: len(n.symbols) > 4)
 
