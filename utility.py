@@ -72,6 +72,7 @@ def minimize_automata(automata,
                       merge_reports = False, same_residuals_only = False,
                       same_report_code = False, left_merge = True, right_merge = True,
                       combine_symbols = True):
+    assert automata.is_homogeneous, 'minimization only works for homogeneous representation'
     original_node_count = automata.nodes_count
 
     for ste in automata.nodes:

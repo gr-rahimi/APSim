@@ -192,8 +192,8 @@ class Automatanetwork(object):
     def add_edge(self, src, dest,**kwargs):
         # if self.is_homogeneous:
         #     assert not self._my_graph.has_edge(src, dest)
-        # if not 'label' in kwargs and dest.type==ElementsType.STE:
-        #     kwargs['label'] = dest.symbols
+        # if not Automatanetwork.symbol_data_key in kwargs and dest.type==ElementsType.STE:
+        #     kwargs[Automatanetwork.symbol_data_key] = dest.symbols
         # if not 'start_type' in kwargs:
         #     kwargs['start_type'] = dest.start_type
         #
@@ -205,8 +205,8 @@ class Automatanetwork(object):
             if self._my_graph.has_edge(src, dest):
                 return
             else:
-                if not 'label' in kwargs and dest.type==ElementsType.STE:
-                     kwargs['label'] = dest.symbols
+                if not Automatanetwork.symbol_data_key in kwargs and dest.type==ElementsType.STE:
+                     kwargs[Automatanetwork.symbol_data_key] = dest.symbols
                 if not 'start_type' in kwargs:
                      kwargs['start_type'] = dest.start_type
                 self._my_graph.add_edge(src, dest, **kwargs)
@@ -215,13 +215,15 @@ class Automatanetwork(object):
             if self._my_graph.has_edge(src, dest):
                 edge_data = self._my_graph.get_edge_data(src, dest, key=False)
                 if edge_data['start_type'] == kwargs['start_type']:
-                    for intvl in kwargs['label']:
-                        edge_data['label'].add_interval(intvl)
+                    for intvl in kwargs[Automatanetwork.symbol_data_key]:
+                        edge_data[Automatanetwork.symbol_data_key].add_interval(intvl)
                 else:
+                    assert Automatanetwork.symbol_data_key in kwargs
                     self._my_graph.add_edge(src, dest, **kwargs)
                     self._has_modified = True
 
             else:
+                assert Automatanetwork.symbol_data_key in kwargs
                 self._my_graph.add_edge(src, dest, **kwargs)
                 self._has_modified = True
 
@@ -272,7 +274,7 @@ class Automatanetwork(object):
                     if self.is_homogeneous: # homogeneous case
                         strided_graph.add_edge(new_STEs_dic[current_ste.id],
                                                residual_STEs_dic[l1_neigh.id],
-                                               label=PackedIntervalSet.combine(l1_neigh.symbols, star_symbol_set),
+                                               symbol_set=PackedIntervalSet.combine(l1_neigh.symbols, star_symbol_set),
                                                start_type=l1_neigh.start_type
                                                if current_ste.start_type == StartType.fake_root else
                                                StartType.non_start)
@@ -283,7 +285,7 @@ class Automatanetwork(object):
                         for l1_edge in l1_edges:
                             strided_graph.add_edge(new_STEs_dic[current_ste.id],
                                                    residual_STEs_dic[l1_neigh.id],
-                                                   label=PackedIntervalSet.combine(l1_edge[2]['label'],
+                                                   symbol_set=PackedIntervalSet.combine(l1_edge[2][Automatanetwork.symbol_data_key],
                                                                                    star_symbol_set),
                                                    start_type=l1_edge[2]['start_type'] if
                                                    current_ste.start_type == StartType.fake_root
@@ -309,7 +311,7 @@ class Automatanetwork(object):
 
                     if self.is_homogeneous: # for homogeneous case
                         strided_graph.add_edge(new_STEs_dic[current_ste.id], new_STEs_dic[l2_neigh.id],
-                                               label= PackedIntervalSet.combine(l1_neigh.symbols, l2_neigh.symbols),
+                                               symbol_set= PackedIntervalSet.combine(l1_neigh.symbols, l2_neigh.symbols),
                                            start_type = l1_neigh.start_type
                                            if current_ste.start_type == StartType.fake_root else StartType.non_start)
                     else: # non homogeneous case
@@ -321,8 +323,8 @@ class Automatanetwork(object):
                         for l1_edge in l1_edges:
                             for l2_edge in l2_edges:
                                 strided_graph.add_edge(new_STEs_dic[current_ste.id], new_STEs_dic[l2_neigh.id],
-                                                       label=PackedIntervalSet.combine(l1_edge[2]['label'],
-                                                                                       l2_edge[2]['label']),
+                                                       symbol_set=PackedIntervalSet.combine(l1_edge[2][Automatanetwork.symbol_data_key],
+                                                                                       l2_edge[2][Automatanetwork.symbol_data_key]),
                                                        start_type=l1_edge[2]['start_type']
                                                        if current_ste.start_type == StartType.fake_root
                                                        else StartType.non_start)
@@ -379,17 +381,17 @@ class Automatanetwork(object):
 
         for edge in edges:
 
-            label = edge[2]['label']
+            symbol_set = edge[2][Automatanetwork.symbol_data_key]
             start_type = edge[2]['start_type']
 
             if start_type == StartType.non_start:
-                for l in label:
+                for l in symbol_set:
                     src_dict_non_start.setdefault(edge[0], PackedIntervalSet([])).add_interval(l)
             elif start_type == StartType.start_of_data:
-                for l in label:
+                for l in symbol_set:
                     src_dict_start_of_data.setdefault(edge[0], PackedIntervalSet([])).add_interval(l)
             elif start_type == StartType.all_input:
-                for l in label:
+                for l in symbol_set:
                     src_dict_all_start.setdefault(edge[0], PackedIntervalSet([])).add_interval(l)
             else:
                 assert False  # It should not happen
@@ -419,15 +421,17 @@ class Automatanetwork(object):
                                               report_residual=current_ste.report_residual,
                                               report_code=current_ste.report_code)  # self loop handlers are always non start nodes
                     self.add_element(self_loop_handler)
-                    self.add_edge(self_loop_handler, self_loop_handler)
+                    self.add_edge(self_loop_handler, self_loop_handler, symbol_set=self_loop_handler.symbols,
+                                      start_type=self_loop_handler.start_type)
                     for node in new_nodes:
-                        self.add_edge(node, self_loop_handler)
+                        self.add_edge(node, self_loop_handler, symbol_set=self_loop_handler.symbols,
+                                      start_type=self_loop_handler.start_type)
 
                     out_edges = self._my_graph.out_edges(current_ste, data=True, keys=False)
                     for edge in out_edges:
                         if edge[0] == edge[1]:  # self loop node
                             continue
-                        self.add_edge(self_loop_handler, edge[1], label=edge[2]['label'],
+                        self.add_edge(self_loop_handler, edge[1], symbol_set=edge[2][Automatanetwork.symbol_data_key],
                                       start_type=edge[2]['start_type'])
         if delete_original_ste:
             self.delete_node(current_ste)
@@ -544,9 +548,10 @@ class Automatanetwork(object):
                     self.nodes[node.id]['color'] = 'yellow'
                 else:
                     self.nodes[node.id]['color'] = 'red'
-
-            for edge in self._my_graph.edges(data=True,):
-                edge[2]['fontsize'] = 6
+            if draw_edge_label:
+                for edge in self._my_graph.edges(data=True,):
+                    edge[2]['fontsize'] = 6
+                    edge[2]['label'] = edge[2][Automatanetwork.symbol_data_key] # this is more memory efficient cw str()
 
             write_dot(self._my_graph, '/tmp/Rezasim_pydot.dot')
             #TODO what is this?
@@ -800,12 +805,12 @@ class Automatanetwork(object):
 
                 self.add_element(new_node, connect_to_fake_root= False) # it will not be coonected to fake_root since the graph is not homogeneous at the moment
                 new_nodes.append(new_node)
-                self.add_edge(neighb, new_node, label = new_node.symbols, start_type = new_node.start_type)
+                self.add_edge(neighb, new_node, symbol_set = new_node.symbols, start_type = new_node.start_type)
                 out_edges = self._my_graph.out_edges(curr_node, data = True, keys = False)
 
                 for edge in out_edges:
                     if edge[1] != edge[0]:
-                        self.add_edge(new_node, edge[1], label = edge[2]['label'], start_type = edge[2]['start_type'])
+                        self.add_edge(new_node, edge[1], symbol_set=edge[2][Automatanetwork.symbol_data_key], start_type = edge[2]['start_type'])
                     else:
                         continue # not necessary for self loops
             else:
@@ -1021,7 +1026,7 @@ class Automatanetwork(object):
             else:
                 out_edges = self._my_graph.out_edges(act_st, data=True, keys=False)
                 for edge in out_edges:
-                    can_accept= edge[2]['label'].can_accept(input_pt=PackedInput(input))
+                    can_accept= edge[2][Automatanetwork.symbol_data_key].can_accept(input_pt=PackedInput(input))
                     temp_report = can_accept and edge[1].report
                     is_report = is_report or temp_report
                     if can_accept:
@@ -1064,7 +1069,7 @@ class Automatanetwork(object):
                             report_residual_details[(all_start_state.report_residual-1) % self.stride_value] = True
             else:
                 for all_start_edge in all_start_edges:
-                    can_accept = all_start_edge[2]['label'].can_accept(input=input)
+                    can_accept = all_start_edge[2][Automatanetwork.symbol_data_key].can_accept(input=input)
                     temp_report = can_accept and all_start_edge[1].report
                     is_report = is_report or temp_report
                     if can_accept:
@@ -1376,6 +1381,8 @@ class Automatanetwork(object):
                     dq.appendleft(node)
 
     def _can_combine_symbol_set(self, fst_ste, sec_ste):
+        # important, we need to check residyual for reports
+
         if fst_ste.start_type != sec_ste.start_type:
             return False
 
@@ -1390,16 +1397,13 @@ class Automatanetwork(object):
         if fst_ste in fst_ste_neighbors:
             fst_ste_neighbors.remove(fst_ste)
 
-        if len(fst_ste_neighbors) != 1:
-            return False
+
 
         sec_ste_neighbors = set(self._my_graph.neighbors(sec_ste))
 
         if sec_ste in sec_ste_neighbors:
             sec_ste_neighbors.remove(sec_ste)
 
-        if len(sec_ste_neighbors) != 1:
-            return False
 
         if sec_ste_neighbors != fst_ste_neighbors:
             return False
@@ -1409,16 +1413,13 @@ class Automatanetwork(object):
         if fst_ste in fst_ste_predecessors:
             fst_ste_predecessors.remove(fst_ste)
 
-        if len(fst_ste_predecessors) != 1:
-            return False
+
 
         sec_ste_predecessors = set(self._my_graph.predecessors(sec_ste))
 
         if sec_ste in sec_ste_predecessors:
             sec_ste_predecessors.remove(sec_ste)
 
-        if len(sec_ste_predecessors) != 1:
-            return False
 
         if sec_ste_predecessors != fst_ste_predecessors:
             return False
