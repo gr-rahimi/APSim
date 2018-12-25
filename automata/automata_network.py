@@ -438,7 +438,6 @@ class Automatanetwork(object):
         :return:
         """
         self.unmark_all_nodes()
-        assert not self.is_homogeneous # only works for non-homogeneous graph
         dq = deque()
         #self.fake_root.marked = True
         #dq.appendleft(self.fake_root)
@@ -1300,12 +1299,16 @@ class Automatanetwork(object):
         assert self.is_homogeneous, "This function is working only for homogeneous case!"
         self.unmark_all_nodes()
         self.fake_root.marked = True
-        dq = deque()
+        fake_sink = 'FAKE_SINK'
 
-        report_nodes = self.get_filtered_nodes(lambda n: n.report)
+        report_nodes = list(self.get_filtered_nodes(lambda n: n.report)) #we should do this before adding fake sink
+        self._my_graph.add_node(fake_sink)
+
         for report_node in report_nodes:
-            report_node.marked = True
-            dq.appendleft(report_node)
+            self._my_graph.add_edge(report_node, fake_sink)
+
+        dq = deque([fake_sink])
+
 
         while dq:
 
@@ -1364,6 +1367,8 @@ class Automatanetwork(object):
                 if not parent.marked:
                     parent.marked = True
                     dq.appendleft(parent)
+
+        self._my_graph.remove_node(fake_sink)
 
     # def remove_redundant_starts(self): can be deleted
     #     '''

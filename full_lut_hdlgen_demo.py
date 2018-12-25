@@ -21,7 +21,7 @@ automatas = automatas.get_connected_components_as_automatas()
 
 
 
-for atm_idx, atm in enumerate(automatas[:400]):
+for atm_idx, atm in enumerate(automatas[100:500]):
     atm.remove_all_start_nodes()
     atm.remove_ors()
     print atm.get_summary()
@@ -31,10 +31,11 @@ for atm_idx, atm in enumerate(automatas[:400]):
     atm4 = atm2.get_single_stride_graph()
     # atm4.make_homogenous()
     atm8 = atm4.get_single_stride_graph()
-    atm8.make_homogenous()
-    minimize_automata(atm8, merge_reports=True, same_residuals_only=True, same_report_code=True,
+    atm16 = atm8.get_single_stride_graph()
+    atm16.make_homogenous()
+    minimize_automata(atm16, merge_reports=True, same_residuals_only=True, same_report_code=True,
                       combine_symbols=True)
-    print atm8.get_summary()
+    print atm16.get_summary()
 
     strided_automatas.append(atm8)
 
