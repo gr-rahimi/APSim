@@ -85,7 +85,7 @@ def minimize_automata(automata,
         if merge_reports:
             logging.debug("start report merge")
             automata.combine_finals_with_same_symbol_set(same_residuals_only=same_residuals_only,
-                                                          same_report_code=same_report_code )
+                                                          same_report_code=same_report_code)
         if left_merge:
             logging.debug("start left merge")
             automata.left_merge(merge_reports , same_residuals_only , same_report_code )
@@ -94,7 +94,7 @@ def minimize_automata(automata,
             automata.right_merge(merge_reports, same_residuals_only, same_report_code)
         if combine_symbols:
             logging.debug("combine symbol set")
-            automata.combine_symbol_sets()
+            automata.combine_symbol_sets(merge_reports, same_residuals_only, same_report_code)
         new_node_count = automata.nodes_count
         assert new_node_count<= current_node_cont, "it should always be smaller"
         if new_node_count == current_node_cont:

@@ -26,14 +26,15 @@ for atm_idx, atm in enumerate(automatas[:400]):
     atm.remove_ors()
     print atm.get_summary()
 
-    # atm2 = atm.get_single_stride_graph()
+    atm2 = atm.get_single_stride_graph()
     # atm2.make_homogenous()
-    # atm4 = atm2.get_single_stride_graph()
+    atm4 = atm2.get_single_stride_graph()
     # atm4.make_homogenous()
-    # atm8 = atm4.get_single_stride_graph()
-    # atm8.make_homogenous()
-    # minimize_automata(atm8, merge_reports=True, same_residuals_only=True, same_report_code=True,
-    #                   combine_symbols=False)
+    atm8 = atm4.get_single_stride_graph()
+    atm8.make_homogenous()
+    minimize_automata(atm8, merge_reports=True, same_residuals_only=True, same_report_code=True,
+                      combine_symbols=True)
+    print atm8.get_summary()
 
     strided_automatas.append(atm)
 

@@ -410,29 +410,26 @@ class Automatanetwork(object):
                                                          start_type=StartType.non_start)
         new_nodes.extend(new_non_start_nodes)
 
-        if current_ste in self._my_graph.neighbors(current_ste):  # handling self loop nodes
+        if self._my_graph.has_edge(current_ste, current_ste):  # handling self loop nodes
+            self_loop_on_edge_char_set = src_dict_non_start[current_ste]
+            self_loop_handler = S_T_E(start_type=StartType.non_start, is_report=current_ste.report,
+                                      is_marked=True, id=self.get_new_id(),
+                                      symbol_set=self_loop_on_edge_char_set,
+                                      adjacent_S_T_E_s=None,
+                                      report_residual=current_ste.report_residual,
+                                      report_code=current_ste.report_code)  # self loop handlers are always non start nodes
+            self.add_element(self_loop_handler)
+            self.add_edge(self_loop_handler, self_loop_handler, symbol_set=self_loop_handler.symbols,
+                              start_type=self_loop_handler.start_type)
+            for node in new_nodes:
+                self.add_edge(node, self_loop_handler, symbol_set=self_loop_handler.symbols,
+                              start_type=self_loop_handler.start_type)
 
-            for neighb, on_edge_char_set in src_dict_non_start.iteritems():
-                if neighb == current_ste:
-                    self_loop_handler = S_T_E(start_type=StartType.non_start, is_report=current_ste.report,
-                                              is_marked=True, id=self.get_new_id(),
-                                              symbol_set=on_edge_char_set,
-                                              adjacent_S_T_E_s=None,
-                                              report_residual=current_ste.report_residual,
-                                              report_code=current_ste.report_code)  # self loop handlers are always non start nodes
-                    self.add_element(self_loop_handler)
-                    self.add_edge(self_loop_handler, self_loop_handler, symbol_set=self_loop_handler.symbols,
-                                      start_type=self_loop_handler.start_type)
-                    for node in new_nodes:
-                        self.add_edge(node, self_loop_handler, symbol_set=self_loop_handler.symbols,
-                                      start_type=self_loop_handler.start_type)
-
-                    out_edges = self._my_graph.out_edges(current_ste, data=True, keys=False)
-                    for edge in out_edges:
-                        if edge[0] == edge[1]:  # self loop node
-                            continue
-                        self.add_edge(self_loop_handler, edge[1], symbol_set=edge[2][Automatanetwork.symbol_data_key],
-                                      start_type=edge[2]['start_type'])
+            out_edges = self._my_graph.out_edges(current_ste, data=True, keys=False)
+            for edge in out_edges:
+                if edge[0] != edge[1]:  # self loop node
+                    self.add_edge(self_loop_handler, edge[1], symbol_set=edge[2][Automatanetwork.symbol_data_key],
+                                start_type=edge[2]['start_type'])
         if delete_original_ste:
             self.delete_node(current_ste)
 
@@ -800,7 +797,7 @@ class Automatanetwork(object):
                                  id=self.get_new_id(),
                                  symbol_set=on_edge_char_set,
                                  adjacent_S_T_E_s=None,
-                                 report_residual= curr_node.report_residual,
+                                 report_residual=curr_node.report_residual,
                                  report_code=curr_node.report_code)
 
                 self.add_element(new_node, connect_to_fake_root= False) # it will not be coonected to fake_root since the graph is not homogeneous at the moment
@@ -1302,6 +1299,7 @@ class Automatanetwork(object):
 
         assert self.is_homogeneous, "This function is working only for homogeneous case!"
         self.unmark_all_nodes()
+        self.fake_root.marked = True
         dq = deque()
 
         report_nodes = self.get_filtered_nodes(lambda n: n.report)
@@ -1333,11 +1331,29 @@ class Automatanetwork(object):
                         continue
 
                     if self._can_right_merge_stes(parent, second_parent, merge_reports , same_residuals_only , same_report_code ):
+
+                        if parent.start_type == StartType.all_input:
+                            parent_priority = 1
+                        elif parent.start_type == StartType.start_of_data:
+                            parent_priority = 2
+                        else:
+                            parent_priority = 3
+
+                        if second_parent.start_type == StartType.all_input:
+                            second_parent_priority = 1
+                        elif second_parent.start_type == StartType.start_of_data:
+                            second_parent_priority = 2
+                        else:
+                            second_parent_priority = 3
+
+                        if second_parent_priority < parent_priority:
+                            parent, second_parent = second_parent, parent
+
                         first_children_parents = set(self._my_graph.predecessors(parent))
-                        for second_children_neigh in self._my_graph.predecessors(second_parent):
-                            if second_children_neigh in first_children_parents:
+                        for second_children_preds in self._my_graph.predecessors(second_parent):
+                            if second_children_preds in first_children_parents:
                                 continue
-                            self.add_edge(second_children_neigh, parent)
+                            self.add_edge(second_children_preds, parent)
 
                         self.delete_node(second_parent)
 
@@ -1346,7 +1362,24 @@ class Automatanetwork(object):
                     parent.marked = True
                     dq.appendleft(parent)
 
-    def combine_symbol_sets(self):
+    # def remove_redundant_starts(self): can be deleted
+    #     '''
+    #     this function removes start nodes by changing the type of equivalent non start noes to start nodes
+    #     :return: None
+    #     '''
+    #
+    #     assert self.is_homogeneous, 'this method works for homogeneous case'
+    #     for start_node in self._my_graph.neighbors(self.fake_root):
+    #         for start_neighb in self._my_graph.neighbors(start_node):
+    #             for pred_start_neighb in self._my_graph.predecessors(start_neighb):
+    #                 if pred_start_neighb.start_type == StartType.non_start and \
+    #                    self._can_change_to_start(start_node, pred_start_neighb):
+    #                     self.delete_node(start_node)
+    #                     self.add
+
+
+    def combine_symbol_sets(self, merge_reports=False, same_residuals_only=False,
+                            same_report_code=False):
         assert self.is_homogeneous, "Automata should be in homogeneous"
         """
         this function combines the symbol sets of two stes with a same parent and a same child
@@ -1369,7 +1402,9 @@ class Automatanetwork(object):
                         continue  # deleted node
                     if first_neighb_node == sec_neighb_node:
                         continue
-                    if self._can_combine_symbol_set(fst_ste=first_neighb_node, sec_ste= sec_neighb_node):
+                    if self._can_combine_symbol_set(fst_ste=first_neighb_node, sec_ste=sec_neighb_node,
+                                                    merge_reports=merge_reports,same_residuals_only=same_residuals_only,
+                                                    same_report_code=same_report_code):
                         for interval in sec_neighb_node.symbols:
                             first_neighb_node.symbols.add_interval(interval)
                         first_neighb_node.symbols.prone()
@@ -1380,14 +1415,55 @@ class Automatanetwork(object):
                     node.marked = True
                     dq.appendleft(node)
 
-    def _can_combine_symbol_set(self, fst_ste, sec_ste):
-        # important, we need to check residyual for reports
+    # def _can_change_to_start(self, start_node, non_start_node): can be deleted
+    #
+    #
+    #     #check self-loop
+    #     if self.does_STE_has_self_loop(start_node) != self.does_STE_has_self_loop(non_start_node):
+    #         return False
+    #
+    #     #check symbol set
+    #     if start_node.symbols != non_start_node.symbols:
+    #         return False
+    #
+    #     #check neighbrs
+    #     start_node_neighbors = set(self._my_graph.neighbors(start_node))
+    #     if start_node in start_node_neighbors:
+    #         start_node_neighbors.remove(start_node)
+    #
+    #     non_start_node_neighbors = set(self._my_graph.neighbors(non_start_node))
+    #     if non_start_node in non_start_node_neighbors:
+    #         non_start_node_neighbors.remove(non_start_node)
+    #
+    #     if non_start_node_neighbors != start_node_neighbors:
+    #         return False
+    #
+    #     return True
+
+
+
+
+    def _can_combine_symbol_set(self, fst_ste, sec_ste, merge_reports=False,
+                                same_residuals_only=False, same_report_code=False):
+        #TODO important, we need to check residyual for reports
 
         if fst_ste.start_type != sec_ste.start_type:
             return False
 
         if fst_ste.report != sec_ste.report:
             return False
+
+        if fst_ste.report: # we have checked other is also the same previously
+            if not merge_reports:
+                return False
+
+            if same_residuals_only:
+                if fst_ste.report_residual!=sec_ste.report_residual:
+                    return False
+
+            if same_report_code:
+                if fst_ste.report_code!=sec_ste.report_code:
+                    return False
 
         if self.does_STE_has_self_loop(fst_ste) != self.does_STE_has_self_loop(sec_ste):
             return False
@@ -1419,7 +1495,6 @@ class Automatanetwork(object):
 
         if sec_ste in sec_ste_predecessors:
             sec_ste_predecessors.remove(sec_ste)
-
 
         if sec_ste_predecessors != fst_ste_predecessors:
             return False
@@ -1460,12 +1535,18 @@ class Automatanetwork(object):
         fst_ste_parents = set(self._my_graph.predecessors(fst_ste)) - set([fst_ste])
         sec_ste_parents = set(self._my_graph.predecessors(sec_ste)) - set([sec_ste])
 
+        if sec_ste in fst_ste_parents and fst_ste in sec_ste_parents:
+            fst_ste_parents.remove(sec_ste)
+            sec_ste_parents.remove(fst_ste)
+
         return fst_ste_parents == sec_ste_parents
 
-    def _can_right_merge_stes(self,fst_ste, sec_ste, merge_reports = False, same_residuals_only = False, same_report_code = False):
+    def _can_right_merge_stes(self,fst_ste, sec_ste, merge_reports = False,
+                              same_residuals_only = False, same_report_code = False):
 
-        if fst_ste.start_type != sec_ste.start_type:
-            return  False
+
+        #if fst_ste.start_type != sec_ste.start_type: we no longer need this condition
+        #    return  False
 
         if fst_ste.report != sec_ste.report:
             return  False
@@ -1494,6 +1575,10 @@ class Automatanetwork(object):
 
         fst_ste_children = set(self._my_graph.neighbors(fst_ste)) - {fst_ste}
         sec_ste_children = set(self._my_graph.neighbors(sec_ste)) - {sec_ste}
+
+        if sec_ste in fst_ste_children and fst_ste in sec_ste_children:
+            fst_ste_children.remove(sec_ste)
+            sec_ste_children.remove(fst_ste)
 
         return fst_ste_children == sec_ste_children
 
