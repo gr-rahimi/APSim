@@ -4,10 +4,10 @@ from . import ElementsType
 from itertools import chain, product, izip
 import utility
 from heapq import heappush, heappop
-import point_comperator
+#import point_comperator
 
 
-CYTHON_CAN_ACCEPT_FUNC =  point_comperator.cython_can_accept
+#CYTHON_CAN_ACCEPT_FUNC =  point_comperator.cython_can_accept
 
 class ComparableMixin(object):
   def __eq__(self, other):
@@ -80,7 +80,7 @@ class PackedInterval(object):
     def can_interval_accept(self, point):
         return (self.left <= point <= self.right)
         #assert point.dim == self.dim
-        acceptance_result = CYTHON_CAN_ACCEPT_FUNC(self.left.point, point.point, self.right.point)
+        #acceptance_result = CYTHON_CAN_ACCEPT_FUNC(self.left.point, point.point, self.right.point)
         assert le_res == acceptance_result
 
         # python_result = True
