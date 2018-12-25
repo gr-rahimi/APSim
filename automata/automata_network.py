@@ -161,8 +161,6 @@ class Automatanetwork(object):
         if self.is_homogeneous and to_add_element.is_start() and connect_to_fake_root: # only for homogenous graphs
             self.add_edge(self.fake_root, to_add_element) # add an esge from fake root to all start nodes
 
-        if self.is_homogeneous and to_add_element._is_report and connect_to_fake_root: # only for homogenous graphs
-            self.add_edge(to_add_element, self.fake_root)
 
     def get_STE_by_id(self, id):
         """
@@ -412,7 +410,7 @@ class Automatanetwork(object):
                                                          start_type=StartType.non_start)
         new_nodes.extend(new_non_start_nodes)
 
-        if self._my_graph.has_edge(current_ste, current_ste):  # handling self loop nodes
+        if self.does_STE_has_self_loop(current_ste):  # handling self loop nodes
             self_loop_on_edge_char_set = src_dict_non_start[current_ste]
             self_loop_handler = S_T_E(start_type=StartType.non_start, is_report=current_ste.report,
                                       is_marked=True, id=self.get_new_id(),
@@ -549,8 +547,6 @@ class Automatanetwork(object):
                     self.nodes[node.id]['color'] = 'red'
             if draw_edge_label:
                 for edge in self._my_graph.edges(data=True,):
-                    if edge[1] == self.fake_root:
-                        continue
                     edge[2]['fontsize'] = 6
                     edge[2]['label'] = edge[2][Automatanetwork.symbol_data_key] # this is more memory efficient cw str()
 
