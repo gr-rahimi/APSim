@@ -64,9 +64,9 @@ atm2 = my_Automata.get_single_stride_graph()
 atm2.draw_graph('fccmS2.svg', draw_edge_label=True, use_dot=True, write_node_labels=False)
 atm2.make_homogenous()
 atm2.draw_graph('fccmNMS2H.svg', draw_edge_label=True, use_dot=True, write_node_labels=False)
-minimize_automata(atm2, merge_reports=True, same_residuals_only=True, same_report_code=True,
+minimize_automata(atm2, merge_reports=True, same_residuals_only=False, same_report_code=False,
                       combine_symbols=True)
 
 minimize_automata(atm2, merge_reports=True, same_residuals_only=True, same_report_code=True,
-                      combine_symbols=True)
+                       combine_symbols=True)
 atm2.draw_graph('fccmS2H.svg', draw_edge_label=True, use_dot=True, write_node_labels=False)

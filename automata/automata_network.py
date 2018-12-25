@@ -161,6 +161,8 @@ class Automatanetwork(object):
         if self.is_homogeneous and to_add_element.is_start() and connect_to_fake_root: # only for homogenous graphs
             self.add_edge(self.fake_root, to_add_element) # add an esge from fake root to all start nodes
 
+        if self.is_homogeneous and to_add_element._is_report and connect_to_fake_root: # only for homogenous graphs
+            self.add_edge(to_add_element, self.fake_root)
 
     def get_STE_by_id(self, id):
         """
@@ -547,6 +549,8 @@ class Automatanetwork(object):
                     self.nodes[node.id]['color'] = 'red'
             if draw_edge_label:
                 for edge in self._my_graph.edges(data=True,):
+                    if edge[1] == self.fake_root:
+                        continue
                     edge[2]['fontsize'] = 6
                     edge[2]['label'] = edge[2][Automatanetwork.symbol_data_key] # this is more memory efficient cw str()
 
@@ -1355,6 +1359,9 @@ class Automatanetwork(object):
                                 continue
                             self.add_edge(second_children_preds, parent)
 
+                        if self.does_STE_has_self_loop(second_parent) and not self.does_STE_has_self_loop(parent):
+                            self.add_edge(parent, parent)
+
                         self.delete_node(second_parent)
 
             for parent in self._my_graph.predecessors(current_node):
@@ -1558,8 +1565,28 @@ class Automatanetwork(object):
         if fst_ste.symbols != sec_ste.symbols:
             return False
 
-        if self.does_STE_has_self_loop(fst_ste) != self.does_STE_has_self_loop(sec_ste):
-            return  False
+        self_loop_case, relation_case = 0, 0
+
+        if self.does_STE_has_self_loop(fst_ste) and self.does_STE_has_self_loop(sec_ste):
+            self_loop_case = 1
+        elif self.does_STE_has_self_loop(fst_ste):
+            self_loop_case = 2
+        elif self.does_STE_has_self_loop(sec_ste):
+            self_loop_case = 3
+
+        if self._my_graph.has_edge(fst_ste, sec_ste) and self._my_graph.has_edge(sec_ste, fst_ste):
+            relation_case = 1
+        elif self._my_graph.has_edge(fst_ste, sec_ste):
+            relation_case = 2
+        elif self._my_graph.has_edge(sec_ste, fst_ste):
+            relation_case = 3
+
+        if self_loop_case == 0 and (relation_case == 2 or relation_case == 3):
+            return False
+        elif self_loop_case == 2 and (relation_case == 0 or relation_case == 2):
+            return False
+        elif self_loop_case == 3 and (relation_case == 0 or relation_case == 3):
+            return False
 
         if fst_ste.report: # we have checked other is also the same previously
             if not merge_reports:
@@ -1573,14 +1600,13 @@ class Automatanetwork(object):
                 if fst_ste.report_code!=sec_ste.report_code:
                     return False
 
-        fst_ste_children = set(self._my_graph.neighbors(fst_ste)) - {fst_ste}
-        sec_ste_children = set(self._my_graph.neighbors(sec_ste)) - {sec_ste}
+        pure_fst_ste_children = set(self._my_graph.neighbors(fst_ste)) - {fst_ste, sec_ste}
+        pure_sec_ste_children = set(self._my_graph.neighbors(sec_ste)) - {fst_ste, sec_ste}
 
-        if sec_ste in fst_ste_children and fst_ste in sec_ste_children:
-            fst_ste_children.remove(sec_ste)
-            sec_ste_children.remove(fst_ste)
+        if pure_fst_ste_children != pure_sec_ste_children:
+            return False
 
-        return fst_ste_children == sec_ste_children
+        return True
 
     def get_STEs_out_degree(self):
         out_degree_list = []

@@ -36,7 +36,7 @@ for atm_idx, atm in enumerate(automatas[:400]):
                       combine_symbols=True)
     print atm8.get_summary()
 
-    strided_automatas.append(atm)
+    strided_automatas.append(atm8)
 
 
 hd_gen.generate_full_lut(strided_automatas, single_out=False, before_match_reg=False, after_match_reg=False,
