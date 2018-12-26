@@ -21,7 +21,7 @@ automatas = automatas.get_connected_components_as_automatas()
 
 
 
-for atm_idx, atm in enumerate(automatas[100:500]):
+for atm_idx, atm in enumerate(automatas):
     atm.remove_all_start_nodes()
     atm.remove_ors()
     print atm.get_summary()

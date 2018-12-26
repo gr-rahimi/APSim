@@ -8,7 +8,7 @@ import automata.HDL.hdl_generator as hd_gen
 import csv
 import logging
 
-under_process_atm = AnmalZoo.Snort
+under_process_atm = AnmalZoo.EntityResolution
 
 automatas = atma.parse_anml_file(anml_path[under_process_atm])
 automatas.remove_ors()
@@ -30,6 +30,8 @@ for stride_val in range(5):
                 atm.make_homogenous()
             minimize_automata(atm, merge_reports=True, same_residuals_only=True, same_report_code=True,
                               combine_symbols=True)
+
+            print atm.get_summary()
             all_nodes = filter(lambda n: n.id != 0 , atm.nodes)  # filter fake root
             all_nodes_symbols_len_count = [len(n.symbols) for n in all_nodes]
 

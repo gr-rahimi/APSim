@@ -1476,33 +1476,27 @@ class Automatanetwork(object):
         if self.does_STE_has_self_loop(fst_ste) != self.does_STE_has_self_loop(sec_ste):
             return False
 
-        fst_ste_neighbors = set(self._my_graph.neighbors(fst_ste))
+        if self.does_STE_has_self_loop(fst_ste) and fst_ste.symbols != sec_ste.symbols:
+            return False
 
-        if fst_ste in fst_ste_neighbors:
-            fst_ste_neighbors.remove(fst_ste)
+        fst_ste_neighbors = set(self._my_graph.neighbors(fst_ste)) - {fst_ste}
 
+        sec_ste_neighbors = set(self._my_graph.neighbors(sec_ste)) - {sec_ste}
 
-
-        sec_ste_neighbors = set(self._my_graph.neighbors(sec_ste))
-
-        if sec_ste in sec_ste_neighbors:
-            sec_ste_neighbors.remove(sec_ste)
+        if sec_ste in fst_ste_neighbors and fst_ste in sec_ste_neighbors:
+            fst_ste_neighbors.remove(sec_ste)
+            sec_ste_neighbors.remove(fst_ste)
 
 
         if sec_ste_neighbors != fst_ste_neighbors:
             return False
 
-        fst_ste_predecessors = set(self._my_graph.predecessors(fst_ste))
+        fst_ste_predecessors = set(self._my_graph.predecessors(fst_ste)) - {fst_ste}
+        sec_ste_predecessors = set(self._my_graph.predecessors(sec_ste)) - {sec_ste}
 
-        if fst_ste in fst_ste_predecessors:
-            fst_ste_predecessors.remove(fst_ste)
-
-
-
-        sec_ste_predecessors = set(self._my_graph.predecessors(sec_ste))
-
-        if sec_ste in sec_ste_predecessors:
-            sec_ste_predecessors.remove(sec_ste)
+        if sec_ste in fst_ste_predecessors and fst_ste in sec_ste_predecessors:
+            fst_ste_predecessors.remove(sec_ste)
+            sec_ste_predecessors.remove(fst_ste)
 
         if sec_ste_predecessors != fst_ste_predecessors:
             return False
