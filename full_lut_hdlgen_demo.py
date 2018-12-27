@@ -8,41 +8,44 @@ import automata.HDL.hdl_generator as hd_gen
 import csv
 import logging
 
-logging.getLogger().setLevel(logging.WARNING)
-
-#csv_file = open('stride_result.csv', mode='w')
-#csv_writer = csv.writer(csv_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-
-strided_automatas = []
-#automatas = pickle.load(open('snort1-20.pkl', 'rb'))
-automatas = atma.parse_anml_file(anml_path[AnmalZoo.TCP])
+#Snort, EntityResolution, ClamAV, Hamming, Dotstart, Custom, Bro217, Levenstein, Bril,
+# Randomfor, Dotstar03, ExactMath,Dotstar06, Fermi, PowerEN, Protomata, Dotstart09, Ranges1, SPM, Ranges 05
+#SynthBring, Synthcorering
+under_process_atm = AnmalZoo.Snort
+target_stride_val = 2
+automatas = atma.parse_anml_file(anml_path[under_process_atm])
 automatas.remove_ors()
 automatas = automatas.get_connected_components_as_automatas()
+exempt_ids = {1411}
+processed_atms = []
 
-
-
-for atm_idx, atm in enumerate(automatas[123:]):
+for atm_idx, atm in enumerate(automatas[:2]):
+    if atm_idx in exempt_ids:
+        continue
+    print 'processing automata', atm_idx, 'from ', len(automatas)
     atm.remove_all_start_nodes()
     atm.remove_ors()
-    print atm.get_summary()
 
-    atm2 = atm.get_single_stride_graph()
-    # atm2.make_homogenous()
-    atm4 = atm2.get_single_stride_graph()
-    # atm4.make_homogenous()
-    atm8 = atm4.get_single_stride_graph()
-    #atm16 = atm8.get_single_stride_graph()
-    atm8.make_homogenous()
-    minimize_automata(atm8, merge_reports=True, same_residuals_only=True, same_report_code=True,
+    for stride_val in range(target_stride_val):
+        atm=atm.get_single_stride_graph()
+
+    if atm.is_homogeneous is not True:
+        atm.make_homogenous()
+
+    minimize_automata(atm, merge_reports=True, same_residuals_only=True, same_report_code=True,
                       combine_symbols=True)
-    print atm8.get_summary()
 
-    strided_automatas.append(atm8)
+    processed_atms.append(atm)
 
 
-hd_gen.generate_full_lut(strided_automatas, single_out=False, before_match_reg=False, after_match_reg=False,
-                         ste_type=1, folder_name='Snort0-199', use_bram=False, bram_criteria=lambda n: len(n.symbols) > 8)
+hd_gen.generate_full_lut(processed_atms, single_out=False, before_match_reg=False, after_match_reg=False,
+                         ste_type=1, folder_name=str(under_process_atm), use_bram=False, bram_criteria=lambda n: len(n.symbols) > 8)
 
-#hd_gen.generate_full_lut(strided_automatas, single_out=False, before_match_reg=False, after_match_reg=False,
-#                         ste_type=1, folder_name='Snort20', use_bram=True, bram_criteria=lambda n: len(n.symbols) > 8)
+hd_gen.generate_full_lut(processed_atms, single_out=False, before_match_reg=False, after_match_reg=False,
+                         ste_type=2, folder_name=str(under_process_atm), use_bram=False, bram_criteria=lambda n: len(n.symbols) > 8)
 
+hd_gen.generate_full_lut(processed_atms, single_out=False, before_match_reg=False, after_match_reg=True,
+                         ste_type=1, folder_name=str(under_process_atm), use_bram=False, bram_criteria=lambda n: len(n.symbols) > 8)
+
+hd_gen.generate_full_lut(processed_atms, single_out=False, before_match_reg=False, after_match_reg=True,
+                         ste_type=2, folder_name=str(under_process_atm), use_bram=False, bram_criteria=lambda n: len(n.symbols) > 8)

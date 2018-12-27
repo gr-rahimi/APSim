@@ -168,7 +168,7 @@ def generate_full_lut(atms, single_out ,before_match_reg, after_match_reg, ste_t
 
     env = Environment(loader=FileSystemLoader('automata/HDL/Templates'), extensions=['jinja2.ext.do'])
 
-    total_path = os.path.join("/Users/gholamrezarahimi/Downloads/HDL", folder_name)
+    total_path = os.path.join("../", folder_name)
     shutil.rmtree(total_path, ignore_errors=True)
     os.mkdir(total_path)
 
