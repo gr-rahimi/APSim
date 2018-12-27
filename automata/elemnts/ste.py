@@ -350,8 +350,11 @@ class PackedIntervalSet(object):
                         self._interval_set[i].can_interval_accept(self._interval_set[current_master].right):
                     to_be_deleted.append(current_master)
                     current_master = i
-
+                else:
+                    current_master = i
+            to_be_deleted.sort()
             for idx, item in enumerate(to_be_deleted):
+
                 del self._interval_set[item-idx]
 
 
