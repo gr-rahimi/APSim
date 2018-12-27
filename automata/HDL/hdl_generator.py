@@ -185,7 +185,7 @@ def generate_full_lut(atms, single_out ,before_match_reg, after_match_reg, ste_t
     else:
         bram_list, bram_match_id_list_all = [], [[]] * len(atms)
 
-    template = env.get_template('single_STE.template')
+    template = env.get_template('Single_STE.template')
     rendered_content = template.render(ste_type=ste_type)
     with open(os.path.join(total_path, 'ste.v'), 'w') as f:
         f.writelines(rendered_content)
