@@ -1,82 +1,46 @@
-{% from 'Automata.template' import automata_macro %}
-{% import 'STE_base.template' as ste_base %}
-
 {#
-@param automatas: List of automatas to be processed
-@param summary_str: summary string to be paste on top of the file
-@param single_out: True/False if True, the circuit willl have only one input which is the OR of all the outputs
-@param bram_list: a 2d list . the first dimension is the list of brams and in each list, there are
-list of tuples(atm.id, node.id) to track the assigned
-@param bram_match_id_list: this is a list of nodes that the matching will be in a block ram
+This template generate the top level module for the whole automaton
+@param automatas: List of Lists all automatas.
 #}
 
-/*
-{{summary_str}}
-*/
-
-module Automata_Top(input clk,
-                    input run,
-                    input reset,
-                    input [{{automatas[0].stride_value * 8 -1}} : 0] top_symbols
-                    {%- if single_out == false %}
-                    {%- for atm in automatas -%}
-                    {%- for node in atm.nodes if node.report %}
-                    , output {{atm.id}}_w_out_{{node.id}}
-                    {%-endfor%}
-                    {%endfor%}
-                    {%-else-%}
-                    ,output single_out
-                    {%-endif-%}
-                    );
-
-reg [{{automatas[0].stride_value * 8 -1}}:0] symbols;
-
-always @(posedge clk)
-    symbols <= top_symbols;
+module Top_Module(
+                  input clk,
+                  input reset,
+                  input run,
+                  input [{{automatas[0][0].stride_value * 8 -1}} : 0] symbols
+                  {%- for stage in automatas -%}
+                  {%-for atm in stage %}
+                  {%- for node in atm.nodes if node.report %}
+                   , output {{atm.id}}_w_out_{{node.id}}
+                  {%-endfor %}
+                  {%-endfor%}
+                  {%endfor%}
+                  );
 
 
-{%- if single_out -%}
-{%set report_list=[]%}
-{%for atm in automatas%}
-{%-for node in atm.nodes if node.report-%}
-{% do report_list.append(atm.id|string+'_w_out_'+node.id|string)%}
-wire {{atm.id}}_w_out_{{node.id}};
 
-{%- endfor -%}
-{%- endfor -%}
+{% for s in range(automatas|length -1)%}
+wire [{{automatas[0][0].stride_value * 8 -1}} : 0] symbols_s{{s}}_to_{{s+1}};
+wire reset_s{{s}}_to_{{s+1}};
+{% endfor %}
 
-{# wire {{report_list|join(', ')}}; #}
-assign single_out = {{report_list|join(' | ')}};
-
-{%endif%}
-
-{% for bram in bram_list %}
-{% for atm, node in bram %}
-wire {{atm.id}}_w_match_{{node.id}};
-{%- endfor %}
-bram_module_{{loop.index0}} bram_module_{{loop.index0}}_ins (
-    .clk(clk),
-    .symbols(symbols),
-    .match({ {% for atm, node in bram%}{% if loop.index0 > 0 %}, {% endif %} {{atm.id}}_w_match_{{node.id}}
-    {% endfor %} })
-                                  );
+{% for stage_index in range(automatas|length) %}
+Automata_Stage{{stage_index}} automata_stage{{stage_index}}(.clk(clk),
+                                             .run(run),
+                                             .reset({% if stage_index == 0 %}reset{%else%}reset_s{{stage_index}}_to_{{stage_index+1}} {%endif%}),
+                                             .top_symbols({% if stage_index == 0 %} symbols {% else %}symbols_s{{stage_index-1}}_to_{{stage_index}}{% endif %}),
+                                             {%- for atm in automatas[stage_index] -%}
+                                             {%- for node in atm.nodes -%}
+                                             {% if node.report %}
+                                              .{{atm.id}}_w_out_{{node.id}}({{atm.id}}_w_out_{{node.id}}),
+                                             {%- endif %}
+                                             {%- endfor %}
+                                             {% endfor %}
+                                             .out_symbols({% if stage_index < (automatas|length -1)  %} symbols_s{{loop.index0}}_to_{{loop.index0+1}}{%endif%}),
+                                             .out_reset({% if stage_index < (automatas|length -1)  %} reset_s{{loop.index0}}_to_{{loop.index0+1}}{%endif%})
+                                             );
 {% endfor %}
 
 
-{%for atm in  automatas%}
-Automata_{{atm.id}} automata_{{atm.id}} (.clk(clk),
-                     .run(run),
-                     .reset(reset),
-                     .symbols(symbols)
-                     {%- for node_id in bram_match_id_list[loop.index0]%}
-                     , .{{atm.id}}_w_match_{{node_id}}({{atm.id}}_w_match_{{node_id}})
-                     {%- endfor %}
-                     {%- for node in atm.nodes if node.report %}
-                      , .{{atm.id}}_w_out_{{node.id}}({{atm.id}}_w_out_{{node.id}})
-                     {%- endfor %}
-                    );
-{%endfor%}
-
 
 endmodule
-

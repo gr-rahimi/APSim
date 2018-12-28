@@ -8,7 +8,7 @@ from itertools import count
 
 
 
-def _get_top_module_summary(atms):
+def _get_stage_summary(atms):
     total_nodes = 0
     total_reports = 0
     total_edges = 0
@@ -158,12 +158,12 @@ def _generte_bram_stes(atms, classifier_func, placement_policy):
     return bram_list, bram_match_id_list_all
 
 
-def generate_full_lut(atms, single_out ,before_match_reg, after_match_reg, ste_type,
+def generate_full_lut(atms_list, single_out ,before_match_reg, after_match_reg, ste_type,
                       use_bram, bram_criteria = None, folder_name = None):
 
 
 
-    folder_name += str(len(atms)) + '_stride' + str(atms[0].stride_value) + ('_before' if before_match_reg else '') + ('_after' if after_match_reg else '') +\
+    folder_name += 'stage_' + str(len(atms_list)) + '_stride' + str(atms_list[0][0].stride_value) + ('_before' if before_match_reg else '') + ('_after' if after_match_reg else '') +\
                    ('_ste' + str(ste_type)) + ('_withbram' if use_bram else '_nobram')
 
     env = Environment(loader=FileSystemLoader('automata/HDL/Templates'), extensions=['jinja2.ext.do'])
@@ -172,38 +172,46 @@ def generate_full_lut(atms, single_out ,before_match_reg, after_match_reg, ste_t
     shutil.rmtree(total_path, ignore_errors=True)
     os.mkdir(total_path)
 
-    if use_bram:
-        template = env.get_template('bram_module.template')
-        bram_list, bram_match_id_list_all = _generte_bram_stes(atms, bram_criteria, 'FF')
-        for bram_idx, bram in enumerate(bram_list):
-            bram_mat = _generate_bram_matrix(bram)
-            bram_hex_contents = _genrate_bram_hex_content_from_matrix(bram_mat)
-            rendered_content = template.render(mod_name="bram_module_"+str(bram_idx) ,stride_val=atms[0].stride_value,
-                            before_match_reg = before_match_reg,after_match_reg= after_match_reg, contents = bram_hex_contents)
-            with open(os.path.join(total_path, 'bram_module_'+ str(bram_idx)+'_ste.v'), 'w') as f:
+    for atms_idx, atms in enumerate(atms_list):
+        if use_bram:
+            template = env.get_template('bram_module.template')
+            bram_list, bram_match_id_list_all = _generte_bram_stes(atms, bram_criteria, 'FF')
+            for bram_idx, bram in enumerate(bram_list):
+                bram_mat = _generate_bram_matrix(bram)
+                bram_hex_contents = _genrate_bram_hex_content_from_matrix(bram_mat)
+                rendered_content = template.render(mod_name="bram_module_"+str(bram_idx) ,stride_val=atms[0].stride_value,
+                                before_match_reg = before_match_reg,after_match_reg= after_match_reg, contents = bram_hex_contents)
+                with open(os.path.join(total_path, 'bram_module_'+ str(bram_idx)+'_ste.v'), 'w') as f:
+                    f.writelines(rendered_content)
+        else:
+            bram_list, bram_match_id_list_all = [], [[]] * len(atms)
+
+        template = env.get_template('Single_STE.template')
+        rendered_content = template.render(ste_type=ste_type)
+        with open(os.path.join(total_path, 'ste.v'), 'w') as f:
+            f.writelines(rendered_content)
+
+        template = env.get_template('Single_Automata.template')
+        template.globals['predecessors'] = networkx.MultiDiGraph.predecessors
+        template.globals['get_summary'] = Automatanetwork.get_summary # maybe better to move to utility module
+        for automata, bram_match_id_list in zip(atms, bram_match_id_list_all):
+            rendered_content = template.render(automata=automata,
+                                               before_match_reg=before_match_reg, after_match_reg=after_match_reg,
+                                               bram_match_id_list=bram_match_id_list)
+            with open(os.path.join(total_path, automata.id+'.v',), 'w') as f:
                 f.writelines(rendered_content)
-    else:
-        bram_list, bram_match_id_list_all = [], [[]] * len(atms)
 
-    template = env.get_template('Single_STE.template')
-    rendered_content = template.render(ste_type=ste_type)
-    with open(os.path.join(total_path, 'ste.v'), 'w') as f:
-        f.writelines(rendered_content)
 
-    template = env.get_template('Single_Automata.template')
-    template.globals['predecessors'] = networkx.MultiDiGraph.predecessors
-    template.globals['get_summary'] = Automatanetwork.get_summary # maybe better to move to utility module
-    for automata, bram_match_id_list in zip(atms, bram_match_id_list_all):
-        rendered_content = template.render(automata=automata,
-                                           before_match_reg=before_match_reg, after_match_reg=after_match_reg,
-                                           bram_match_id_list=bram_match_id_list)
-        with open(os.path.join(total_path, automata.id+'.v',), 'w') as f:
+        template = env.get_template('Automata_Stage.template')
+        rendered_content = template.render(automatas=atms,
+                                           summary_str=_get_stage_summary(atms), single_out=single_out,
+                                           bram_list=bram_list, bram_match_id_list=bram_match_id_list_all,
+                                           stage_index=atms_idx)
+        with open(os.path.join(total_path, 'stage{}.v'.format(atms_idx)), 'w') as f:
             f.writelines(rendered_content)
 
     template = env.get_template('Top_Module.template')
-    rendered_content = template.render(automatas=atms,
-                                       summary_str=_get_top_module_summary(atms), single_out=single_out,
-                                       bram_list = bram_list, bram_match_id_list=bram_match_id_list_all)
+    rendered_content = template.render(automatas = atms_list)
     with open(os.path.join(total_path, 'top_module.v'), 'w') as f:
         f.writelines(rendered_content)
 
