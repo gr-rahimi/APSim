@@ -4,7 +4,7 @@ add_files $verilog_files
 #add_files -fileset clk_constrain -norecurse ./clk_constrain.xdc
 read_xdc -mode out_of_context ./clk_constrain.xdc
 
-synth_design -mode out_of_context -flatten_hierarchy rebuilt -top Automata_Top
+synth_design -mode out_of_context -flatten_hierarchy rebuilt -top Top_Module
 
 write_checkpoint synth.dcp
 
