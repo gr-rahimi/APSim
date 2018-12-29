@@ -27,7 +27,7 @@ wire reset_s{{s}}_to_{{s+1}};
 {% for stage_index in range(automatas|length) %}
 Automata_Stage{{stage_index}} automata_stage{{stage_index}}(.clk(clk),
                                              .run(run),
-                                             .reset({% if stage_index == 0 %}reset{%else%}reset_s{{stage_index}}_to_{{stage_index+1}} {%endif%}),
+                                             .reset({% if stage_index == 0 %}reset{%else%}reset_s{{stage_index -1}}_to_{{stage_index}} {%endif%}),
                                              .top_symbols({% if stage_index == 0 %} symbols {% else %}symbols_s{{stage_index-1}}_to_{{stage_index}}{% endif %}),
                                              {%- for atm in automatas[stage_index] -%}
                                              {%- for node in atm.nodes -%}

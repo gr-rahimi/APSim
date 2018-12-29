@@ -19,7 +19,7 @@ automatas = pickle.load(open('snort1-20.pkl', 'rb'))
 #automatas = automatas.get_connected_components_as_automatas()
 exempt_ids = {1411}
 processed_atms = []
-number_of_stages = 100
+number_of_stages = 10
 
 for atm_idx, atm in enumerate(automatas):
     if atm_idx in exempt_ids:
