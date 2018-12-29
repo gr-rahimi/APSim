@@ -5,16 +5,16 @@ from utility import minimize_automata
 
 my_Automata = Automatanetwork(id="test1", is_homogenous=True, stride=1)
 
-ste0 = S_T_E(start_type=StartType.start_of_data, is_report=False, is_marked=False, id = my_Automata.get_new_id(),
+ste0 = S_T_E(start_type=StartType.all_input, is_report=False, is_marked=False, id = my_Automata.get_new_id(),
              symbol_set=PackedIntervalSet([PackedInterval(PackedInput((0, )), PackedInput((0,))),
                          PackedInterval(PackedInput((2,)), PackedInput((2,)))]),
              adjacent_S_T_E_s=None, report_residual=0, report_code=-1)
 
-ste1 = S_T_E(start_type=StartType.start_of_data, is_report=False, is_marked=False, id = my_Automata.get_new_id(),
+ste1 = S_T_E(start_type=StartType.all_input, is_report=False, is_marked=False, id = my_Automata.get_new_id(),
              symbol_set=PackedIntervalSet([PackedInterval(PackedInput((2,)), PackedInput((2,)))]),
              adjacent_S_T_E_s=None, report_residual=0, report_code=-1)
 
-ste2 = S_T_E(start_type=StartType.start_of_data, is_report=False, is_marked=False, id = my_Automata.get_new_id(),
+ste2 = S_T_E(start_type=StartType.all_input, is_report=False, is_marked=False, id = my_Automata.get_new_id(),
              symbol_set=PackedIntervalSet([PackedInterval(PackedInput((1,)), PackedInput((1,)))]),
              adjacent_S_T_E_s=None, report_residual=0, report_code=-1)
 
@@ -33,6 +33,8 @@ my_Automata.add_edge(ste0, ste2)
 my_Automata.add_edge(ste1, ste3)
 my_Automata.add_edge(ste2, ste3)
 my_Automata.add_edge(ste3, ste3)
+
+#my_Automata.remove_all_start_nodes()
 
 # ste0 = S_T_E(start_type=StartType.start_of_data, is_report=False, is_marked=False, id = my_Automata.get_new_id(),
 #              symbol_set=PackedIntervalSet([PackedInterval(PackedInput((0, )), PackedInput((0,)))]),
@@ -68,11 +70,3 @@ minimize_automata(atm2, merge_reports=True, same_residuals_only=False, same_repo
                       combine_symbols=True)
 atm2.draw_graph('fccmS2H.svg', draw_edge_label=True, use_dot=True, write_node_labels=False)
 
-atm2 = my_Automata.get_single_stride_graph()
-atm4 = atm2.get_single_stride_graph()
-atm4.make_homogenous()
-
-minimize_automata(atm4, merge_reports=True, same_residuals_only=False, same_report_code=False,
-                      combine_symbols=True)
-
-atm4.draw_graph('fccmS4HN.svg', draw_edge_label=True, use_dot=True, write_node_labels=False)
