@@ -12,7 +12,7 @@ import itertools
 import random
 import time, operator
 import math
-from deap import algorithms, base, creator, tools
+#from deap import algorithms, base, creator, tools
 import numpy as np
 import utility
 from networkx.drawing.nx_agraph import write_dot
