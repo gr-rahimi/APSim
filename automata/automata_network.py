@@ -237,7 +237,7 @@ class Automatanetwork(object):
         It assumes that the graph in current state is a homogeneous graph
         :return: a graph with a single step stride
         """
-        assert not self.does_have_all_input(), "Automata should not have all-input nodes"
+        #assert not self.does_have_all_input(), "Automata should not have all-input nodes"
         dq = deque()
         self.unmark_all_nodes()
         strided_graph = Automatanetwork(id = self._id + "_S1",is_homogenous= False, stride= self.stride_value*2)
@@ -537,7 +537,7 @@ class Automatanetwork(object):
                 elif node.start_type == StartType.start_of_data:
                     self.nodes[node.id]['color'] = 'green'
                 elif node.start_type == StartType.all_input:
-                    self.nodes[node.id]['color'] = 'greenyellow'
+                    self.nodes[node.id]['color'] = 'orange'
                 elif node.report:
                     self.nodes[node.id]['color'] = 'blue'
                 elif node.start_type == StartType.unknown:
