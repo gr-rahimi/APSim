@@ -12,7 +12,7 @@ import math
 #Snort, EntityResolution, ClamAV, Hamming, Dotstart, Custom, Bro217, Levenstein, Bril,
 # Randomfor, Dotstar03, ExactMath,Dotstar06, Fermi, PowerEN, Protomata, Dotstart09, Ranges1, SPM, Ranges 05
 #SynthBring, Synthcorering
-under_process_atms = [AnmalZoo.RandomForest, AnmalZoo.Snort]
+under_process_atms = [AnmalZoo.Snort, AnmalZoo.ClamAV, AnmalZoo.Hamming, AnmalZoo.Dotstar, AnmalZoo.Bro217]
 exempts = {(AnmalZoo.Snort, 1411)}
 number_of_stages = 10
 
@@ -20,7 +20,7 @@ for uat in under_process_atms:
     automatas = atma.parse_anml_file(anml_path[uat])
     automatas.remove_ors()
     automatas = automatas.get_connected_components_as_automatas()
-
+    number_of_stages = len(automatas) / 50
     for stride_val in range(4):
         strided_automatas = []
         for atm_idx, atm in enumerate(automatas[:3]):
