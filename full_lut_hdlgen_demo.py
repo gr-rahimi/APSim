@@ -12,45 +12,48 @@ import math
 #Snort, EntityResolution, ClamAV, Hamming, Dotstart, Custom, Bro217, Levenstein, Bril,
 # Randomfor, Dotstar03, ExactMath,Dotstar06, Fermi, PowerEN, Protomata, Dotstart09, Ranges1, SPM, Ranges 05
 #SynthBring, Synthcorering
-under_process_atm = AnmalZoo.Snort
-target_stride_val = 1
-automatas = atma.parse_anml_file(anml_path[under_process_atm])
-#automatas = pickle.load(open('snort1-20.pkl', 'rb'))
-automatas.remove_ors()
-automatas = automatas.get_connected_components_as_automatas()
-exempt_ids = {1411}
-processed_atms = []
-number_of_stages = 20
+under_process_atms = [AnmalZoo.RandomForest, AnmalZoo.Snort]
+exempts = {(AnmalZoo.Snort, 1411)}
+number_of_stages = 10
 
-for atm_idx, atm in enumerate(automatas):
-    if atm_idx in exempt_ids:
-        continue
-    print 'processing automata', atm_idx, 'from ', len(automatas)
-    atm.remove_all_start_nodes()
-    atm.remove_ors()
+for uat in under_process_atms:
+    automatas = atma.parse_anml_file(anml_path[uat])
+    automatas.remove_ors()
+    automatas = automatas.get_connected_components_as_automatas()
 
-    for stride_val in range(target_stride_val):
-        atm=atm.get_single_stride_graph()
+    for stride_val in range(4):
+        strided_automatas = []
+        for atm_idx, atm in enumerate(automatas[:3]):
+            if (uat, atm_idx) in exempts:
+                continue
+            print 'processing {0} stride{3} automata {1} from {2}'.format(uat, atm_idx, len(automatas), stride_val)
 
-    if atm.is_homogeneous is not True:
-        atm.make_homogenous()
+            for _ in range(stride_val):
+                atm = atm.get_single_stride_graph()
 
-    minimize_automata(atm, merge_reports=True, same_residuals_only=True, same_report_code=True,
-                      combine_symbols=True)
+            if not atm.is_homogeneous:
+                atm.make_homogenous()
 
-    processed_atms.append(atm)
+            minimize_automata(atm, merge_reports=True, same_residuals_only=True, same_report_code=True,
+                          combine_symbols=True)
 
-atms_per_stage = int(math.ceil(len(processed_atms) / float(number_of_stages)))
+            strided_automatas.append(atm)
 
-hd_gen.generate_full_lut([processed_atms[i:i+atms_per_stage] for i in range(0,len(processed_atms), atms_per_stage)],
-                         single_out=False, before_match_reg=False, after_match_reg=False,
-                         ste_type=1, folder_name=str(under_process_atm), use_bram=False, bram_criteria=lambda n: len(n.symbols) > 8)
+        atms_per_stage = int(math.ceil(len(strided_automatas) / float(number_of_stages)))
 
-# hd_gen.generate_full_lut(processed_atms, single_out=False, before_match_reg=False, after_match_reg=False,
-#                          ste_type=2, folder_name=str(under_process_atm), use_bram=False, bram_criteria=lambda n: len(n.symbols) > 8)
-#
-# hd_gen.generate_full_lut(processed_atms, single_out=False, before_match_reg=False, after_match_reg=True,
-#                          ste_type=1, folder_name=str(under_process_atm), use_bram=False, bram_criteria=lambda n: len(n.symbols) > 8)
-#
-# hd_gen.generate_full_lut(processed_atms, single_out=False, before_match_reg=False, after_match_reg=True,
-#                          ste_type=2, folder_name=str(under_process_atm), use_bram=False, bram_criteria=lambda n: len(n.symbols) > 8)
+        hd_gen.generate_full_lut(
+                    [strided_automatas[i:i + atms_per_stage] for i in range(0, len(strided_automatas), atms_per_stage)],
+                     single_out=False, before_match_reg=False, after_match_reg=False,
+                     ste_type=1, folder_name=str(uat), use_bram=False,
+                     bram_criteria=lambda n: len(n.symbols) > 8)
+
+
+
+
+
+
+
+
+
+
+

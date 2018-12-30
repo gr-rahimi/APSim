@@ -30,15 +30,12 @@ module Automata_{{automata.id}}(input clk,
            {%- endfor -%}
            );
 
-reg prev_reset;
+wire all_inpiut;
 wire start_of_data;
 
-always @(posedge clk)
-begin
-    prev_reset <= reset;
-end
+assign all_input = 1'b1;
+assign start_of_data = ~reset;
 
-assign start_of_data = prev_reset & ~reset;
 
 
 
@@ -57,10 +54,10 @@ wire {{automata.id}}_w_match_{{node.id}};
     {% for p in n_preds %}
         {%- if p.id != 0 -%}
             {% do pred_wire_str.append( automata.id|string +'_w_out_' + p.id|string) %}
-        {%- elif p.start_type|string == 'StartType.start_of_data' -%}
-            {% do pred_wire_str.append('~reset') %}
-        {%- else -%} {# all start case #}
+        {%- elif node.start_type|string == 'StartType.start_of_data' -%}
             {% do pred_wire_str.append('start_of_data') %}
+        {%- else -%} {# all start case #}
+            {% do pred_wire_str.append('all_input') %}
         {%- endif -%}
     {% endfor %}
 {% if node.id not in bram_match_id_list %}
