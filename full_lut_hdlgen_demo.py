@@ -20,10 +20,10 @@ for uat in under_process_atms:
     automatas = atma.parse_anml_file(anml_path[uat])
     automatas.remove_ors()
     automatas = automatas.get_connected_components_as_automatas()
-    number_of_stages = len(automatas) / 50
+    number_of_stages = math.ceil(len(automatas) / 50.0)
     for stride_val in range(4):
         strided_automatas = []
-        for atm_idx, atm in enumerate(automatas[:3]):
+        for atm_idx, atm in enumerate(automatas):
             if (uat, atm_idx) in exempts:
                 continue
             print 'processing {0} stride{3} automata {1} from {2}'.format(uat, atm_idx, len(automatas), stride_val)
