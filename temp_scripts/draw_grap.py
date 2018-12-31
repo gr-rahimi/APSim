@@ -10,29 +10,30 @@ ste0 = S_T_E(start_type=StartType.all_input, is_report=False, is_marked=False, i
                          PackedInterval(PackedInput((2,)), PackedInput((2,)))]),
              adjacent_S_T_E_s=None, report_residual=0, report_code=-1)
 
-ste1 = S_T_E(start_type=StartType.all_input, is_report=False, is_marked=False, id = my_Automata.get_new_id(),
-             symbol_set=PackedIntervalSet([PackedInterval(PackedInput((2,)), PackedInput((2,)))]),
+ste1 = S_T_E(start_type=StartType.non_start, is_report=False, is_marked=False, id = my_Automata.get_new_id(),
+             symbol_set=PackedIntervalSet([PackedInterval(PackedInput((1,)), PackedInput((1,))),
+                                           PackedInterval(PackedInput((2,)), PackedInput((2,)))]),
              adjacent_S_T_E_s=None, report_residual=0, report_code=-1)
 
-ste2 = S_T_E(start_type=StartType.all_input, is_report=False, is_marked=False, id = my_Automata.get_new_id(),
-             symbol_set=PackedIntervalSet([PackedInterval(PackedInput((1,)), PackedInput((1,)))]),
-             adjacent_S_T_E_s=None, report_residual=0, report_code=-1)
+# ste2 = S_T_E(start_type=StartType.non_start, is_report=False, is_marked=False, id = my_Automata.get_new_id(),
+#              symbol_set=PackedIntervalSet([PackedInterval(PackedInput((1,)), PackedInput((1,)))]),
+#              adjacent_S_T_E_s=None, report_residual=0, report_code=-1)
 
-ste3 = S_T_E(start_type=StartType.non_start, is_report=True, is_marked=False, id = my_Automata.get_new_id(),
+ste2 = S_T_E(start_type=StartType.non_start, is_report=True, is_marked=False, id = my_Automata.get_new_id(),
              symbol_set=PackedIntervalSet([PackedInterval(PackedInput((3,)), PackedInput((3,)))]),
              adjacent_S_T_E_s=None, report_residual=0, report_code=0)
 
 my_Automata.add_element(ste0)
 my_Automata.add_element(ste1)
 my_Automata.add_element(ste2)
-my_Automata.add_element(ste3)
+#my_Automata.add_element(ste3)
 
 my_Automata.add_edge(ste0, ste0)
 my_Automata.add_edge(ste0, ste1)
-my_Automata.add_edge(ste0, ste2)
-my_Automata.add_edge(ste1, ste3)
-my_Automata.add_edge(ste2, ste3)
-my_Automata.add_edge(ste3, ste3)
+my_Automata.add_edge(ste1, ste2)
+my_Automata.add_edge(ste2, ste2)
+# my_Automata.add_edge(ste2, ste3)
+# my_Automata.add_edge(ste3, ste3)
 
 #my_Automata.remove_all_start_nodes()
 
