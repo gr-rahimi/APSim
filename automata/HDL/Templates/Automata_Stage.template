@@ -40,11 +40,11 @@ always @(posedge clk)
 begin
     if (run == 1)
         symbols <= top_symbols;
-    captured_reset <= reset;
+        captured_reset <= reset;
 end
 
 assign out_symbols = symbols;
-assign out_reset = reset;
+assign out_reset = captured_reset;
 
 {%- if single_out -%}
 {%set report_list=[]%}
@@ -77,7 +77,7 @@ bram_module_{{loop.index0}} bram_module_{{loop.index0}}_ins (
 {%for atm in  automatas%}
 Automata_{{atm.id}} automata_{{atm.id}} (.clk(clk),
                      .run(run),
-                     .reset(reset),
+                     .reset(captured_reset),
                      .symbols(symbols)
                      {%- for node_id in bram_match_id_list[loop.index0]%}
                      , .{{atm.id}}_w_match_{{node_id}}({{atm.id}}_w_match_{{node_id}})

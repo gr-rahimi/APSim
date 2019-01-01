@@ -30,6 +30,8 @@ class Automatanetwork(object):
 
 
     def __init__(self, id ,is_homogenous, stride):
+        if '-' in id:
+            id = id.replace('-', '_')
 
         #TODO clean up this mechanism (has modified)
         self._has_modified = True

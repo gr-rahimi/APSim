@@ -13,8 +13,8 @@ import random
 #Snort, EntityResolution, ClamAV, Hamming, Dotstart, Custom, Bro217, Levenstein, Bril,
 # Randomfor, Dotstar03, ExactMath,Dotstar06, Fermi, PowerEN, Protomata, Dotstart09, Ranges1, SPM, Ranges 05
 #SynthBring, Synthcorering
-under_process_atms = [AnmalZoo.Snort, AnmalZoo.ClamAV, AnmalZoo.Hamming, AnmalZoo.Dotstar, AnmalZoo.Bro217]
-exempts = {(AnmalZoo.Snort, 1411)}
+under_process_atms = [AnmalZoo.Bro217]
+exempts = {(AnmalZoo.EntityResolution, 1411)}
 number_of_stages = 10
 
 number_of_autoamtas = 200
@@ -27,7 +27,7 @@ for uat in under_process_atms:
         automatas = random.sample(automatas, number_of_autoamtas)
 
     number_of_stages = math.ceil(len(automatas) / 50.0)
-    for stride_val in range(4):
+    for stride_val in range(3, 4):
         strided_automatas = []
         for atm_idx, atm in enumerate(automatas):
             if (uat, atm_idx) in exempts:

@@ -13,7 +13,7 @@ import logging
 #SynthBring, Synthcorering
 under_process_atms = [AnmalZoo.RandomForest, AnmalZoo.Snort]
 exempts = {(AnmalZoo.Synthetic_BlockRings, 1411)}
-
+hom_between = True # make homogeneous between strides if True
 for uat in under_process_atms:
 
     automatas = atma.parse_anml_file(anml_path[uat])
@@ -31,12 +31,16 @@ for uat in under_process_atms:
                     continue
                 print 'processing {0} stride{3} automata {1} from {2}'.format(uat, atm_idx, len(automatas), stride_val)
                 atm.remove_ors()
+
                 for _ in range(stride_val):
                     atm = atm.get_single_stride_graph()
+                    if hom_between:
+                        atm.make_homogenous()
+
                 if not atm.is_homogeneous:
                     atm.make_homogenous()
                 minimize_automata(atm, merge_reports=True, same_residuals_only=True, same_report_code=True,
-                                  combine_symbols=True)
+                                  combine_symbols=True if hom_between is not True else False)
 
                 all_nodes = filter(lambda n: n.id != 0 , atm.nodes)  # filter fake root
                 all_nodes_symbols_len_count = [len(n.symbols) for n in all_nodes]
