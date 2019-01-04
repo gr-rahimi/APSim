@@ -5,9 +5,150 @@ from itertools import chain, product, izip
 import utility
 from heapq import heappush, heappop
 #import point_comperator
-
+import bisect
 
 #CYTHON_CAN_ACCEPT_FUNC =  point_comperator.cython_can_accept
+
+symbol_type = 1 #cl
+
+def get_Symbol_type(is_naive = False):
+    if symbol_type == 1:
+        return PackedIntervalSet
+    else:
+        if is_naive is not True:
+            return GeneratorSymbolSet
+        else:
+            return NaiveSymbolSet
+
+
+
+class GeneratorSymbolSet(object):
+    def __init__(self, initial_list):
+        self._generator_list = initial_list
+
+    def __iter__(self):
+        for left_l, right_l in self._internal_iter():
+            left_pt = PackedInput(left_pt)
+            right_pt = PackedInput(right_pt)
+
+            yield PackedInterval(left_pt, right_pt)
+
+    def _internal_iter(self):
+
+        left_result , right_result = [], []
+
+        def my_generator():
+            #varibales_indexmap
+            fhpl = 0
+            shpl = 1
+            fhpr = 2
+            shpr = 3
+            fhi = 4
+            shi = 5
+            shg = 6
+
+            def get_next_tuple(first_half_pt_left, first_half_pt_right,
+                               first_half_i, sec_half_i, sec_half_gen):
+                try:
+                    sec_half_pt_left, sec_half_pt_right = next(sec_half_i)
+                    return (first_half_pt_left, sec_half_pt_left, first_half_pt_right, sec_half_pt_right, first_half_i,
+                               sec_half_i, sec_half_gen)
+                except StopIteration:
+                        try:
+                            first_half_pt_left, first_half_pt_right = next(first_half_i)
+                        except StopIteration:
+                                return None
+                        sec_half_i = iter(sec_half_gen)
+                        sec_half_pt_left, sec_half_pt_right = next(sec_half_i)
+                        return (first_half_pt_left, sec_half_pt_left, first_half_pt_right, sec_half_pt_right,
+                                    first_half_i, sec_half_i, sec_half_gen)
+
+            i_list = []
+            for first_half_gen, sec_half_gen in self._generator_list:
+                first_half_i = iter(first_half_gen)
+                sec_half_i = iter(sec_half_gen)
+                first_half_pt_left, first_half_pt_right = next(first_half_i)
+                sec_half_pt_left, sec_half_pt_right = next(sec_half_i)
+                bisect.insort((first_half_pt_left,
+                               sec_half_pt_left,
+                               first_half_pt_right,
+                               sec_half_pt_right,
+                               first_half_i,
+                               sec_half_i,
+                               sec_half_gen))
+
+            current_hit = i_list.pop(0)
+
+            next_hit = get_next_tuple(current_hit[fhpl], current_hit[shpl],
+                                      current_hit[fhpr], current_hit[shi], current_hit[shg])
+            if next_hit is not None:
+                i_list.append(next_hit)
+
+            while i_list:
+
+                next_tuple = i_list.pop(0)
+                next_hit = get_next_tuple(next_tuple[fhpl], next_tuple[shpl], next_tuple[fhpr], next_tuple[shi],
+                                          next_tuple[shg])
+                if next_hit is not None:
+                    i_list.append(next_hit)
+
+                #check if the new point is bigger
+                assert first_half_pt_left <= next_hit[fhpl] and sec_half_pt_left <= next_hit[shpl]
+
+                if first_half_pt_left == next_hit[0] and sec_half_pt_left == next_hit[1]:
+                    current_hit = next_hit
+                    continue
+
+                l = len(current_hit[fhpl])
+
+                left_result[:l] = current_hit[fhpl]
+                left_result[l:] = current_hit[shpl]
+
+                right_result[:l] = current_hit[fhpr]
+                right_result[l:] = current_hit[shpr]
+
+                yield left_result, right_result
+
+    @classmethod
+    def combine(cls, left_set, right_set):
+        pass
+
+
+
+
+class NaiveSymbolSet(GeneratorSymbolSet):
+    def __init__(self, intervals):
+        '''
+
+        :param intervals:intervals as list of tuples. [(left1,right1), (left, right2), ...]
+        '''
+        GeneratorSymbolSet.__init__(self, None)
+        #TODO we assume here that the initial list does not need to be proned
+        self._naive_list = [(p.left.point[0], p.right.point[0]) for p in intervals].sort()
+
+    def add_interval(self, point):
+
+        bisect.insort(self._naive_list, (point.left[0], point.right[0]))
+
+    def __iter__(self):
+        def my_generator():
+            for left_pt, right_pt in self._naive_list:
+                yield PackedInterval(PackedInterval(PackedInput((left_pt, )), PackedInput((right_pt, ))))
+
+    def _internal_iter(self):
+        def my_generator():
+            left_list, right_list = [None], [None]
+            for left_pt, right_pt in self._naive_list:
+                left_list[0] = left_pt
+                right_list[0] = right_pt
+                yield left_list, right_list
+
+        return my_generator()
+
+
+
+
+
 
 class ComparableMixin(object):
   def __eq__(self, other):
@@ -79,31 +220,6 @@ class PackedInterval(object):
 
     def can_interval_accept(self, point):
         return (self.left <= point <= self.right)
-        #assert point.dim == self.dim
-        #acceptance_result = CYTHON_CAN_ACCEPT_FUNC(self.left.point, point.point, self.right.point)
-        assert le_res == acceptance_result
-
-        # python_result = True
-        # for l,p,r in izip(self.left, point, self.right):
-        #     if l <= p <= r:
-        #         continue
-        #     else:
-        #         python_result = False
-        #         break
-        #
-        # assert python_result == acceptance_result
-
-
-        if acceptance_result:
-            PackedInterval._pos_stat+=1
-        else:
-            PackedInterval._neg_stat+=1
-
-        if(PackedInterval._pos_stat + PackedInterval._neg_stat) % 100000 == 0:
-            print "pos={},neg={}".format(PackedInterval._pos_stat,
-                                         PackedInterval._neg_stat)
-        return acceptance_result
-
 
     def __lt__(self, other):
         return self.left < other.left
@@ -116,6 +232,9 @@ class PackedInterval(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    def get_interval_area(self):
+        pass
 
 
 class PackedIntervalSet(object):
@@ -188,31 +307,6 @@ class PackedIntervalSet(object):
 
         for corner in product(*intervals):
             yield PackedInput(corner)
-
-
-
-
-            #####
-        #
-        #     merged = [False] * len(ranges)
-        #     for range_idx, range_val in enumerate(ranges[:-1]):
-        #         if not merged[range_idx]:
-        #             for cand_idx, cand_ivl in enumerate(ranges[range_idx+1:]):
-        #                 if cand_ivl[0]<range_val[1]< cand_ivl[1]:
-        #                     merged[range_idx+1+cand_idx] = True
-        #                     range_val[1] = cand_ivl[1]
-        #                 elif range_val[1] > cand_ivl[1]:
-        #                     merged[range_idx + 1 + cand_idx] = True
-        #                 else:
-        #                     break
-        #     flat_list=[]
-        #     flat_list.extend([range_ivl[0] for range_idx, range_ivl in enumerate(ranges) if not merged[range_idx]])
-        #     flat_list.extend([range_ivl[1] for range_idx, range_ivl in enumerate(ranges) if not merged[range_idx]])
-        #     flat_list=sorted(set(flat_list)) # remove repeated elements
-        #     intervals.append(flat_list)
-        #
-        # for corner in product(*intervals):
-        #     yield PackedInput(corner)
 
 
     @classmethod

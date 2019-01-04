@@ -1,5 +1,5 @@
 from __future__ import division
-from .elemnts.ste import S_T_E, PackedIntervalSet, PackedInput
+from .elemnts.ste import S_T_E, PackedIntervalSet, PackedInput, get_Symbol_type
 from .elemnts.element import StartType, FakeRoot
 from .elemnts.or_elemnt import OrElement
 from .elemnts import ElementsType
@@ -313,7 +313,7 @@ class Automatanetwork(object):
 
                     if self.is_homogeneous: # for homogeneous case
                         strided_graph.add_edge(new_STEs_dic[current_ste.id], new_STEs_dic[l2_neigh.id],
-                                               symbol_set= PackedIntervalSet.combine(l1_neigh.symbols, l2_neigh.symbols),
+                                               symbol_set= get_Symbol_type().combine(l1_neigh.symbols, l2_neigh.symbols),
                                            start_type = l1_neigh.start_type
                                            if current_ste.start_type == StartType.fake_root else StartType.non_start)
                     else: # non homogeneous case

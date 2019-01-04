@@ -13,10 +13,10 @@ import random
 #Snort, EntityResolution, ClamAV, Hamming, Dotstart, Custom, Bro217, Levenstein, Bril,
 # Randomfor, Dotstar03, ExactMath,Dotstar06, Fermi, PowerEN, Protomata, Dotstart09, Ranges1, SPM, Ranges 05
 #SynthBring, Synthcorering
-under_process_atms = [AnmalZoo.Bro217]
-exempts = {(AnmalZoo.EntityResolution, 1411)}
+under_process_atms = [AnmalZoo.Hamming]
+exempts = {(AnmalZoo.Snort, 1411)}
 number_of_stages = 10
-
+hom_between = True
 number_of_autoamtas = 200
 
 for uat in under_process_atms:
@@ -27,7 +27,7 @@ for uat in under_process_atms:
         automatas = random.sample(automatas, number_of_autoamtas)
 
     number_of_stages = math.ceil(len(automatas) / 50.0)
-    for stride_val in range(3, 4):
+    for stride_val in range(4):
         strided_automatas = []
         for atm_idx, atm in enumerate(automatas):
             if (uat, atm_idx) in exempts:
@@ -36,12 +36,14 @@ for uat in under_process_atms:
 
             for _ in range(stride_val):
                 atm = atm.get_single_stride_graph()
+                if hom_between is True:
+                    atm.make_homogenous()
 
             if not atm.is_homogeneous:
                 atm.make_homogenous()
 
             minimize_automata(atm, merge_reports=True, same_residuals_only=True, same_report_code=True,
-                          combine_symbols=True)
+                              combine_symbols=True if hom_between is not True else False)
 
             strided_automatas.append(atm)
 
