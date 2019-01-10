@@ -1,12 +1,13 @@
 {% import 'LUT_match.template' as lut_match %}
 
-{% macro automata_macro(automata, before_match_reg, after_match_reg, bram_match_id_list ) -%}
+{% macro automata_macro(automata, before_match_reg, after_match_reg, bram_match_id_list, bit_feed_size ) -%}
 
 {#
 @param automata : under process automata
 @param before_match_reg : True/False if True, puts a register exactly after the input
 @param after_match_reg : True/False if True, puts a register exactly after the match if it is LUT based
 @param bram_match_id_list : this is a list of nodes that the matching will be in a block ram
+@param bit_feed_size = number of bits being feed in each cycle
 #}
 
 /*
@@ -21,7 +22,7 @@
 module Automata_{{automata.id}}(input clk,
            input run,
            input reset,
-           input [{{automata.stride_value * 8 - 1}} : 0] symbols
+           input [{{bit_feed_size - 1}} : 0] symbols
            {% for node_id in bram_match_id_list %}
            ,input {{automata.id}}_w_match_{{node_id}}
            {%- endfor -%}
@@ -61,7 +62,7 @@ wire {{automata.id}}_w_match_{{node.id}};
         {%- endif -%}
     {% endfor %}
 {% if node.id not in bram_match_id_list %}
-LUT_Match_{{automata.id}}_{{node.id}} #({{automata.stride_value * 8}}) lut_match_{{automata.id}}_{{node.id}}(
+LUT_Match_{{automata.id}}_{{node.id}} #({{bit_feed_size}}) lut_match_{{automata.id}}_{{node.id}}(
                 .clk(clk),
                 .symbols(symbols),
                 .match({{automata.id}}_w_match_{{node.id}}));

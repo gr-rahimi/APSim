@@ -1,0 +1,109 @@
+{#
+@param original_width
+@param byte_trans_map
+@param byte_map_width
+@param translation_list: list of dictionaries for translation
+@param idx: index that will be attached to the end of module name
+@param width_list: list of width for input, output and mid sizes
+@param initial_width: size of the initial input symbols in bits. this template generates a pyramid using table width
+@param output_width: size of the final output
+#}
+
+module Byte_Compressor_{{idx}}(
+                                input wire clk,
+                                input wire[7:0] inp_sym
+                                output reg[{{byte_map_width - 1}}:0] out_sym)
+always @(posedge clk)
+begin
+    {% for key, value in byte_trans_map.iteritems() -%}
+    {% if loop.index0 == 0 %}if {% else %}else if {% endif %}(top_sym == 8'd{{key[0]}})
+        out_sym <= {{byte_map_width}}'d{{value}};
+    {% endfor %}
+    else
+        out_sym <= {{byte_map_width}}'d0;
+end
+endmodule
+
+{% for c in translation_list %}
+module Symbol_Compressor_{{idx}}_{{loop.index0}}(
+                                input wire clk,
+                                input wire [{{width_list[loop.index0]}}:0] top_sym,
+                                input wire [{{width_list[loop.index0]}}:0] bot_sym,
+                                output reg[{{width_list[loop.index]}}: 0] out_sym)
+
+{% set outloop=loop %}
+always @(posedge clk)
+begin
+
+    {% for key, value in c.iteritems() -%}
+    {% if loop.index0 == 0 %}if {% else %}else if {% endif %}((top_sym == {{width_list[outloop.index0]}}'d{{key[0]}}) &&
+    (bot_sym == {{width_list[outloop.index0]}}'d{{key[1]}}))
+        out_sym <= {{width_list[outloop.index]}}'d{{value}};
+    {% endfor %}
+    else
+        out_sym <= {{width_list[loop.index]}}'d0;
+end
+
+endmodule
+
+{% endfor %}
+
+module Symbol_Compressor_Pipeline_{{idx}} (input wire clk,
+                                            input wire[{{original_width -1}}:0] symbol
+                                            output wire [{{output_width-1}}:0] compressed_out)
+{% if width_list|length %}
+{% set ns = namespace(modules_count = initial_width // width_list[0]) %}
+{% for w in width_list %}
+{% set outerloop = loop %}
+{% for c in range(ns.modules_count) %}
+{% if c%2 == 0%}
+wire [ {{w}} : 0] from_w{{outerloop.index0}}_to_c{{loop.index0}}_top;
+{% else %}
+wire [ {{w}} : 0] from_w{{outerloop.index0}}_to_c{{loop.index0}}_bot;
+{% endif %}
+{% endfor %}
+{% set ns.modules_count = ns.modules_count // 2 %}
+{% endfor %}
+{% endif %}
+
+{% for bc in range(original_width // 8)%}
+Byte_Compressor_{{idx}} byte_compressor_{{bc}}(
+                                        .clk(clk),
+                                        .inp_sym(symbol[{{bc*8 + 7}}:{{bc*8}}]),
+                                        .out_sym(byte_com_to_reduce[{{(bc+1)*byte_map_width-1}}:{{bc*byte_map_width}}])
+                                        );
+{% endfor %}
+
+
+wire [{{initial_width-1}}:0] byte_com_to_reduce;
+{% if width_list|length %}
+{% for start_index in range(0, initial_width, 2*width_list[0]) %}
+assign from_w0_to_c{{loop.index0}}_top = byte_com_to_reduce[{{start_index + width_list[0]-1}}:{{start_index}}];
+assign from_w0_to_c{{loop.index0}}_bot = byte_com_to_reduce[{{start_index + 2*width_list[0]-1}}:{{start_index+width_list[0]}}];
+{% endfor %}
+
+{% for end_index in range(0, output_width, width_list[-1])%}
+{% if loop.index0 == 0%}
+assign compressed_out[{{end_index + width_list[-1] -1}}:{{end_index}}] = from_w{{width_list|length - 1}}_to_c{{loop.index0}}_top;
+{% else %}
+assign compressed_out[{{end_index + width_list[-1] -1}}:{{end_index}}] = from_w{{width_list|length - 1}}_to_c{{loop.index0}}_bot;
+{% endif %}
+{% endfor %}
+{% set ns=namespace(modules_count=initial_width//(2*width_list[0])) %}
+{% for w in range(width_list|length -1) %}
+{% for c in range(ns.modules_count) %}
+Symbol_Compressor{{idx}}_{{w}}_{{c}} sym_compressor(
+                                    .clk(clk),
+                                    .top_sym(from_w{{w}}_to_c{{c}}_top),
+                                    .bot_sym(from_w{{w}}_to_c{{c}}_bot),
+                                    .out_sym(from_w{{w+1}}_to_c{{c//2}}_{% if c % 2 == 0 %}top{% else %}bot{% endif %})
+                                        );
+{% endfor %}
+{% set ns.modules_count = ns.modules_count // 2 %}
+{% endfor %}
+
+{%else%}
+assign compresses_out = byte_com_to_reduce;
+{% endif %}
+
+endmodule

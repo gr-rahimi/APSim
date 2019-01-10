@@ -7,6 +7,8 @@ import networkx as nx
 import igraph
 from automata.elemnts import ElementsType
 from automata.elemnts.element import FakeRoot
+from automata.elemnts.ste import PackedInput, PackedInterval, PackedIntervalSet
+
 import logging
 
 def draw_matrix(file_to_save, matrix, boundries, **kwargs):
@@ -69,8 +71,8 @@ def generate_semi_diagonal_route(basic_block_size, one_dir_copy):
 
 
 def minimize_automata(automata,
-                      merge_reports = False, same_residuals_only = False,
-                      same_report_code = False, left_merge = True, right_merge = True,
+                      merge_reports = True, same_residuals_only = True,
+                      same_report_code = True, left_merge = True, right_merge = True,
                       combine_symbols = True):
     assert automata.is_homogeneous, 'minimization only works for homogeneous representation'
     original_node_count = automata.nodes_count
@@ -306,6 +308,99 @@ def draw_symbols_len_histogram(atm):
 
 
     plt.show()
+
+
+def get_equivalent_symbols(atms_list):
+    '''
+    this function receives an input list of automatas and returns list of sets witk equivalnet symbols in the same set
+    :param atms_list: list of automatas
+    :return: list of sets of equivalent symbols in the same set
+    '''
+    assert all((atm.stride_value == atms_list[0].stride_value for atm in atms_list))
+
+    symbol_map = {}
+    size = 0
+    for atm in atms_list:
+        assert atm.is_homogeneous
+        for q in atm.nodes:
+            if q.type == ElementsType.FAKE_ROOT:
+                continue
+            buffer = {}
+            for pt in q.symbols.points:
+                current_map = symbol_map.get(pt, 0)
+                if current_map not in buffer:
+                    size += 1
+                    buffer[current_map] = size
+
+                symbol_map[pt] = buffer[current_map]
+
+
+    # optimal range assignment
+    optimal_dics = [] # keep tracks of compressed labels for each ste
+    assigned_dic = {} # keeps the last assignment in order
+    new_dic = {}
+
+    for atm in atms_list:
+        optimal_dic = {}
+        for q in atm.nodes:
+            if q.type == ElementsType.FAKE_ROOT:
+                continue
+            for pt in q.symbols.points:
+                orig_label = symbol_map[pt]
+                if orig_label not in assigned_dic:
+                    assigned_dic[orig_label] = len(assigned_dic) + 1
+
+                new_dic[pt] = assigned_dic[orig_label]
+                optimal_dic.setdefault(q, set()).add(assigned_dic[orig_label])
+
+        optimal_dics.append(optimal_dic)
+
+
+
+
+    return new_dic, optimal_dics
+
+
+def replace_equivalent_symbols(symbol_dictionary_list, atms_list):
+    '''
+    :param atms: list of auotmatas
+    :param symbol_dictionary_list: a dictionary from nodes to list of numbers
+    :return: a list with replaces symbols
+    '''
+
+    for atm, sym_dic in zip(atms_list, symbol_dictionary_list):
+        for q in atm.nodes:
+
+            if q.type == ElementsType.FAKE_ROOT:
+                continue
+            new_symbol_set = PackedIntervalSet([]);
+
+            new_symbols_list = sorted(list(sym_dic[q]))
+            new_start = prev_val = new_symbols_list[0]
+
+            for new_sym in new_symbols_list[1:]:
+                if new_sym == prev_val + 1:
+                    prev_val = new_sym
+                    continue
+                else:
+                    new_symbol_set.add_interval(PackedInterval(PackedInput((new_start,)), PackedInput((prev_val,))))
+                    new_start = prev_val = new_sym
+
+            new_symbol_set.add_interval(PackedInterval(PackedInput((new_start,)), PackedInput((prev_val,))))
+
+
+            q.symbols = new_symbol_set
+
+        atm.stride_value = 1
+
+
+
+
+
+
+
+
+
 
 
 

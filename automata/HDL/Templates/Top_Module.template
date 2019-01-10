@@ -1,13 +1,14 @@
 {#
 This template generate the top level module for the whole automaton
 @param automatas: List of Lists all automatas.
+@param bit_feed_size = number of bits being feed in each cycle
 #}
 
 module Top_Module(
                   input clk,
                   input reset,
                   input run,
-                  input [{{automatas[0][0].stride_value * 8 -1}} : 0] symbols
+                  input [{{bit_feed_size-1}} : 0] symbols
                   {%- for stage in automatas -%}
                   {%-for atm in stage %}
                   {%- for node in atm.nodes if node.report %}
@@ -20,7 +21,7 @@ module Top_Module(
 
 
 {% for s in range(automatas|length -1)%}
-wire [{{automatas[0][0].stride_value * 8 -1}} : 0] symbols_s{{s}}_to_{{s+1}};
+wire [{{bit_feed_size -1}} : 0] symbols_s{{s}}_to_{{s+1}};
 wire reset_s{{s}}_to_{{s+1}};
 {% endfor %}
 

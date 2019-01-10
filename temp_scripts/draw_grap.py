@@ -1,7 +1,7 @@
 from automata.automata_network import Automatanetwork
 from automata.elemnts.ste import S_T_E, PackedIntervalSet, PackedInterval, PackedInput, get_Symbol_type
 from automata.elemnts.element import StartType
-from utility import minimize_automata
+from utility import minimize_automata, get_equivalent_symbols
 
 
 my_Automata = Automatanetwork(id="test1", is_homogenous=True, stride=1)
@@ -67,6 +67,7 @@ my_Automata.draw_graph('fccm.svg', draw_edge_label=True, use_dot=True, write_nod
 atm2 = my_Automata.get_single_stride_graph()
 atm2.draw_graph('fccmS2.svg', draw_edge_label=True, use_dot=True, write_node_labels=False)
 atm2.make_homogenous()
+get_equivalent_symbols([atm2])
 atm2.draw_graph('fccmNMS2H.svg', draw_edge_label=True, use_dot=True, write_node_labels=False)
 minimize_automata(atm2, merge_reports=True, same_residuals_only=False, same_report_code=False,
                       combine_symbols=True)

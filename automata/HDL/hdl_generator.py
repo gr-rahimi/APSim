@@ -157,6 +157,50 @@ def _generte_bram_stes(atms, classifier_func, placement_policy):
 
     return bram_list, bram_match_id_list_all
 
+def test_compressor(original_width, byte_trans_map, byte_map_width, translation_list, idx, width_list, initial_width, output_width):
+    env = Environment(loader=FileSystemLoader('automata/HDL/Templates'), extensions=['jinja2.ext.do'])
+    template = env.get_template('compressor_pipeline.template')
+    rendered_content = template.render(original_width=original_width,
+                                       byte_trans_map=byte_trans_map,
+                                       byte_map_width=byte_map_width,
+                                       translation_list=translation_list,
+                                       idx=idx,
+                                       width_list=width_list,
+                                       initial_width=initial_width,
+                                       output_width=output_width)
+    with open('test_compressor.v', 'w') as f:
+        f.writelines(rendered_content)
+
+def generate_compressors(original_width, byte_trans_map, byte_map_width, translation_list, idx, width_list, initial_width,
+             output_width, file_path):
+    '''
+
+    :param original_width: the original width of compressor
+    :param byte_trans_map: a dictionary for the byte level compressor
+    :param byte_map_width: bit length of the byte compressor output
+    :param translation_list: a list of dictionaries to convert input to output for compressor (not byte level)
+    :param idx: the id that will be asigned to the compressor
+    :param width_list: list of width of compressors
+    :param initial_width: total bit size of input of compressor not (not byte level)
+    :param output_width: total bit width of the output
+    :param file_path: path to write the results to
+    :return: None
+    '''
+    env = Environment(loader=FileSystemLoader('automata/HDL/Templates'), extensions=['jinja2.ext.do'])
+    template = env.get_template('compressor_pipeline.template')
+    rendered_content = template.render(original_width=original_width,
+                                       byte_trans_map=byte_trans_map,
+                                       byte_map_width=byte_map_width,
+                                       translation_list=translation_list,
+                                       idx=idx,
+                                       width_list=width_list,
+                                       initial_width=initial_width,
+                                       output_width=output_width)
+
+    with open(file_path, 'w') as f:
+        f.writelines(rendered_content)
+
+
 
 def generate_full_lut(atms_list, single_out ,before_match_reg, after_match_reg, ste_type,
                       use_bram, bram_criteria = None, folder_name = None):

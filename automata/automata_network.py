@@ -130,6 +130,10 @@ class Automatanetwork(object):
     def stride_value(self):
         return self._stride
 
+    @stride_value.setter
+    def stride_value(self, value):
+        self._stride = value
+
 
     @property
     def edges(self):
@@ -137,7 +141,6 @@ class Automatanetwork(object):
 
     def get_filtered_nodes(self,lambda_func):
         return (n for n in self.nodes if lambda_func(n))
-
 
     @staticmethod
     def _check_validity(xml_node):
@@ -176,6 +179,12 @@ class Automatanetwork(object):
     @property
     def nodes_count(self):
         return len(self._my_graph) -1 # fake_root is not counted
+
+    def get_neighbors(self, node):
+        return self._my_graph.neighbors(node)
+
+    def get_predecessors(self, node):
+        return self._my_graph.predecessors(node)
 
     #TODO make this a poperty
     def get_number_of_edges(self):
@@ -516,7 +525,7 @@ class Automatanetwork(object):
                                          node_color= color, font_size= 1 , ax =ax)
 
 
-    def draw_graph(self, file_name, draw_edge_label = False, use_dot = False, write_node_labels = True):
+    def draw_graph(self, file_name, draw_edge_label = True, use_dot = True, write_node_labels = False):
         """
 
         :param file_name: name of the png file

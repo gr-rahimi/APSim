@@ -9,6 +9,9 @@
 list of tuples(atm.id, node.id) to track the assigned
 @param bram_match_id_list: this is a list of nodes that the matching will be in a block ram
 @stage_index
+@param bit_feed_size: number of bits being feed in each cycle
+@param id_to_comp_dict t: a dictionary from compressor ids to their output len
+@param comp_dict: a dictionary to translate from automata ids to compressor ids
 #}
 
 /*
@@ -18,7 +21,7 @@ list of tuples(atm.id, node.id) to track the assigned
 module Automata_Stage{{stage_index}}(input clk,
                     input run,
                     input reset,
-                    input [{{automatas[0].stride_value * 8 -1}} : 0] top_symbols
+                    input [{{bit_feed_size-1}} : 0] top_symbols
                     {%- if single_out == false %}
                     {%- for atm in automatas -%}
                     {%- for node in atm.nodes if node.report %}
@@ -28,23 +31,17 @@ module Automata_Stage{{stage_index}}(input clk,
                     {%-else-%}
                     ,output single_out
                     {%-endif-%},
-                    output wire[{{automatas[0].stride_value * 8 -1}} : 0] out_symbols,
-                    output wire out_reset
+                    output reg[{{bit_feed_size-1}} : 0] out_symbols,
+                    output reg out_reset
                     );
-
-reg [{{automatas[0].stride_value * 8 -1}}:0] symbols;
-reg captured_reset;
-
 
 always @(posedge clk)
 begin
     if (run == 1)
-        symbols <= top_symbols;
-        captured_reset <= reset;
+        out_symbols <= top_symbols;
+        out_reset <= reset;
 end
 
-assign out_symbols = symbols;
-assign out_reset = captured_reset;
 
 {%- if single_out -%}
 {%set report_list=[]%}
@@ -77,8 +74,8 @@ bram_module_{{loop.index0}} bram_module_{{loop.index0}}_ins (
 {%for atm in  automatas%}
 Automata_{{atm.id}} automata_{{atm.id}} (.clk(clk),
                      .run(run),
-                     .reset(captured_reset),
-                     .symbols(symbols)
+                     .reset(reset),
+                     .symbols({%if atm.id not in comp_dict %}top_symbols {% else %}from_comp_{{comp_dict[atm.id]}}{% endif %})
                      {%- for node_id in bram_match_id_list[loop.index0]%}
                      , .{{atm.id}}_w_match_{{node_id}}({{atm.id}}_w_match_{{node_id}})
                      {%- endfor %}
@@ -86,7 +83,18 @@ Automata_{{atm.id}} automata_{{atm.id}} (.clk(clk),
                       , .{{atm.id}}_w_out_{{node.id}}({{atm.id}}_w_out_{{node.id}})
                      {%- endfor %}
                     );
-{%endfor%}
+{% endfor %}
+
+{% for comp_idx, comp_bit_len in id_to_comp_dict.iteritems() %}
+wire [comp_bit_len:0] from_comp_{{comp_idx}};
+
+module Symbol_Compressor_Pipeline_{{comp}}(
+                            .clk(clk),
+                            .symbol(top_symbol),
+                            .compressed_out(from_comp_{{comp_idx}})
+                            );
+
+{% endfor %}
 
 
 endmodule

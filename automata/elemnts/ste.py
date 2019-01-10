@@ -2,7 +2,6 @@ import CPP.VASim as VASim
 from .element import BaseElement, StartType
 from . import ElementsType
 from itertools import chain, product, izip
-import utility
 from heapq import heappush, heappop
 #import point_comperator
 import bisect
@@ -165,7 +164,7 @@ class ComparableMixin(object):
 class PackedInput(ComparableMixin):
 
     def __init__(self, alphabet_point):
-        self._point = bytearray(alphabet_point)
+        self._point = alphabet_point
         self._iter_idx = -1
         self._dim = len(self._point)
 
@@ -233,8 +232,7 @@ class PackedInterval(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def get_interval_area(self):
-        pass
+
 
 
 class PackedIntervalSet(object):
@@ -330,23 +328,6 @@ class PackedIntervalSet(object):
         bisect.insort(self._interval_set, interval)
         return
 
-
-
-        temp_symbol_set = PackedIntervalSet([interval])
-        if not self.is_symbolset_a_subset(temp_symbol_set):
-            # for ivl in self._interval_set:
-            #     left_pt = ivl.left
-            #     right_pt = ivl.right
-            #     if interval.can_accept(left_pt) and interval.can_accept(right_pt):
-            #         self._interval_set.remove(ivl)
-            #         continue #check for next intervals
-
-            #self._interval_set.append(interval)
-            #self._interval_set.sort()
-            bisect.insort(self._interval_set, interval)
-
-        else:
-            return
 
     def is_symbolset_a_subset(self, other_symbol_set):
         """
@@ -450,6 +431,33 @@ class PackedIntervalSet(object):
             for idx, item in enumerate(to_be_deleted):
 
                 del self._interval_set[item-idx]
+
+    @property
+    def points(self):
+        for interval in self._interval_set:
+            counter = [[interval.left[i], interval.left[i], interval.right[i]] for i in range(self.dim)]
+            while True:
+                yield tuple(counter[i][1] for i in range(self.dim))
+
+                d = self.dim - 1
+
+                while d >= 0:
+                    if counter[d][1] == counter[d][2]:
+                        counter[d][1] = counter[d][0]
+                        d -= 1
+                        continue
+                    else:
+                        counter[d][1] += 1
+                        break
+
+                if d == -1:
+                    break
+
+                yield tuple(c[1] for c in counter)
+
+        return
+
+
 
 
 
