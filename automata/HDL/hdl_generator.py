@@ -200,74 +200,77 @@ def generate_compressors(original_width, byte_trans_map, byte_map_width, transla
     with open(file_path, 'w') as f:
         f.writelines(rendered_content)
 
+def get_hdl_folder_path(prefix, number_of_atms, stride_value, before_match_reg, after_match_reg, ste_type, use_bram):
+    folder_name = prefix + 'stage_' + str(number_of_atms) + '_stride' + str(stride_value) + (
+        '_before' if before_match_reg else '') + ('_after' if after_match_reg else '') + \
+                   ('_ste' + str(ste_type)) + ('_withbram' if use_bram else '_nobram')
+    return os.path.join('../',folder_name)
 
+def clean_and_make_path(path):
+    shutil.rmtree(path, ignore_errors=True)
+    os.mkdir(path)
 
 def generate_full_lut(atms_list, single_out ,before_match_reg, after_match_reg, ste_type,
-                      use_bram, bram_criteria = None, folder_name = None):
-
-
-
-    folder_name += 'stage_' + str(len(atms_list)) + '_stride' + str(atms_list[0][0].stride_value) + ('_before' if before_match_reg else '') + ('_after' if after_match_reg else '') +\
-                   ('_ste' + str(ste_type)) + ('_withbram' if use_bram else '_nobram')
+                      use_bram, bram_criteria = None, folder_name = None, bit_feed_size=None, id_to_comp_dict=None,
+                      comp_dict=None, use_compression=False):
 
     env = Environment(loader=FileSystemLoader('automata/HDL/Templates'), extensions=['jinja2.ext.do'])
 
-    total_path = os.path.join("../", folder_name)
-    shutil.rmtree(total_path, ignore_errors=True)
-    os.mkdir(total_path)
-
-    for atms_idx, atms in enumerate(atms_list):
+    for stage_idx, stage in enumerate(atms_list):
         if use_bram:
             template = env.get_template('bram_module.template')
-            bram_list, bram_match_id_list_all = _generte_bram_stes(atms, bram_criteria, 'FF')
+            bram_list, bram_match_id_list_all = _generte_bram_stes(stage, bram_criteria, 'FF')
             for bram_idx, bram in enumerate(bram_list):
                 bram_mat = _generate_bram_matrix(bram)
                 bram_hex_contents = _genrate_bram_hex_content_from_matrix(bram_mat)
-                rendered_content = template.render(mod_name="bram_module_"+str(bram_idx) ,stride_val=atms[0].stride_value,
-                                before_match_reg = before_match_reg,after_match_reg= after_match_reg, contents = bram_hex_contents)
-                with open(os.path.join(total_path, 'bram_module_'+ str(bram_idx)+'_ste.v'), 'w') as f:
+                rendered_content = template.render(mod_name="bram_module_"+str(bram_idx) ,stride_val=stage[0].stride_value,
+                                before_match_reg=before_match_reg, after_match_reg=after_match_reg, contents=bram_hex_contents)
+                with open(os.path.join(folder_name, 'bram_module_'+ str(bram_idx)+'_ste.v'), 'w') as f:
                     f.writelines(rendered_content)
         else:
-            bram_list, bram_match_id_list_all = [], [[]] * len(atms)
+            bram_list, bram_match_id_list_all = [], [[]] * len(stage)
 
         template = env.get_template('Single_STE.template')
         rendered_content = template.render(ste_type=ste_type)
-        with open(os.path.join(total_path, 'ste.v'), 'w') as f:
+        with open(os.path.join(folder_name, 'ste.v'), 'w') as f:
             f.writelines(rendered_content)
 
         template = env.get_template('Single_Automata.template')
         template.globals['predecessors'] = networkx.MultiDiGraph.predecessors
         template.globals['get_summary'] = Automatanetwork.get_summary # maybe better to move to utility module
-        for automata, bram_match_id_list in zip(atms, bram_match_id_list_all):
+        for idx, (automata, bram_match_id_list) in enumerate(zip(stage, bram_match_id_list_all)):
             rendered_content = template.render(automata=automata,
                                                before_match_reg=before_match_reg, after_match_reg=after_match_reg,
-                                               bram_match_id_list=bram_match_id_list)
-            with open(os.path.join(total_path, automata.id+'.v',), 'w') as f:
+                                               bram_match_id_list=bram_match_id_list,
+                                               bit_feed_size = bit_feed_size if not use_compression else id_to_comp_dict[stage_idx][idx] )
+            with open(os.path.join(folder_name, automata.id+'.v',), 'w') as f:
                 f.writelines(rendered_content)
 
 
         template = env.get_template('Automata_Stage.template')
-        rendered_content = template.render(automatas=atms,
-                                           summary_str=_get_stage_summary(atms), single_out=single_out,
+        rendered_content = template.render(automatas=stage,
+                                           summary_str=_get_stage_summary(stage), single_out=single_out,
                                            bram_list=bram_list, bram_match_id_list=bram_match_id_list_all,
-                                           stage_index=atms_idx)
-        with open(os.path.join(total_path, 'stage{}.v'.format(atms_idx)), 'w') as f:
+                                           stage_index=stage_idx, bit_feed_size=bit_feed_size,
+                                           id_to_comp_dict=id_to_comp_dict[stage_idx], comp_dict=comp_dict[stage_idx],
+                                           use_compression=use_compression)
+        with open(os.path.join(folder_name, 'stage{}.v'.format(stage_idx)), 'w') as f:
             f.writelines(rendered_content)
 
     template = env.get_template('Top_Module.template')
-    rendered_content = template.render(automatas = atms_list)
-    with open(os.path.join(total_path, 'top_module.v'), 'w') as f:
+    rendered_content = template.render(automatas=atms_list,bit_feed_size=bit_feed_size )
+    with open(os.path.join(folder_name, 'top_module.v'), 'w') as f:
         f.writelines(rendered_content)
 
     # TCL script
     template = env.get_template('tcl.template')
     rendered_content = template.render()
-    with open(os.path.join(total_path, 'my_script.tcl'), 'w') as f:
+    with open(os.path.join(folder_name, 'my_script.tcl'), 'w') as f:
         f.writelines(rendered_content.encode('utf-8'))
 
     # Timing constrains
     template = env.get_template('clk_constrain.template')
     rendered_content = template.render()
-    with open(os.path.join(total_path, 'clk_constrain.xdc'), 'w') as f:
+    with open(os.path.join(folder_name, 'clk_constrain.xdc'), 'w') as f:
         f.writelines(rendered_content)
 

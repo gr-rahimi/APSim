@@ -12,6 +12,7 @@ list of tuples(atm.id, node.id) to track the assigned
 @param bit_feed_size: number of bits being feed in each cycle
 @param id_to_comp_dict t: a dictionary from compressor ids to their output len
 @param comp_dict: a dictionary to translate from automata ids to compressor ids
+@param use_compression: use compression if True
 #}
 
 /*
@@ -75,7 +76,7 @@ bram_module_{{loop.index0}} bram_module_{{loop.index0}}_ins (
 Automata_{{atm.id}} automata_{{atm.id}} (.clk(clk),
                      .run(run),
                      .reset(reset),
-                     .symbols({%if atm.id not in comp_dict %}top_symbols {% else %}from_comp_{{comp_dict[atm.id]}}{% endif %})
+                     .symbols({%if not use_compression %}top_symbols {% else %}from_comp_{{comp_dict[atm.id]}}{% endif %})
                      {%- for node_id in bram_match_id_list[loop.index0]%}
                      , .{{atm.id}}_w_match_{{node_id}}({{atm.id}}_w_match_{{node_id}})
                      {%- endfor %}
@@ -85,8 +86,9 @@ Automata_{{atm.id}} automata_{{atm.id}} (.clk(clk),
                     );
 {% endfor %}
 
+{% if use_compression %}
 {% for comp_idx, comp_bit_len in id_to_comp_dict.iteritems() %}
-wire [comp_bit_len:0] from_comp_{{comp_idx}};
+wire [{{comp_bit_len - 1}}:0] from_comp_{{comp_idx}};
 
 module Symbol_Compressor_Pipeline_{{comp}}(
                             .clk(clk),
@@ -95,6 +97,8 @@ module Symbol_Compressor_Pipeline_{{comp}}(
                             );
 
 {% endfor %}
+
+{% endif %}
 
 
 endmodule

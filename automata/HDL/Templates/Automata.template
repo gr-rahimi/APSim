@@ -15,7 +15,7 @@
 */
 
 {% for node in automata.nodes  if not node.id == 0 and node.id not in bram_match_dictionary %} {# 0 is the default id of fake root#}
-{{lut_match.LUT_match( automata.id +'_'+node.id|string, node.symbols, before_match_reg, after_match_reg)}}
+{{lut_match.LUT_match( automata.id +'_'+node.id|string, node.symbols, before_match_reg, after_match_reg, bit_feed_size//automata.stride_value)}}
 {% endfor %}
 
 
