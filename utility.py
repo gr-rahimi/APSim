@@ -355,9 +355,6 @@ def get_equivalent_symbols(atms_list):
 
         optimal_dics.append(optimal_dic)
 
-
-
-
     return new_dic, optimal_dics
 
 
@@ -370,6 +367,7 @@ def replace_equivalent_symbols(symbol_dictionary_list, atms_list):
 
     for atm, sym_dic in zip(atms_list, symbol_dictionary_list):
         for q in atm.nodes:
+            my_size = 0
 
             if q.type == ElementsType.FAKE_ROOT:
                 continue
@@ -384,9 +382,12 @@ def replace_equivalent_symbols(symbol_dictionary_list, atms_list):
                     continue
                 else:
                     new_symbol_set.add_interval(PackedInterval(PackedInput((new_start,)), PackedInput((prev_val,))))
+                    my_size += prev_val - new_start + 1
                     new_start = prev_val = new_sym
 
+
             new_symbol_set.add_interval(PackedInterval(PackedInput((new_start,)), PackedInput((prev_val,))))
+            my_size += prev_val - new_start + 1
 
 
             q.symbols = new_symbol_set

@@ -458,6 +458,10 @@ class PackedIntervalSet(object):
         return
 
 
+    def clear(self):
+        del self._interval_set[:]
+
+
 
 
 
@@ -587,12 +591,10 @@ class S_T_E(BaseElement):
 
     @symbols.setter
     def symbols(self, symbols):
-        self._symbol_set = symbols
-
-    def add_symbol(self, interval):
-        self._symbols.add_interval(interval)
-
-
+        #inplace symbol replacer
+        self.symbols.clear()
+        for s in symbols:
+            self._symbol_set.add_interval(s)
 
     def split_symbols(self):
         left_set = PackedIntervalSet(packed_interval_set=[])

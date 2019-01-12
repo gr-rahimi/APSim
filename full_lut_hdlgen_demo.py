@@ -11,6 +11,30 @@ import logging
 import math
 import random
 import os.path
+from automata.elemnts.ste import PackedInput
+
+
+def reza_test(inp_dic, atm):
+    eq_set = set()
+
+    cands = [16, 17, 18, 19, 20, 21, 26, 27, 28, 29, 30]
+
+
+    for key, val in inp_dic.iteritems():
+        if val in cands:
+            eq_set.add(key)
+
+
+    kh= None
+    for e in eq_set:
+        packed_pt  = PackedInput(e)
+        result = [node.symbols.can_accept(packed_pt) for node in atm.nodes if node.id!=0]
+        if kh == None:
+            kh = result
+        else:
+            assert kh == result
+
+
 
 random.seed=3
 
@@ -35,7 +59,8 @@ for uat in under_process_atms:
     automatas = automatas.get_connected_components_as_automatas()
 
     if len(automatas) > number_of_autoamtas:
-        automatas = random.sample(automatas, number_of_autoamtas)
+        #automatas = random.sample(automatas, number_of_autoamtas)
+        automatas = automatas[:number_of_autoamtas]
 
 
 
@@ -58,12 +83,17 @@ for uat in under_process_atms:
             if use_compression:
                 symbol_dict, symbol_dictionary_list = get_equivalent_symbols([atm])
                 print 'number of first pipeline symbols', len(set(symbol_dict.values()))
+                reza_test(symbol_dict, atm)
 
                 initial_dic = symbol_dict
                 initial_bits = int(math.ceil(math.log(max(initial_dic.values()), 2)))
                 width_list = [initial_bits]
                 replace_equivalent_symbols(symbol_dictionary_list, [atm])
                 bit_size.append(initial_bits)
+
+                symbol_dict, symbol_dictionary_list = get_equivalent_symbols([atm])
+                replace_equivalent_symbols(symbol_dictionary_list, [atm])
+                print 'number of first pipeline symbols', len(set(symbol_dict.values()))
 
                 hd_gen.generate_compressors(original_width=8, byte_trans_map=symbol_dict, byte_map_width=initial_bits,
                                             translation_list=[], idx=atm_idx, width_list=[], initial_width=initial_bits,
@@ -94,6 +124,9 @@ for uat in under_process_atms:
                                 comp_dict=[{atm.id:i for atm, i in zip(strided_automatas[j: j+atms_per_stage],
                                                              range(atms_per_stage))} for j in range(0, len(strided_automatas), atms_per_stage)] if use_compression else None,
                                 use_compression=use_compression)
+
+
+
 
 
 
