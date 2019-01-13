@@ -83,17 +83,12 @@ for uat in under_process_atms:
             if use_compression:
                 symbol_dict, symbol_dictionary_list = get_equivalent_symbols([atm])
                 print 'number of first pipeline symbols', len(set(symbol_dict.values()))
-                reza_test(symbol_dict, atm)
 
                 initial_dic = symbol_dict
                 initial_bits = int(math.ceil(math.log(max(initial_dic.values()), 2)))
                 width_list = [initial_bits]
                 replace_equivalent_symbols(symbol_dictionary_list, [atm])
                 bit_size.append(initial_bits)
-
-                symbol_dict, symbol_dictionary_list = get_equivalent_symbols([atm])
-                replace_equivalent_symbols(symbol_dictionary_list, [atm])
-                print 'number of first pipeline symbols', len(set(symbol_dict.values()))
 
                 hd_gen.generate_compressors(original_width=8, byte_trans_map=symbol_dict, byte_map_width=initial_bits,
                                             translation_list=[], idx=atm_idx, width_list=[], initial_width=initial_bits,

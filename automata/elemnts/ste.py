@@ -453,7 +453,7 @@ class PackedIntervalSet(object):
                 if d == -1:
                     break
 
-                yield tuple(c[1] for c in counter)
+                # yield tuple(c[1] for c in counter)
 
         return
 

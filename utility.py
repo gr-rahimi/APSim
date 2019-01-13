@@ -397,6 +397,11 @@ def replace_equivalent_symbols(symbol_dictionary_list, atms_list):
 
 
 
+def get_bit_automaton(atm, original_bit_width):
+    assert original_bit_width > 1, 'this automata is already bitwise'
+
+
+
 
 
 
