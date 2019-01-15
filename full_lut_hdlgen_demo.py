@@ -4,7 +4,6 @@ from anml_zoo import anml_path,input_path,AnmalZoo
 from tqdm import tqdm
 import pickle
 from utility import minimize_automata, multi_byte_stream, draw_symbols_len_histogram, get_equivalent_symbols, replace_equivalent_symbols
-import utility
 import automata.HDL.hdl_generator as hd_gen
 import csv
 import logging

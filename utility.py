@@ -8,7 +8,6 @@ import igraph
 from automata.elemnts import ElementsType
 from automata.elemnts.element import FakeRoot
 from automata.elemnts.ste import PackedInput, PackedInterval, PackedIntervalSet
-
 import logging
 
 def draw_matrix(file_to_save, matrix, boundries, **kwargs):
@@ -367,7 +366,6 @@ def replace_equivalent_symbols(symbol_dictionary_list, atms_list):
 
     for atm, sym_dic in zip(atms_list, symbol_dictionary_list):
         for q in atm.nodes:
-            my_size = 0
 
             if q.type == ElementsType.FAKE_ROOT:
                 continue
@@ -382,13 +380,10 @@ def replace_equivalent_symbols(symbol_dictionary_list, atms_list):
                     continue
                 else:
                     new_symbol_set.add_interval(PackedInterval(PackedInput((new_start,)), PackedInput((prev_val,))))
-                    my_size += prev_val - new_start + 1
                     new_start = prev_val = new_sym
 
-
             new_symbol_set.add_interval(PackedInterval(PackedInput((new_start,)), PackedInput((prev_val,))))
-            my_size += prev_val - new_start + 1
-
+            new_symbol_set.prone()
 
             q.symbols = new_symbol_set
 
@@ -396,9 +391,26 @@ def replace_equivalent_symbols(symbol_dictionary_list, atms_list):
 
 
 
+def get_binary_val(val , bits_count):
+    '''
+    this function receives an integer and returns back a binary value with bit width as bit counts
+    :param val: the input value
+    :param bits_ount: number of bits to be converted
+    :return: a reversed iterator
+    '''
 
-def get_bit_automaton(atm, original_bit_width):
-    assert original_bit_width > 1, 'this automata is already bitwise'
+    result=[]
+    for _ in range(bits_count):
+        result.append(val % 2)
+        val /= 2
+
+    assert val == 0, 'wrong bit counts'
+    result.reverse()
+    return result
+
+
+
+
 
 
 

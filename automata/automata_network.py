@@ -1,5 +1,5 @@
 from __future__ import division
-from .elemnts.ste import S_T_E, PackedIntervalSet, PackedInput, get_Symbol_type
+from .elemnts.ste import S_T_E, PackedIntervalSet, PackedInput, get_Symbol_type, PackedInterval
 from .elemnts.element import StartType, FakeRoot
 from .elemnts.or_elemnt import OrElement
 from .elemnts import ElementsType
@@ -27,6 +27,7 @@ class Automatanetwork(object):
     known_attributes = {'id', 'name'}
     node_data_key = 'data' # this string is used to attach node to the
     symbol_data_key = 'symbol_set'
+    start_type_data_key = 'start_type'
 
 
     def __init__(self, id ,is_homogenous, stride):
@@ -200,7 +201,7 @@ class Automatanetwork(object):
 
         return intervals_sum / self.nodes_count
 
-    def add_edge(self, src, dest,**kwargs):
+    def add_edge(self, src, dest, **kwargs):
         # if self.is_homogeneous:
         #     assert not self._my_graph.has_edge(src, dest)
         # if not Automatanetwork.symbol_data_key in kwargs and dest.type==ElementsType.STE:
@@ -211,6 +212,10 @@ class Automatanetwork(object):
         # self._my_graph.add_edge(src,dest,**kwargs)
         # self._has_modified = True
         # return
+        if 'start_type' in kwargs and src != self.fake_root and\
+                (kwargs[Automatanetwork.start_type_data_key] == StartType.all_input or\
+               kwargs[Automatanetwork.start_type_data_key] == StartType.start_of_data):
+            assert False
 
         if self.is_homogeneous:
             if self._my_graph.has_edge(src, dest):
@@ -219,17 +224,24 @@ class Automatanetwork(object):
                 if not Automatanetwork.symbol_data_key in kwargs and dest.type==ElementsType.STE:
                      kwargs[Automatanetwork.symbol_data_key] = dest.symbols
                 if not 'start_type' in kwargs:
-                     kwargs['start_type'] = dest.start_type
+                    if src == self.fake_root:
+                        kwargs['start_type'] = dest.start_type
+                    else:
+                        kwargs['start_type'] = StartType.non_start
                 self._my_graph.add_edge(src, dest, **kwargs)
                 self._has_modified = True
         else:
             if self._my_graph.has_edge(src, dest):
-                edge_data = self._my_graph.get_edge_data(src, dest, key=False)
-                if edge_data['start_type'] == kwargs['start_type']:
-                    for intvl in kwargs[Automatanetwork.symbol_data_key]:
-                        edge_data[Automatanetwork.symbol_data_key].add_interval(intvl)
-                else:
-                    assert Automatanetwork.symbol_data_key in kwargs
+                edges_data = self._my_graph.get_edge_data(src, dest)
+                found = False
+                for edge_data in edges_data.itervalues():
+                    if edge_data['start_type'] == kwargs['start_type']:
+                        found = True
+                        for intvl in kwargs[Automatanetwork.symbol_data_key]:
+                            edge_data[Automatanetwork.symbol_data_key].add_interval(intvl)
+                        break
+                if not found:
+                    assert Automatanetwork.symbol_data_key in kwargs and 'start_type' in kwargs
                     self._my_graph.add_edge(src, dest, **kwargs)
                     self._has_modified = True
 
@@ -1768,6 +1780,11 @@ class Automatanetwork(object):
             if not node.marked:
                 return False
         return True
+    def get_out_edges(self, node, **kwargs):
+        return self._my_graph.out_edges(node, **kwargs)
+
+    def get_in_edges(self, node, **kwargs):
+        return self._my_graph.in_edges(node, **kwargs)
 
 
 def compare_strided(only_report, file_path,*automatas ):
@@ -1918,6 +1935,136 @@ def compare_input(only_report, check_residuals, file_path, *automatas):
 
     except StopIteration:
         print "They are equal"
+
+
+
+def get_bit_automaton(atm, original_bit_width):
+    assert original_bit_width > 1, 'this automata is already bitwise'
+    assert atm.stride_value == 1, 'input automata should not be strided'
+
+    bit_automata = Automatanetwork(id=atm.id + 'bitwise', is_homogenous=False, stride=1)
+    atm.unmark_all_nodes()
+    ste_translation = {atm.fake_root: bit_automata.fake_root}
+    dq = [atm.fake_root]
+    atm.fake_root.marked = True
+
+    while dq:
+        current_node = dq.pop(0)
+        bit_node_src = ste_translation[current_node]
+
+        out_edges = atm.get_out_edges(current_node, data=True, keys=False)
+
+        for _, neighb, data in out_edges:
+            if neighb.marked is not True:
+                neighb.marked=True
+                new_id = bit_automata.get_new_id()
+                new_node = S_T_E(start_type=StartType.unknown, is_report=neighb.report,
+                                 is_marked=False, id=new_id, symbol_set=None,
+                                 adjacent_S_T_E_s=None, report_residual=neighb.report_residual,
+                                 report_code=neighb.report_code)
+
+                bit_automata.add_element(new_node)
+
+                ste_translation[neighb] = new_node
+                dq.append(neighb)
+
+            bit_node_dst = ste_translation[neighb]
+
+            symbol_set = data[Automatanetwork.symbol_data_key]
+            start_type = data[Automatanetwork.start_type_data_key]
+
+            for pt in symbol_set.points:
+                value = pt[0] # we have checked that stride is 1
+                binary_value = utility.get_binary_val(value, original_bit_width)
+
+                #right merge
+                right_node = bit_node_dst
+                for right_idx, b in zip(range(original_bit_width - 1, -1 , -1), reversed(binary_value)):
+                    found = False
+                    bit_pt = PackedInput((b,))
+
+                    for pred, _, data in bit_automata.get_in_edges(right_node, data=True, keys=False):
+                        if right_idx == 0:
+                            if data[Automatanetwork.start_type_data_key] != start_type:
+                                continue
+
+                        pred_sym_set = data[Automatanetwork.symbol_data_key]
+
+                        if pred_sym_set.can_accept(bit_pt):
+                            found = True
+                            break
+
+                    if found:
+                        right_node = pred
+                    else:
+                        right_idx += 1 # compenste the extra move
+                        break
+
+                if right_idx == 0:
+                    continue # we have already reached the src
+
+                left_node = bit_node_src
+
+                left_idx = 0 # in case the next for foes
+                for left_idx, b in zip(range(right_idx), binary_value):
+                    found = False
+                    bit_pt = PackedInput((b,))
+                    for _, neighb, data in bit_automata.get_out_edges(left_node, data = True, keys=False):
+                        if left_idx == 0:
+                            if data[Automatanetwork.start_type_data_key] != start_type:
+                                continue
+                        neighb_symbol_set = data[Automatanetwork.symbol_data_key]
+
+                        if neighb_symbol_set.can_accept(bit_pt):
+                            found = True
+                            break
+                    if found:
+                        left_node = neighb
+                    else:
+                        break
+
+                for left_idx, b in zip(range(left_idx, right_idx -1), binary_value[left_idx:right_idx -1]):
+
+                    new_id = bit_automata.get_new_id()
+                    new_node = S_T_E(start_type=StartType.unknown, is_report=False,
+                                 is_marked=False, id=new_id, symbol_set=None,
+                                 adjacent_S_T_E_s=None, report_residual=0,
+                                 report_code=-1)
+
+                    bit_automata.add_element(new_node)
+
+                    new_pack_interval = PackedInterval(PackedInput((b, )), PackedInput((b,)))
+                    new_sym_set = PackedIntervalSet([new_pack_interval])
+                    bit_automata.add_edge(left_node, new_node, symbol_set=new_sym_set,
+                                          start_type= start_type if left_idx == 0 else StartType.non_start)
+                    left_node = new_node
+
+                last_pack_interval = PackedInterval(PackedInput((binary_value[right_idx -1],)),
+                                                    PackedInput((binary_value[right_idx -1], )))
+                last_sym_set = PackedIntervalSet([last_pack_interval])
+                bit_automata.add_edge(left_node, right_node, symbol_set=last_sym_set,
+                                      start_type=start_type if left_idx == 0 else StartType.non_start)
+
+    return bit_automata
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
