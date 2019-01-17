@@ -10,6 +10,7 @@ from automata.elemnts.element import FakeRoot
 from automata.elemnts.ste import PackedInput, PackedInterval, PackedIntervalSet
 import logging
 
+
 def draw_matrix(file_to_save, matrix, boundries, **kwargs):
     """
 
@@ -72,13 +73,11 @@ def generate_semi_diagonal_route(basic_block_size, one_dir_copy):
 def minimize_automata(automata,
                       merge_reports = True, same_residuals_only = True,
                       same_report_code = True, left_merge = True, right_merge = True,
-                      combine_symbols = True):
+                      combine_symbols = True, combine_equal_syms_only = False):
     assert automata.is_homogeneous, 'minimization only works for homogeneous representation'
     original_node_count = automata.nodes_count
 
-    for ste in automata.nodes:
-        if ste.type is not ElementsType.FAKE_ROOT:
-            ste.symbols.prone()
+    automata.prone_all_symbol_sets()
 
     while True:
         current_node_cont = automata.nodes_count
@@ -95,18 +94,14 @@ def minimize_automata(automata,
             automata.right_merge(merge_reports, same_residuals_only, same_report_code)
         if combine_symbols:
             logging.debug("combine symbol set")
-            automata.combine_symbol_sets(merge_reports, same_residuals_only, same_report_code)
+            automata.combine_symbol_sets(merge_reports, same_residuals_only, same_report_code, combine_equal_syms_only)
         new_node_count = automata.nodes_count
-        assert new_node_count<= current_node_cont, "it should always be smaller"
+        assert new_node_count <= current_node_cont, "it should always be smaller"
         if new_node_count == current_node_cont:
             break
     final_node_count = automata.nodes_count
 
     #print "saved %d nodes"%(original_node_count- final_node_count,)
-
-
-
-
 
 
 def generate_squared_routing(size, basic_block_WH, overlap):
@@ -213,6 +208,60 @@ def _is_symbol_set_sorted(symbol_set):
         if next_pt< prev_pt:
             return False
     return  True
+
+class InputDistributer(object):
+    def __init__(self, is_file, file_path=None, max_stride_size = 1, single_input_size = 1):
+        max_stride_size = max(2,max_stride_size)
+        '''
+        this function read input stream and distribute it amnog readers
+        :param is_file: True if we must read from file
+        :param file_path: path of the input file
+        :param max_stride_size: the maximum of stride size of all automatas that will read input
+        :param single_input_size: size of each input in byte. it is important when reading from file
+        '''
+        self._circ_buffer = [0 for _ in range(max_stride_size)]
+        self._head = 0
+        self._batch_size = max_stride_size
+        self._file = None
+        self._is_file = is_file
+        self._single_input_size = single_input_size
+        if is_file:
+            self._file = open(file_path, 'rb')
+
+    def __del__(self):
+        if self._is_file:
+            self._file.close()
+
+    def _get_input(self):
+        if self._is_file:
+            result = 0
+            for _ in range(self._single_input_size):
+                result = result * 256 + bytearray(self._file.read(1))[0]
+            return result
+        else:
+            return  input('please eneter a number from 0 to {}'.format(pow(256, self._single_input_size)))
+
+    def get_stream(self, stride_val):
+        my_tail = 0
+        b=[0 for _ in range(stride_val)]
+        while True:
+            for i in range(stride_val):
+                if my_tail == self._head:
+                    self._circ_buffer[self._head] = self._get_input()
+                    self._head = (self._head + 1) % self._batch_size
+
+                b[i] = self._circ_buffer[my_tail]
+                my_tail = (my_tail + 1) % self._batch_size
+
+            yield b
+
+
+
+
+
+
+
+
 
 
 def multi_byte_stream(file_path, chunk_size):
@@ -357,6 +406,36 @@ def get_equivalent_symbols(atms_list):
     return new_dic, optimal_dics
 
 
+
+def get_interval(inp_list):
+    '''
+
+    :param inp_list: a list of integers
+    :return: a list of intervals [(x1,x2), (x3,x4),.....]
+    '''
+
+    inp_list.sort()
+
+    assert inp_list, 'empty list'
+
+    result =[]
+
+    new_start = prev_val = inp_list[0]
+    for new_sym in inp_list[1:]:
+        if new_sym == prev_val + 1:
+            prev_val = new_sym
+            continue
+        else:
+            result.append((new_start, prev_val))
+            new_start = prev_val = new_sym
+
+    result.append((new_start, prev_val))
+
+    return result
+
+
+
+
 def replace_equivalent_symbols(symbol_dictionary_list, atms_list):
     '''
     :param atms: list of auotmatas
@@ -369,21 +448,28 @@ def replace_equivalent_symbols(symbol_dictionary_list, atms_list):
 
             if q.type == ElementsType.FAKE_ROOT:
                 continue
-            new_symbol_set = PackedIntervalSet([]);
+            new_symbol_set = PackedIntervalSet([])
 
-            new_symbols_list = sorted(list(sym_dic[q]))
-            new_start = prev_val = new_symbols_list[0]
+            ivls = get_interval(list(sym_dic[q]))
 
-            for new_sym in new_symbols_list[1:]:
-                if new_sym == prev_val + 1:
-                    prev_val = new_sym
-                    continue
-                else:
-                    new_symbol_set.add_interval(PackedInterval(PackedInput((new_start,)), PackedInput((prev_val,))))
-                    new_start = prev_val = new_sym
+            for l, r in ivls:
+                new_symbol_set.add_interval(PackedInterval(PackedInput((l,)), PackedInput(r,)))
 
-            new_symbol_set.add_interval(PackedInterval(PackedInput((new_start,)), PackedInput((prev_val,))))
             new_symbol_set.prone()
+
+            # new_symbols_list = sorted(list(sym_dic[q]))
+            # new_start = prev_val = new_symbols_list[0]
+            #
+            # for new_sym in new_symbols_list[1:]:
+            #     if new_sym == prev_val + 1:
+            #         prev_val = new_sym
+            #         continue
+            #     else:
+            #         new_symbol_set.add_interval(PackedInterval(PackedInput((new_start,)), PackedInput((prev_val,))))
+            #         new_start = prev_val = new_sym
+            #
+            # new_symbol_set.add_interval(PackedInterval(PackedInput((new_start,)), PackedInput((prev_val,))))
+            # new_symbol_set.prone()
 
             q.symbols = new_symbol_set
 

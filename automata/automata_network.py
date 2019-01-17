@@ -351,7 +351,7 @@ class Automatanetwork(object):
                                                        start_type=l1_edge[2]['start_type']
                                                        if current_ste.start_type == StartType.fake_root
                                                        else StartType.non_start)
-
+        strided_graph.prone_all_symbol_sets()
         return strided_graph
 
     def _refine_edges(self):
@@ -1079,7 +1079,7 @@ class Automatanetwork(object):
 
             if self.is_homogeneous:
                 for all_start_state in all_start_states:
-                    can_accept= all_start_state.symbols.can_accept(input=input)
+                    can_accept= all_start_state.symbols.can_accept(input_pt=PackedInput(input))
                     temp_report = can_accept and all_start_state.report
                     is_report = is_report or temp_report
                     if can_accept:
@@ -1088,7 +1088,7 @@ class Automatanetwork(object):
                             report_residual_details[(all_start_state.report_residual-1) % self.stride_value] = True
             else:
                 for all_start_edge in all_start_edges:
-                    can_accept = all_start_edge[2][Automatanetwork.symbol_data_key].can_accept(input=input)
+                    can_accept = all_start_edge[2][Automatanetwork.symbol_data_key].can_accept(input_pt=PackedInput(input))
                     temp_report = can_accept and all_start_edge[1].report
                     is_report = is_report or temp_report
                     if can_accept:
@@ -1410,7 +1410,7 @@ class Automatanetwork(object):
 
 
     def combine_symbol_sets(self, merge_reports=False, same_residuals_only=False,
-                            same_report_code=False):
+                            same_report_code=False, combine_equal_syms_only = False):
         assert self.is_homogeneous, "Automata should be in homogeneous"
         """
         this function combines the symbol sets of two stes with a same parent and a same child
@@ -1436,10 +1436,17 @@ class Automatanetwork(object):
                     if self._can_combine_symbol_set(fst_ste=first_neighb_node, sec_ste=sec_neighb_node,
                                                     merge_reports=merge_reports,same_residuals_only=same_residuals_only,
                                                     same_report_code=same_report_code):
-                        for interval in sec_neighb_node.symbols:
-                            first_neighb_node.symbols.add_interval(interval)
-                        first_neighb_node.symbols.prone()
-                        self.delete_node(sec_neighb_node)
+
+                        if combine_equal_syms_only and first_neighb_node.symbols == sec_neighb_node.symbols:
+                            self.delete_node(sec_neighb_node)
+                            first_neighb_node.symbols.prone() # it is not necessary
+                            first_neighb_node.symbols.merge()
+                        else:
+                            for interval in sec_neighb_node.symbols:
+                                first_neighb_node.symbols.add_interval(interval)
+                            first_neighb_node.symbols.prone()
+                            first_neighb_node.symbols.merge()
+                            self.delete_node(sec_neighb_node)
 
             for node in self._my_graph.neighbors(current_node):
                 if not node.marked:
@@ -1472,6 +1479,21 @@ class Automatanetwork(object):
     #     return True
 
 
+    def prone_all_symbol_sets(self):
+        if not self.is_homogeneous:
+            for e in self._my_graph.edges(data=True):
+                sym_set = e[2][Automatanetwork.symbol_data_key]
+                sym_set.prone()
+                if self.stride_value == 1:
+                    sym_set.merge()
+
+        else:
+            for node in self.nodes:
+                if node.type == ElementsType.FAKE_ROOT:
+                    continue
+                node.symbols.prone()
+                if self.stride_value == 1:
+                    node.symbols.merge()
 
 
     def _can_combine_symbol_set(self, fst_ste, sec_ste, merge_reports=False,
@@ -1901,18 +1923,23 @@ def compare_real_approximate(file_path, automata):
     return false_actives, false_reports_exact, false_reports_each_cycle, true_total_reports
 
 
-def compare_input(only_report, check_residuals, file_path, *automatas):
+def compare_input(only_report, check_residuals, is_file, file_path, *automatas):
     gens = []
     result = [() for i in range(len(automatas))]
     max_stride = max([sv.stride_value for sv in automatas])
+    from utility import InputDistributer
+    inp_dis = InputDistributer(is_file=is_file, file_path=file_path, max_stride_size=max_stride,single_input_size=1)
 
     for a in automatas:
         assert max_stride % a.stride_value == 0
-        g = a.feed_input(utility.multi_byte_stream(file_path, a.stride_value), offset=0, jump=a.stride_value)
+        g = a.feed_input(input_stream=inp_dis.get_stream(a.stride_value), offset=0, jump=a.stride_value)
         gens.append(g)
 
     try:
-        file_size = os.path.getsize(file_path)
+        if is_file:
+            file_size = os.path.getsize(file_path)
+        else:
+            file_size = 1000
 
         for _ in tqdm(itertools.count(), total=math.ceil(file_size/max_stride), unit='symbol'):
             for idx_g, (g, automata) in enumerate(zip(gens, automatas)):
@@ -1925,6 +1952,7 @@ def compare_input(only_report, check_residuals, file_path, *automatas):
                     is_report = is_report or temp_is_report
 
                 result[idx_g] =(temp_active_states, is_report, total_report_residual_details)
+                print temp_active_states
 
             for active_state, report_state, total_report_residual_details in result[1:]:
                 assert report_state==result[0][1] # check report states
@@ -1979,48 +2007,43 @@ def get_bit_automaton(atm, original_bit_width):
 
                 #right merge
                 right_node = bit_node_dst
-                for right_idx, b in zip(range(original_bit_width - 1, -1 , -1), reversed(binary_value)):
+                for right_idx, b in zip(range(original_bit_width - 1, 0, -1), reversed(binary_value)):
                     found = False
                     bit_pt = PackedInput((b,))
 
                     for pred, _, data in bit_automata.get_in_edges(right_node, data=True, keys=False):
-                        if right_idx == 0:
-                            if data[Automatanetwork.start_type_data_key] != start_type:
-                                continue
 
                         pred_sym_set = data[Automatanetwork.symbol_data_key]
 
-                        if pred_sym_set.can_accept(bit_pt):
+                        if len(pred_sym_set)==1 and  pred_sym_set.can_accept(bit_pt):
                             found = True
                             break
 
                     if found:
                         right_node = pred
                     else:
-                        right_idx += 1 # compenste the extra move
+                        right_idx += 1 # compensate the extra move
                         break
-
-                if right_idx == 0:
-                    continue # we have already reached the src
 
                 left_node = bit_node_src
 
                 left_idx = 0 # in case the next for foes
-                for left_idx, b in zip(range(right_idx), binary_value):
+                for left_idx, b in zip(range(1 , right_idx), binary_value):
                     found = False
                     bit_pt = PackedInput((b,))
                     for _, neighb, data in bit_automata.get_out_edges(left_node, data = True, keys=False):
-                        if left_idx == 0:
+                        if left_idx == 1:
                             if data[Automatanetwork.start_type_data_key] != start_type:
                                 continue
                         neighb_symbol_set = data[Automatanetwork.symbol_data_key]
 
-                        if neighb_symbol_set.can_accept(bit_pt):
+                        if len(neighb_symbol_set) ==1 and neighb_symbol_set.can_accept(bit_pt):
                             found = True
                             break
                     if found:
                         left_node = neighb
                     else:
+                        left_idx -= 1
                         break
 
                 for left_idx, b in zip(range(left_idx, right_idx -1), binary_value[left_idx:right_idx -1]):
@@ -2036,16 +2059,103 @@ def get_bit_automaton(atm, original_bit_width):
                     new_pack_interval = PackedInterval(PackedInput((b, )), PackedInput((b,)))
                     new_sym_set = PackedIntervalSet([new_pack_interval])
                     bit_automata.add_edge(left_node, new_node, symbol_set=new_sym_set,
-                                          start_type= start_type if left_idx == 0 else StartType.non_start)
+                                          start_type= start_type if left_node.type == ElementsType.FAKE_ROOT
+                                          else StartType.non_start)
                     left_node = new_node
 
                 last_pack_interval = PackedInterval(PackedInput((binary_value[right_idx -1],)),
                                                     PackedInput((binary_value[right_idx -1], )))
                 last_sym_set = PackedIntervalSet([last_pack_interval])
                 bit_automata.add_edge(left_node, right_node, symbol_set=last_sym_set,
-                                      start_type=start_type if left_idx == 0 else StartType.non_start)
+                                      start_type=start_type if left_node.type == ElementsType.FAKE_ROOT
+                                      else StartType.non_start)
 
+    bit_automata.prone_all_symbol_sets()
     return bit_automata
+
+
+def get_strided_automata(atm ,stride_value, is_scalar, base_value = 0):
+    '''
+
+    :param atm: to be strided automata
+    :param stride_value: the target stride value
+    :param is_scalar: targe symbol type, scalar or multi dimension
+    :param base_value: base value for scalar case
+    :return: strided automata
+    '''
+    strided_atm = Automatanetwork(id=atm.id + 'S' + '1' if is_scalar else str(stride_value) , is_homogenous=False,
+                                  stride=1 if is_scalar else stride_value)
+
+    assert not is_scalar or atm.stride_value == 1
+    atm.unmark_all_nodes()
+    ste_translation = {atm.fake_root: strided_atm.fake_root}
+    dq = [atm.fake_root]
+    atm.fake_root.marked = True
+    curr_node = None
+
+    def strider(node, sym_list, curr_s_val, start_type):
+        if curr_s_val == stride_value:
+            if not node.marked:
+                node.marked=True
+                new_id = strided_atm.get_new_id()
+                new_node = S_T_E(start_type=StartType.unknown, is_report=node.report,
+                                 is_marked=False, id=new_id, symbol_set=None,
+                                 adjacent_S_T_E_s=None, report_residual=node.report_residual,
+                                 report_code=node.report_code)
+
+                strided_atm.add_element(new_node)
+                ste_translation[node] = new_node
+                dq.append(node)
+
+            src_node = ste_translation[curr_node]
+            dst_node = ste_translation[node]
+
+            new_symbol_set = PackedIntervalSet([])
+
+            if is_scalar:
+                result = set()
+                def scalar_calculator(idx, current_sum):
+                    if idx == stride_value:
+                        result.add(current_sum)
+                    else:
+                        for pt in sym_list[idx].points:
+                            scalar_calculator(idx + 1, current_sum * base_value + pt[0])
+
+                scalar_calculator(0, 0)
+
+                ivls = utility.get_interval(list(result))
+                for l ,r in ivls:
+                    new_symbol_set.add_interval(PackedInterval(PackedInput((l,)),PackedInput((r,))))
+
+                new_symbol_set.prone()
+                new_symbol_set.merge()
+
+                strided_atm.add_edge(src_node, dst_node, symbol_set=new_symbol_set, start_type=start_type)
+
+            else:
+                raise RuntimeError('Not implemented yet')
+        else:
+            for _, neighb, data in atm.get_out_edges(node, data=True, keys=False):
+                my_symbol_set = data[Automatanetwork.symbol_data_key]
+                my_start_type = data[Automatanetwork.start_type_data_key]
+                sym_list.append(my_symbol_set)
+
+                strider(neighb, sym_list, curr_s_val + 1, start_type=my_start_type if curr_s_val == 0 else start_type)
+                sym_list.pop()
+
+    while dq:
+        curr_node = dq.pop(0)
+        strider(curr_node, [], 0, None)
+
+    strided_atm.prone_all_symbol_sets()
+    return strided_atm
+
+
+
+
+
+
+
 
 
 

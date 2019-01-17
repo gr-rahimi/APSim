@@ -237,6 +237,9 @@ class PackedInterval(object):
 
 class PackedIntervalSet(object):
     def __init__(self, packed_interval_set):
+        self._set_interval_set(packed_interval_set)
+
+    def _set_interval_set(self, packed_interval_set):
         self._interval_set = packed_interval_set
 
     def __iter__(self):
@@ -402,6 +405,25 @@ class PackedIntervalSet(object):
                 to_return_str = to_return_str + ',' + str(item)
 
             return "*" + to_return_str + "*"
+
+    def merge(self):
+        if self.dim > 1:
+            return
+        new_sym_set = []
+
+        # we know that the current symbol is sorted
+        curr_left = self._interval_set[0].left[0]
+        curr_right = self._interval_set[0].right[0]
+
+        for ivl in self._interval_set[1:]:
+            if ivl.left[0] - 1 <=curr_right :
+                curr_right = ivl.right[0]
+            else:
+                new_sym_set.append(PackedInterval(PackedInput((curr_left,)), PackedInput((curr_right,))))
+                curr_left, curr_right = ivl.left[0], ivl.right[0]
+
+        new_sym_set.append(PackedInterval(PackedInput((curr_left,)), PackedInput((curr_right,))))
+        self._set_interval_set(new_sym_set)
 
     def prone(self):
         """

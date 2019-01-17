@@ -1,5 +1,5 @@
 import automata as atma
-from automata.automata_network import compare_input, compare_strided, StartType
+from automata.automata_network import compare_input, compare_strided, StartType, get_bit_automaton, get_strided_automata
 from anml_zoo import anml_path,input_path,AnmalZoo
 from tqdm import tqdm
 import pickle
@@ -7,8 +7,33 @@ from utility import minimize_automata, multi_byte_stream, get_equivalent_symbols
 import math
 from automata.HDL.hdl_generator import test_compressor
 
+automatas = atma.parse_anml_file(anml_path[AnmalZoo.Hamming])
+automatas.remove_ors()
+automatas = automatas.get_connected_components_as_automatas()
 
-snort50 = pickle.load(open('Snort1-50.pkl'))
+
+org_atm = automatas[0]
+print org_atm.get_summary(logo='original')
+org_atm.draw_graph('original.svg')
+
+bit_atm=get_bit_automaton(atm=org_atm, original_bit_width=8)
+bit_atm.draw_graph('bitwise.svg')
+print bit_atm.get_summary(logo='bitwise')
+
+strided_b_atm=get_strided_automata(atm=bit_atm, stride_value=8, is_scalar=True, base_value=2)
+print strided_b_atm.get_summary(logo='strided bitwise')
+strided_b_atm.draw_graph('strided.svg')
+
+strided_b_atm.make_homogenous()
+print strided_b_atm.get_summary(logo='homogeneous')
+strided_b_atm.draw_graph('homogeneous.svg')
+
+minimize_automata(strided_b_atm)
+print strided_b_atm.get_summary()
+strided_b_atm.draw_graph('minimized.svg')
+
+compare_input(True, True, False, None, org_atm, strided_b_atm)
+exit(0)
 
 for s in snort50:
 
