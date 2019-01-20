@@ -495,6 +495,29 @@ def get_binary_val(val , bits_count):
     return result
 
 
+def is_there_a_binary_path(atm, src, dst, val, bits_count):
+    if not src in atm.nodes or not  dst in atm.nodes:
+        return False
+    bit_val = get_binary_val(val, bits_count)
+    def back_track(curr_node, curr_depth):
+        if curr_depth == bits_count and curr_node == dst:
+            return True
+        elif curr_depth == bits_count:
+            return False
+        for _, curr_dst, data in atm.get_out_edges(curr_node, data=True, keys=False):
+            sym_set = data['symbol_set']
+            if sym_set.can_accept(PackedInput((bit_val[curr_depth],))):
+                ca = back_track(curr_dst, curr_depth + 1)
+                if ca:
+                    return True
+                else:
+                    continue
+        return False
+
+    return back_track(src, 0)
+
+
+
 
 
 

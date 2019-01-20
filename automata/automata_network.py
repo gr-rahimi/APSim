@@ -240,13 +240,14 @@ class Automatanetwork(object):
                         for intvl in kwargs[Automatanetwork.symbol_data_key]:
                             edge_data[Automatanetwork.symbol_data_key].add_interval(intvl)
                         break
+
                 if not found:
                     assert Automatanetwork.symbol_data_key in kwargs and 'start_type' in kwargs
                     self._my_graph.add_edge(src, dest, **kwargs)
                     self._has_modified = True
 
             else:
-                assert Automatanetwork.symbol_data_key in kwargs
+                assert Automatanetwork.symbol_data_key in kwargs and Automatanetwork.start_type_data_key in kwargs
                 self._my_graph.add_edge(src, dest, **kwargs)
                 self._has_modified = True
 
@@ -486,34 +487,10 @@ class Automatanetwork(object):
         self.is_homogeneous = True
 
 
-    #
-    # def make_homogenous(self):
-    #     """
-    #     :return:
-    #     """
-    #     self.unmark_all_nodes()
-    #     assert not self.is_homogeneous # only works for non-homogeneous graph
-    #     dq = deque()
-    #     self.fake_root.marked = True
-    #     dq.appendleft(self.fake_root)
-    #
-    #     while dq:
-    #         current_ste = dq.pop()
-    #         if current_ste.start_type == StartType.fake_root: # fake root does need processing
-    #             for start_node in self._my_graph.neighbors(current_ste):
-    #                 assert not start_node.marked
-    #                 start_node.marked = True
-    #                 dq.appendleft(start_node)
-    #             continue # process next node from the queue
-    #
-    #         for neighb in self._my_graph.neighbors(current_ste):
-    #             if not neighb.marked:
-    #                 neighb.marked = True
-    #                 dq.appendleft(neighb)
-    #
-    #         self._make_homogeneous_STE(current_ste= current_ste, delete_original_ste = True)
-    #
-    #     self.is_homogeneous = True
+        nodes_list = list(self.nodes)
+        for node in nodes_list:
+            if not node.marked:
+                self.delete_node(node)
 
     @property
     def is_homogeneous(self):
@@ -1973,6 +1950,7 @@ def get_bit_automaton(atm, original_bit_width):
     bit_automata = Automatanetwork(id=atm.id + 'bitwise', is_homogenous=False, stride=1)
     atm.unmark_all_nodes()
     ste_translation = {atm.fake_root: bit_automata.fake_root}
+    left_path_trans, right_path_trans = {}, {}
     dq = [atm.fake_root]
     atm.fake_root.marked = True
 
@@ -2013,6 +1991,14 @@ def get_bit_automaton(atm, original_bit_width):
 
                     for pred, _, data in bit_automata.get_in_edges(right_node, data=True, keys=False):
 
+                        if right_node == bit_node_dst:
+                            my_key = (bit_node_src, bit_node_dst, b)
+                            if my_key in right_path_trans:
+                                if pred != right_path_trans[my_key]:
+                                    continue
+                            else:
+                                break
+
                         pred_sym_set = data[Automatanetwork.symbol_data_key]
 
                         if len(pred_sym_set)==1 and  pred_sym_set.can_accept(bit_pt):
@@ -2032,6 +2018,15 @@ def get_bit_automaton(atm, original_bit_width):
                     found = False
                     bit_pt = PackedInput((b,))
                     for _, neighb, data in bit_automata.get_out_edges(left_node, data = True, keys=False):
+
+                        if left_node == bit_node_src:
+                            my_key = (bit_node_src, bit_node_dst, b, start_type)
+                            if my_key in left_path_trans:
+                                if neighb != left_path_trans[my_key]:
+                                    continue
+                            else:
+                                break
+
                         if left_idx == 1:
                             if data[Automatanetwork.start_type_data_key] != start_type:
                                 continue
@@ -2046,7 +2041,7 @@ def get_bit_automaton(atm, original_bit_width):
                         left_idx -= 1
                         break
 
-                for left_idx, b in zip(range(left_idx, right_idx -1), binary_value[left_idx:right_idx -1]):
+                for left_idx, b in zip(range(left_idx + 1, right_idx), binary_value[left_idx:right_idx -1]):
 
                     new_id = bit_automata.get_new_id()
                     new_node = S_T_E(start_type=StartType.unknown, is_report=False,
@@ -2061,6 +2056,16 @@ def get_bit_automaton(atm, original_bit_width):
                     bit_automata.add_edge(left_node, new_node, symbol_set=new_sym_set,
                                           start_type= start_type if left_node.type == ElementsType.FAKE_ROOT
                                           else StartType.non_start)
+
+                    if left_node == bit_node_src:
+                        my_key = (bit_node_src, bit_node_dst, b, start_type if left_node.type == ElementsType.FAKE_ROOT
+                                else StartType.non_start)
+                        left_path_trans[my_key] = new_node
+
+                    if left_idx == original_bit_width -1:
+                        my_key = (bit_node_src, bit_node_dst, binary_value[-1])
+                        right_path_trans[my_key] = new_node
+
                     left_node = new_node
 
                 last_pack_interval = PackedInterval(PackedInput((binary_value[right_idx -1],)),
@@ -2069,6 +2074,16 @@ def get_bit_automaton(atm, original_bit_width):
                 bit_automata.add_edge(left_node, right_node, symbol_set=last_sym_set,
                                       start_type=start_type if left_node.type == ElementsType.FAKE_ROOT
                                       else StartType.non_start)
+
+                #
+                # fault = utility.is_there_a_binary_path(atm=bit_automata, src=115,
+                #                                        dst=115, val=38, bits_count=8)
+                # fault = fault
+                # if fault:
+                #     fault = utility.is_there_a_binary_path(atm=bit_automata, src=115,
+                #                                            dst=115, val=38, bits_count=8)
+
+
 
     bit_automata.prone_all_symbol_sets()
     return bit_automata
@@ -2131,6 +2146,8 @@ def get_strided_automata(atm ,stride_value, is_scalar, base_value = 0):
                 new_symbol_set.merge()
 
                 strided_atm.add_edge(src_node, dst_node, symbol_set=new_symbol_set, start_type=start_type)
+
+
 
             else:
                 raise RuntimeError('Not implemented yet')

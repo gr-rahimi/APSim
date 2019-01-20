@@ -6,11 +6,14 @@ import pickle
 from utility import minimize_automata, multi_byte_stream, get_equivalent_symbols, replace_equivalent_symbols
 import math
 from automata.HDL.hdl_generator import test_compressor
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
-automatas = atma.parse_anml_file(anml_path[AnmalZoo.Hamming])
-automatas.remove_ors()
-automatas = automatas.get_connected_components_as_automatas()
+#automatas = atma.parse_anml_file(anml_path[AnmalZoo.Snort])
+#automatas.remove_ors()
+#automatas = automatas.get_connected_components_as_automatas()
 
+automatas=pickle.load(open('Snort1-10.pkl','rb'))
 
 org_atm = automatas[0]
 print org_atm.get_summary(logo='original')
@@ -20,13 +23,14 @@ bit_atm=get_bit_automaton(atm=org_atm, original_bit_width=8)
 bit_atm.draw_graph('bitwise.svg')
 print bit_atm.get_summary(logo='bitwise')
 
-strided_b_atm=get_strided_automata(atm=bit_atm, stride_value=8, is_scalar=True, base_value=2)
+strided_b_atm=get_strided_automata(atm=bit_atm, stride_value=16, is_scalar=True, base_value=2)
 print strided_b_atm.get_summary(logo='strided bitwise')
-strided_b_atm.draw_graph('strided.svg')
+#strided_b_atm.draw_graph('strided.svg')
 
 strided_b_atm.make_homogenous()
 print strided_b_atm.get_summary(logo='homogeneous')
-strided_b_atm.draw_graph('homogeneous.svg')
+#strided_b_atm.draw_graph('homogeneous.svg', draw_edge_label=False)
+
 
 minimize_automata(strided_b_atm)
 print strided_b_atm.get_summary()
