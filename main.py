@@ -1,5 +1,5 @@
 import automata as atma
-from automata.automata_network import compare_input, compare_strided, StartType, get_bit_automaton, get_strided_automata2
+from automata.automata_network import compare_input, compare_strided, StartType, get_bit_automaton, get_strided_automata2, get_strided_automata
 from anml_zoo import anml_path,input_path,AnmalZoo
 from tqdm import tqdm
 import pickle
@@ -23,7 +23,7 @@ bit_atm=get_bit_automaton(atm=org_atm, original_bit_width=8)
 #bit_atm.draw_graph('bitwise.svg')
 print bit_atm.get_summary(logo='bitwise')
 
-strided_b_atm=get_strided_automata2(atm=bit_atm, stride_value=16, is_scalar=True, base_value=2)
+strided_b_atm=get_strided_automata2(atm=bit_atm, stride_value=32, is_scalar=True, base_value=2)
 print strided_b_atm.get_summary(logo='strided bitwise')
 #strided_b_atm.draw_graph('strided.svg')
 
