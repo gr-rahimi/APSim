@@ -2088,6 +2088,127 @@ def get_bit_automaton(atm, original_bit_width):
     bit_automata.prone_all_symbol_sets()
     return bit_automata
 
+def get_strided_automata2(atm ,stride_value, is_scalar, base_value = 0):
+    '''
+
+    :param atm: to be strided automata
+    :param stride_value: the target stride value
+    :param is_scalar: targe symbol type, scalar or multi dimension
+    :param base_value: base value for scalar case
+    :return: strided automata
+    '''
+    strided_atm = Automatanetwork(id=atm.id + 'S' + '1' if is_scalar else str(stride_value) , is_homogenous=False,
+                                  stride=1 if is_scalar else stride_value)
+
+    assert is_scalar and atm.stride_value == 1
+    atm.unmark_all_nodes()
+    ste_translation = {atm.fake_root: strided_atm.fake_root}
+    dq = [atm.fake_root]
+    atm.fake_root.marked = True
+    curr_node = None
+
+    dp = {}
+
+    def strider(node, s_val):
+
+        if (node, s_val) in dp:
+            return
+        elif s_val == 1:
+            value = {}
+            for _, neighb, data in atm.get_out_edges(node, data=True, keys=False):
+                entry = set()
+                sym_set = data[Automatanetwork.symbol_data_key]
+                for pt in sym_set.points:
+                    entry.add(pt[0])
+                value.setdefault(neighb, set()).update(entry)
+
+            dp[(node, s_val)] = value
+            return
+        else:
+
+            for reduced_s in range(s_val, 1, -1):
+                if (node, reduced_s) in dp:
+                    value = {}
+                    local_value = dp[(node, reduced_s)]
+                    for local_dst, local_vals in local_value.iteritems():
+                        strider(local_dst, s_val - reduced_s)
+                        second_part = dp[(local_dst, s_val - reduced_s)]
+                        for k, val_list in second_part.iteritems():
+                            new_val_set = set()
+                            for v1 in local_vals:
+                                left_val = v1 * pow(base_value, s_val- reduced_s)
+                                for v2 in val_list:
+                                    new_val_set.add(left_val + v2)
+                            value.setdefault(k, set()).update(new_val_set)
+                    dp[(node, s_val)] = value
+                    return
+
+            # we could not find any result
+
+            value = {}
+            for _, neighb, data in atm.get_out_edges(node, data=True, keys=False):
+                strider(neighb, s_val - 1)
+                local_value = dp[(neighb, s_val - 1)]
+                for local_dst, local_vals in local_value.iteritems():
+                    new_vals = value.setdefault(local_dst, set())
+                    for v1, in data[Automatanetwork.symbol_data_key].points:
+                        v1 = v1 * pow(base_value, s_val - 1)
+                        for v2 in local_vals:
+                            new_vals.add(v1 + v2)
+                    value[local_dst] = new_vals
+            dp[(node, s_val)] = value
+
+    while dq:
+        curr_node = dq.pop(0)
+        if curr_node.type == ElementsType.FAKE_ROOT:
+            for _, neighb, data in atm.get_out_edges(curr_node, data=True, keys=False):
+                strider(neighb, stride_value - 1)
+
+                for v1 in data[Automatanetwork.symbol_data_key].points:
+                    v1 = v1[0] * pow(base_value, stride_value -1)
+                    for k, v2 in dp[(neighb, stride_value-1)].iteritems():
+                        if k.marked == False:
+                            k.marked = True
+                            dq.append(k)
+                            new_id = strided_atm.get_new_id()
+                            new_node = S_T_E(start_type=StartType.unknown, is_report=k.report,
+                                             is_marked=False, id=new_id, symbol_set=None,
+                                             adjacent_S_T_E_s=None, report_residual=k.report_residual,
+                                             report_code=k.report_code)
+                            ste_translation[k] = new_node
+                            strided_atm.add_element(new_node)
+
+                        sym_set = PackedIntervalSet([])
+                        for v3 in v2:
+                            sym_set.add_interval(PackedInterval(PackedInput((v1 + v3, )), PackedInput((v1 + v3, ))))
+
+                        strided_atm.add_edge(ste_translation[atm.fake_root], ste_translation[k], symbol_set=sym_set,
+                                             start_type=data[Automatanetwork.start_type_data_key])
+        else:
+            strider(curr_node, stride_value)
+            for k, v1 in dp[(curr_node, stride_value)].iteritems():
+                if k.marked == False:
+                    k.marked = True
+                    dq.append(k)
+                    new_id = strided_atm.get_new_id()
+                    new_node = S_T_E(start_type=StartType.unknown, is_report=k.report,
+                                     is_marked=False, id=new_id, symbol_set=None,
+                                     adjacent_S_T_E_s=None, report_residual=k.report_residual,
+                                     report_code=k.report_code)
+                    ste_translation[k] = new_node
+                    strided_atm.add_element(new_node)
+                sym_set = PackedIntervalSet([])
+                for v2 in v1:
+                    sym_set.add_interval(PackedInterval(PackedInput((v2,)), PackedInput((v2,))))
+
+                strided_atm.add_edge(ste_translation[curr_node], ste_translation[k],
+                                         symbol_set=sym_set, start_type=StartType.non_start)
+
+
+    strided_atm.prone_all_symbol_sets()
+    return strided_atm
+
+
 
 def get_strided_automata(atm ,stride_value, is_scalar, base_value = 0):
     '''
@@ -2146,8 +2267,6 @@ def get_strided_automata(atm ,stride_value, is_scalar, base_value = 0):
                 new_symbol_set.merge()
 
                 strided_atm.add_edge(src_node, dst_node, symbol_set=new_symbol_set, start_type=start_type)
-
-
 
             else:
                 raise RuntimeError('Not implemented yet')

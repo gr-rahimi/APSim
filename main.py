@@ -1,5 +1,5 @@
 import automata as atma
-from automata.automata_network import compare_input, compare_strided, StartType, get_bit_automaton, get_strided_automata
+from automata.automata_network import compare_input, compare_strided, StartType, get_bit_automaton, get_strided_automata2
 from anml_zoo import anml_path,input_path,AnmalZoo
 from tqdm import tqdm
 import pickle
@@ -9,7 +9,7 @@ from automata.HDL.hdl_generator import test_compressor
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
-#automatas = atma.parse_anml_file(anml_path[AnmalZoo.Snort])
+#automatas = atma.parse_anml_file(anml_path[AnmalZoo.Levenshtein])
 #automatas.remove_ors()
 #automatas = automatas.get_connected_components_as_automatas()
 
@@ -20,16 +20,16 @@ print org_atm.get_summary(logo='original')
 org_atm.draw_graph('original.svg')
 
 bit_atm=get_bit_automaton(atm=org_atm, original_bit_width=8)
-bit_atm.draw_graph('bitwise.svg')
+#bit_atm.draw_graph('bitwise.svg')
 print bit_atm.get_summary(logo='bitwise')
 
-strided_b_atm=get_strided_automata(atm=bit_atm, stride_value=16, is_scalar=True, base_value=2)
+strided_b_atm=get_strided_automata2(atm=bit_atm, stride_value=16, is_scalar=True, base_value=2)
 print strided_b_atm.get_summary(logo='strided bitwise')
 #strided_b_atm.draw_graph('strided.svg')
 
 strided_b_atm.make_homogenous()
 print strided_b_atm.get_summary(logo='homogeneous')
-#strided_b_atm.draw_graph('homogeneous.svg', draw_edge_label=False)
+#strided_b_atm.draw_graph('homogeneous.svg', draw_edge_label=True)
 
 
 minimize_automata(strided_b_atm)
