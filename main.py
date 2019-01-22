@@ -3,17 +3,21 @@ from automata.automata_network import compare_input, compare_strided, StartType,
 from anml_zoo import anml_path,input_path,AnmalZoo
 from tqdm import tqdm
 import pickle
-from utility import minimize_automata, multi_byte_stream, get_equivalent_symbols, replace_equivalent_symbols
+from utility import minimize_automata, multi_byte_stream, get_equivalent_symbols, replace_equivalent_symbols, replace_with_unified_symbol
 import math
 from automata.HDL.hdl_generator import test_compressor
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
-#automatas = atma.parse_anml_file(anml_path[AnmalZoo.Levenshtein])
-#automatas.remove_ors()
-#automatas = automatas.get_connected_components_as_automatas()
 
-automatas=pickle.load(open('Snort1-10.pkl','rb'))
+automatas = atma.parse_anml_file(anml_path[AnmalZoo.Levenshtein])
+automatas.remove_ors()
+replace_with_unified_symbol(atm=automatas, bits_count=8)
+
+
+automatas = automatas.get_connected_components_as_automatas()
+
+#automatas=pickle.load(open('Snort1-50.pkl', 'rb'))
 
 org_atm = automatas[0]
 print org_atm.get_summary(logo='original')
@@ -23,7 +27,7 @@ bit_atm=get_bit_automaton(atm=org_atm, original_bit_width=8)
 #bit_atm.draw_graph('bitwise.svg')
 print bit_atm.get_summary(logo='bitwise')
 
-strided_b_atm=get_strided_automata2(atm=bit_atm, stride_value=32, is_scalar=True, base_value=2)
+strided_b_atm=get_strided_automata2(atm=bit_atm, stride_value=9, is_scalar=True, base_value=2)
 print strided_b_atm.get_summary(logo='strided bitwise')
 #strided_b_atm.draw_graph('strided.svg')
 
@@ -33,13 +37,13 @@ print strided_b_atm.get_summary(logo='homogeneous')
 
 
 minimize_automata(strided_b_atm)
-print strided_b_atm.get_summary()
+print strided_b_atm.get_summary(logo='minimized')
 strided_b_atm.draw_graph('minimized.svg')
 
 compare_input(True, True, False, None, org_atm, strided_b_atm)
 exit(0)
 
-for s in snort50:
+for s in automatas:
 
     stride_dict_list = []
     for i in range(4):

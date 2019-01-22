@@ -407,6 +407,7 @@ def get_equivalent_symbols(atms_list):
 
 
 
+
 def get_interval(inp_list):
     '''
 
@@ -439,11 +440,13 @@ def get_interval(inp_list):
 def replace_equivalent_symbols(symbol_dictionary_list, atms_list):
     '''
     :param atms: list of auotmatas
-    :param symbol_dictionary_list: a dictionary from nodes to list of numbers
+    :param symbol_dictionary_list: a dictionary from nodes to list of 1D numbers
     :return: a list with replaces symbols
     '''
 
     for atm, sym_dic in zip(atms_list, symbol_dictionary_list):
+        assert atm.is_homogeneous
+
         for q in atm.nodes:
 
             if q.type == ElementsType.FAKE_ROOT:
@@ -453,23 +456,12 @@ def replace_equivalent_symbols(symbol_dictionary_list, atms_list):
             ivls = get_interval(list(sym_dic[q]))
 
             for l, r in ivls:
-                new_symbol_set.add_interval(PackedInterval(PackedInput((l,)), PackedInput(r,)))
+                left_pt = PackedInput((l,))
+                right_pt = PackedInput((r,))
+                new_symbol_set.add_interval(PackedInterval(left_pt, right_pt))
 
             new_symbol_set.prone()
-
-            # new_symbols_list = sorted(list(sym_dic[q]))
-            # new_start = prev_val = new_symbols_list[0]
-            #
-            # for new_sym in new_symbols_list[1:]:
-            #     if new_sym == prev_val + 1:
-            #         prev_val = new_sym
-            #         continue
-            #     else:
-            #         new_symbol_set.add_interval(PackedInterval(PackedInput((new_start,)), PackedInput((prev_val,))))
-            #         new_start = prev_val = new_sym
-            #
-            # new_symbol_set.add_interval(PackedInterval(PackedInput((new_start,)), PackedInput((prev_val,))))
-            # new_symbol_set.prone()
+            new_symbol_set.merge()
 
             q.symbols = new_symbol_set
 
@@ -519,15 +511,65 @@ def is_there_a_binary_path(atm, src, dst, val, bits_count):
 
 
 
+def _get_alphabet_list(atm, bits_count):
+    '''
+    this function returns set of unique symbols of all STEs in an automata
+    the input automata should have stride 1 and homogeneous
+    :param atm: the input automata
+    :return: a set of unque integers
+    '''
+    assert atm.stride_value==1
+    pt_set=set()
+    for node in atm.nodes:
+        if node.type == ElementsType.FAKE_ROOT:
+            continue
 
+        if node.symbols.is_star(pow(2, bits_count) - 1):
+            continue
 
+        for pt in node.symbols.points:
+            pt_set.add(pt[0])
 
+    return list(pt_set)
 
+def replace_with_unified_symbol(atm, bits_count):
+    '''
+    this function receives a single stride homogemneous automata  and replace the symbols with integers starting from 0
+    and the last integers for start case
+    :param atm: input atm
+    :param bits_count: number of bits of symbols for current autoamta
+    :return: None
+    '''
 
+    def get_sym_dictionary(atm, pt_dic, bits_count):
+        '''
+        this function receives an automata and a point dictionary. it returns a new dictionary whcih keys are nodes and values
+        are a set of new symbols
+        :param atm: under process automata
+        :param pt_dic: a dictionary from integer points to new points (new points should start from 0)
+        :return: a new dictionary (keys=nodes, values=set of new symbols)
+        '''
+        assert atm.stride_value == 1
+        out_dic = {}
+        dst_sym_size = len(set(pt_dic.itervalues()))
+        for node in atm.nodes:
+            if node.type == ElementsType.FAKE_ROOT:
+                continue
 
+            if node.symbols.is_star(max_val=pow(2, bits_count) - 1):
+                out_dic[node] = set(range(dst_sym_size + 1))  # we added 1 here to cover complement of symbols for star
 
+            else:
+                val_set = out_dic.setdefault(node, set())
+                for pt in node.symbols.points:
+                    val_set.add(pt_dic[pt[0]])
 
+        return out_dic
 
+    alphabet_list = _get_alphabet_list(atm, bits_count=bits_count)
+    pt_dic = {ch: alphabet_list.index(ch) for ch in alphabet_list}
+    sym_dict = get_sym_dictionary(atm, pt_dic=pt_dic, bits_count=bits_count)
+    replace_equivalent_symbols(symbol_dictionary_list=[sym_dict], atms_list=[atm])
 
-
+    return atm
 

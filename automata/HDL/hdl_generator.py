@@ -204,7 +204,7 @@ def get_hdl_folder_path(prefix, number_of_atms, stride_value, before_match_reg, 
     folder_name = prefix + 'stage_' + str(number_of_atms) + '_stride' + str(stride_value) + (
         '_before' if before_match_reg else '') + ('_after' if after_match_reg else '') + \
                    ('_ste' + str(ste_type)) + ('_withbram' if use_bram else '_nobram')
-    return os.path.join('../',folder_name)
+    return os.path.join('/Users/gholamrezarahimi/Downloads/HDL',folder_name)
 
 def clean_and_make_path(path):
     shutil.rmtree(path, ignore_errors=True)

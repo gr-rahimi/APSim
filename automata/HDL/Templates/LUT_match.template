@@ -23,12 +23,12 @@ wire [width-1:0] input_capture;
 assign input_capture = symbols;
 {%- endif -%}
 
-{%- if after_match_reg%}
+{% if after_match_reg %}
 always @ (posedge clk)
 begin
     match <= match_internal;
 end
-{%- else -%}
+{% else -%}
 assign match = match_internal;
 {%- endif%}
 

@@ -11,12 +11,12 @@
 
 module Byte_Compressor_{{idx}}(
                                 input wire clk,
-                                input wire[7:0] inp_sym
-                                output reg[{{byte_map_width - 1}}:0] out_sym)
+                                input wire[7:0] inp_sym,
+                                output reg[{{byte_map_width - 1}}:0] out_sym);
 always @(posedge clk)
 begin
     {% for key, value in byte_trans_map.iteritems() -%}
-    {% if loop.index0 == 0 %}if {% else %}else if {% endif %}(top_sym == 8'd{{key[0]}})
+    {% if loop.index0 == 0 %}if {% else %}else if {% endif %}(inp_sym == 8'd{{key[0]}})
         out_sym <= {{byte_map_width}}'d{{value}};
     {% endfor %}
     else
@@ -29,7 +29,7 @@ module Symbol_Compressor_{{idx}}_{{loop.index0}}(
                                 input wire clk,
                                 input wire [{{width_list[loop.index0]}}:0] top_sym,
                                 input wire [{{width_list[loop.index0]}}:0] bot_sym,
-                                output reg[{{width_list[loop.index]}}: 0] out_sym)
+                                output reg[{{width_list[loop.index]}}: 0] out_sym);
 
 {% set outloop=loop %}
 always @(posedge clk)
@@ -49,8 +49,8 @@ endmodule
 {% endfor %}
 
 module Symbol_Compressor_Pipeline_{{idx}} (input wire clk,
-                                            input wire[{{original_width -1}}:0] symbol
-                                            output wire [{{output_width-1}}:0] compressed_out)
+                                            input wire[{{original_width -1}}:0] symbol,
+                                            output wire [{{output_width-1}}:0] compressed_out);
 {% if width_list|length %}
 {% set ns = namespace(modules_count = initial_width // width_list[0]) %}
 {% for w in width_list %}

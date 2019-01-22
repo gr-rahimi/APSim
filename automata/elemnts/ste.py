@@ -232,6 +232,16 @@ class PackedInterval(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def is_interval_star(self, max_val):
+        '''
+        check if an 1d interval is star
+        :param max_val: maximum value of star. for 8 bit, it is 255
+        :return: True if it is star
+        '''
+        assert self.dim == 1
+        return self.left[0] == 0 and self.right[0] == max_val
+
+
 
 
 
@@ -484,8 +494,17 @@ class PackedIntervalSet(object):
         del self._interval_set[:]
 
 
-
-
+    def is_star(self, max_val):
+        '''
+        check if the symbol set is star
+        :Param maximum acceptable value
+        :return: True if it is
+        '''
+        assert self.dim == 1
+        for ivl in self:
+            if ivl.is_interval_star(max_val=max_val):
+                return True
+        return False
 
 class S_T_E(BaseElement):
     known_attributes = {'start', 'symbol-set', 'id'}

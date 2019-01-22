@@ -86,16 +86,26 @@ Automata_{{atm.id}} automata_{{atm.id}} (.clk(clk),
                     );
 {% endfor %}
 
+
 {% if use_compression %}
+{#
 {% for comp_idx, comp_bit_len in id_to_comp_dict.iteritems() %}
 wire [{{comp_bit_len - 1}}:0] from_comp_{{comp_idx}};
+{% endfor %}
+#}
 
-module Symbol_Compressor_Pipeline_{{comp}}(
+{% set unique_compressors=[] %}
+{% for atm in automatas %}
+{% if comp_dict[atm.id] not in unique_compressors %}
+
+wire [{{id_to_comp_dict[comp_dict[atm.id]]}}:0] from_comp_{{comp_dict[atm.id]}};
+Symbol_Compressor_Pipeline_{{comp_dict[atm.id]}} sym_comp_{{comp_dict[atm.id]}}(
                             .clk(clk),
                             .symbol(top_symbol),
                             .compressed_out(from_comp_{{comp_idx}})
                             );
-
+{% do unique_compressors.append(comp_dict[atm.id]) %}
+{% endif %}
 {% endfor %}
 
 {% endif %}

@@ -2108,6 +2108,7 @@ def get_strided_automata2(atm ,stride_value, is_scalar, base_value = 0):
     curr_node = None
 
     dp = {}
+    dp_residual = {}
 
     def strider(node, s_val):
 
