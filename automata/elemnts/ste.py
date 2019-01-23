@@ -274,7 +274,12 @@ class PackedIntervalSet(object):
         return hash(self._interval_set[0].left)
 
     def __eq__(self, other):
-        return self._interval_set == other._interval_set
+        if len(self._interval_set)!= len(other._interval_set):
+            return False
+        for s,o in zip(self._interval_set, other._interval_set):
+            if s!=o:
+                return False
+        return True
 
     def __ne__(self, other):
         return not self.__eq__(other)
