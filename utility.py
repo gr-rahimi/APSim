@@ -81,7 +81,7 @@ def minimize_automata(automata,
 
     while True:
         current_node_cont = automata.nodes_count
-        logging.debug("minimization, current count{}".format(current_node_cont))
+        logging.debug("minimization, current count {}".format(current_node_cont))
         if merge_reports:
             logging.debug("start report merge")
             automata.combine_finals_with_same_symbol_set(same_residuals_only=same_residuals_only,

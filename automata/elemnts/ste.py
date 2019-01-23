@@ -5,6 +5,7 @@ from itertools import chain, product, izip
 from heapq import heappush, heappop
 #import point_comperator
 import bisect
+from sortedcontainers import SortedSet
 
 #CYTHON_CAN_ACCEPT_FUNC =  point_comperator.cython_can_accept
 
@@ -172,7 +173,7 @@ class PackedInput(ComparableMixin):
         return self._point.__iter__()
 
     def __len__(self):
-        return len(self._point)
+        return self._dim
 
     def __lt__(self, other):
         return self.point < other.point
@@ -241,6 +242,8 @@ class PackedInterval(object):
         assert self.dim == 1
         return self.left[0] == 0 and self.right[0] == max_val
 
+    def __hash__(self):
+        return hash((self.left, self.right))
 
 
 
@@ -250,7 +253,7 @@ class PackedIntervalSet(object):
         self._set_interval_set(packed_interval_set)
 
     def _set_interval_set(self, packed_interval_set):
-        self._interval_set = packed_interval_set
+        self._interval_set = SortedSet(packed_interval_set)
 
     def __iter__(self):
         return self._interval_set.__iter__()
@@ -266,6 +269,9 @@ class PackedIntervalSet(object):
             if not self.can_accept(p):
                 return False
         return True
+
+    def __hash__(self):
+        return hash(self._interval_set[0].left)
 
     def __eq__(self, other):
         return self._interval_set == other._interval_set
@@ -336,9 +342,10 @@ class PackedIntervalSet(object):
             return self._interval_set[0].dim
 
     def add_interval(self, interval):
-        import bisect
+        #import bisect
         assert isinstance(interval, PackedInterval), "argument should be an instance of PackedInterval"
-        bisect.insort(self._interval_set, interval)
+        #bisect.insort(self._interval_set, interval)
+        self._interval_set.add(interval)
         return
 
 

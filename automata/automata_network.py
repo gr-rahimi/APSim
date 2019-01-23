@@ -789,18 +789,25 @@ class Automatanetwork(object):
     def _make_homogenous_node(self, curr_node, connectivity_dic, start_type):
 
         new_nodes = []
+        new_node_dic={}
 
         for neighb, on_edge_char_set in connectivity_dic.iteritems():
+            create_new_node = False
             if curr_node != neighb:
-                new_node = S_T_E(start_type=start_type, is_report=curr_node.report, is_marked=True,
-                                 id=self.get_new_id(),
-                                 symbol_set=on_edge_char_set,
-                                 adjacent_S_T_E_s=None,
-                                 report_residual=curr_node.report_residual,
-                                 report_code=curr_node.report_code)
-
-                self.add_element(new_node, connect_to_fake_root= False) # it will not be coonected to fake_root since the graph is not homogeneous at the moment
-                new_nodes.append(new_node)
+                if on_edge_char_set not in new_node_dic:
+                    create_new_node = True
+                    new_node = S_T_E(start_type=start_type, is_report=curr_node.report, is_marked=True,
+                                     id=self.get_new_id(),
+                                     symbol_set=on_edge_char_set,
+                                     adjacent_S_T_E_s=None,
+                                     report_residual=curr_node.report_residual,
+                                     report_code=curr_node.report_code)
+                    new_node_dic[on_edge_char_set] = new_node
+                else:
+                    new_node = new_node_dic[on_edge_char_set]
+                if create_new_node:
+                    self.add_element(new_node, connect_to_fake_root= False) # it will not be coonected to fake_root since the graph is not homogeneous at the moment
+                    new_nodes.append(new_node)
                 self.add_edge(neighb, new_node, symbol_set = new_node.symbols, start_type = new_node.start_type)
                 out_edges = self._my_graph.out_edges(curr_node, data = True, keys = False)
 
@@ -860,7 +867,6 @@ class Automatanetwork(object):
         equal_nodes = {}
         final_nodes = self.get_filtered_nodes(lambda node: node.report)
         for f_node_idx, f_node in enumerate(final_nodes):
-            logging.debug("processing {}".format(f_node_idx))
             set_found = False
             f_node_neighbors = set(self._my_graph.neighbors(f_node)) - set([f_node])
             for equal_key in equal_nodes:
@@ -1259,6 +1265,7 @@ class Automatanetwork(object):
         dq.appendleft(self.fake_root)
 
         while dq:
+            logging.debug("Left merge len:{}".format(len(dq)))
 
             current_node = dq.pop()
 
@@ -1311,6 +1318,7 @@ class Automatanetwork(object):
 
 
         while dq:
+            logging.debug("Right merge len:{}".format(len(dq)))
 
             current_node = dq.pop()
 
@@ -1388,6 +1396,7 @@ class Automatanetwork(object):
 
     def combine_symbol_sets(self, merge_reports=False, same_residuals_only=False,
                             same_report_code=False, combine_equal_syms_only = False):
+        total_nodes, processed_nodes = self.nodes_count, 0
         assert self.is_homogeneous, "Automata should be in homogeneous"
         """
         this function combines the symbol sets of two stes with a same parent and a same child
@@ -1400,6 +1409,7 @@ class Automatanetwork(object):
         dq.appendleft(self.fake_root)
 
         while dq:
+            logging.debug("Combine Symbol Sets q_len:{} total:{} processed:{}".format(len(dq), total_nodes, processed_nodes))
             current_node = dq.pop()
 
             for first_neighb_node in list(self._my_graph.neighbors(current_node)):
@@ -1427,6 +1437,7 @@ class Automatanetwork(object):
 
             for node in self._my_graph.neighbors(current_node):
                 if not node.marked:
+                    processed_nodes += 1
                     node.marked = True
                     dq.appendleft(node)
 
@@ -1954,7 +1965,11 @@ def get_bit_automaton(atm, original_bit_width):
     dq = [atm.fake_root]
     atm.fake_root.marked = True
 
+    total_nodes, processed_nodes = atm.nodes_count, 0
+
     while dq:
+        processed_nodes += 1
+        logging.debug('Processing bitwise generator: {} from {}'.format(processed_nodes, total_nodes))
         current_node = dq.pop(0)
         bit_node_src = ste_translation[current_node]
 
@@ -2097,6 +2112,9 @@ def get_strided_automata2(atm ,stride_value, is_scalar, base_value = 0):
     :param base_value: base value for scalar case
     :return: strided automata
     '''
+
+    processed_nodes, total_nodes = 0, atm.nodes_count
+
     strided_atm = Automatanetwork(id=atm.id + 'S' + '1' if is_scalar else str(stride_value) , is_homogenous=False,
                                   stride=1 if is_scalar else stride_value)
 
@@ -2160,6 +2178,8 @@ def get_strided_automata2(atm ,stride_value, is_scalar, base_value = 0):
             dp[(node, s_val)] = value
 
     while dq:
+        processed_nodes += 1
+        logging.debug('Processing bitwise strider: {} from {}'.format(processed_nodes, total_nodes))
         curr_node = dq.pop(0)
         if curr_node.type == ElementsType.FAKE_ROOT:
             for _, neighb, data in atm.get_out_edges(curr_node, data=True, keys=False):

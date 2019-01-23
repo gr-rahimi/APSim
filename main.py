@@ -10,9 +10,9 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 
-automatas = atma.parse_anml_file(anml_path[AnmalZoo.Levenshtein])
+automatas = atma.parse_anml_file('/Users/gholamrezarahimi/Git/ANMLZoo/Levenshtein/anml/lev_60_12.anml')
 automatas.remove_ors()
-replace_with_unified_symbol(atm=automatas, bits_count=8)
+#replace_with_unified_symbol(atm=automatas, bits_count=8)
 
 
 automatas = automatas.get_connected_components_as_automatas()
@@ -21,7 +21,7 @@ automatas = automatas.get_connected_components_as_automatas()
 
 org_atm = automatas[0]
 print org_atm.get_summary(logo='original')
-org_atm.draw_graph('original.svg')
+#org_atm.draw_graph('original.svg')
 
 bit_atm=get_bit_automaton(atm=org_atm, original_bit_width=8)
 #bit_atm.draw_graph('bitwise.svg')
