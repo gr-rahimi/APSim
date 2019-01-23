@@ -1262,12 +1262,14 @@ class Automatanetwork(object):
         assert self.is_homogeneous, "This function is working only for homogeneous case!"
         self.unmark_all_nodes()
         dq = deque()
-
+        total_nodes, processed_nodes = self.nodes_count, 0
         self.fake_root.marked = True
         dq.appendleft(self.fake_root)
 
         while dq:
-            logging.debug("Left merge len:{}".format(len(dq)))
+            processed_nodes += 1
+            logging.debug(
+                "Left merge q_len:{} total:{} processed:{}".format(len(dq), total_nodes, processed_nodes))
 
             current_node = dq.pop()
 
@@ -1317,10 +1319,13 @@ class Automatanetwork(object):
             self._my_graph.add_edge(report_node, fake_sink)
 
         dq = deque([fake_sink])
+        total_nodes, processed_nodes = self.nodes_count, 0
 
 
         while dq:
-            logging.debug("Right merge len:{}".format(len(dq)))
+            processed_nodes+=1
+            logging.debug(
+                "Right Merge q_len:{} total:{} processed:{}".format(len(dq), total_nodes, processed_nodes))
 
             current_node = dq.pop()
 

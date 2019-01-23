@@ -10,12 +10,12 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 
-#automatas = atma.parse_anml_file('/Users/gholamrezarahimi/Git/ANMLZoo/Levenshtein/anml/lev_60_12.anml')
-#automatas.remove_ors()
+automatas = atma.parse_anml_file(anml_path[AnmalZoo.Snort])
+automatas.remove_ors()
 #replace_with_unified_symbol(atm=automatas, bits_count=8)
-#automatas = automatas.get_connected_components_as_automatas()
+automatas = automatas.get_connected_components_as_automatas()
 
-automatas=pickle.load(open('Snort1-50.pkl', 'rb'))
+#automatas=pickle.load(open('Snort1-50.pkl', 'rb'))
 
 org_atm = automatas[0]
 print org_atm.get_summary(logo='original')
@@ -25,7 +25,7 @@ bit_atm=get_bit_automaton(atm=org_atm, original_bit_width=8)
 #bit_atm.draw_graph('bitwise.svg')
 print bit_atm.get_summary(logo='bitwise')
 
-strided_b_atm=get_strided_automata2(atm=bit_atm, stride_value=8, is_scalar=True, base_value=2, add_residual=False)
+strided_b_atm=get_strided_automata2(atm=bit_atm, stride_value=12, is_scalar=True, base_value=2, add_residual=True)
 print strided_b_atm.get_summary(logo='strided bitwise')
 #strided_b_atm.draw_graph('strided.svg')
 
@@ -34,7 +34,7 @@ print strided_b_atm.get_summary(logo='homogeneous')
 #strided_b_atm.draw_graph('homogeneous.svg', draw_edge_label=True)
 
 
-minimize_automata(strided_b_atm)
+minimize_automata(strided_b_atm, same_residuals_only=False)
 print strided_b_atm.get_summary(logo='minimized')
 strided_b_atm.draw_graph('minimized.svg')
 
