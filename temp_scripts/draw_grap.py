@@ -1,4 +1,4 @@
-from automata.automata_network import Automatanetwork, get_bit_automaton, get_strided_automata
+from automata.automata_network import Automatanetwork, get_bit_automaton, get_strided_automata2
 from automata.elemnts.ste import S_T_E, PackedIntervalSet, PackedInterval, PackedInput, get_Symbol_type
 from automata.elemnts.element import StartType
 from utility import minimize_automata, get_equivalent_symbols
@@ -33,12 +33,13 @@ my_Automata.add_edge(ste0, ste0)
 my_Automata.add_edge(ste0, ste1)
 my_Automata.add_edge(ste1, ste2)
 my_Automata.add_edge(ste2, ste2)
-
+my_Automata.draw_graph('t.svg')
 x = get_bit_automaton(my_Automata, 8)
 x.draw_graph('x.svg')
-y = get_strided_automata(atm=x, stride_value=8, is_scalar=True, base_value=2)
+y = get_strided_automata2(atm=x, stride_value=8, is_scalar=True, base_value=2)
 y.draw_graph('y.svg')
 y.make_homogenous()
+y.draw_graph('n.svg')
 minimize_automata(y)
 y.draw_graph('z.svg')
 

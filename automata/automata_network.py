@@ -465,6 +465,7 @@ class Automatanetwork(object):
         dq = deque()
         #self.fake_root.marked = True
         #dq.appendleft(self.fake_root)
+        total_nodes, processed_nodes = self.nodes_count, 0
 
         report_nodes = self.get_filtered_nodes(lambda node:node.report)
         for r_node in report_nodes:
@@ -472,7 +473,8 @@ class Automatanetwork(object):
             dq.append(r_node)
 
         while dq:
-            logging.debug("Making homogeneous len:{}".format(len(dq)))
+            processed_nodes+=1
+            logging.debug("Making homogeneous Q:{} total:{}, procesed:{}".format(len(dq), total_nodes, processed_nodes))
             current_ste = dq.pop()
             if current_ste.start_type == StartType.fake_root: # fake root does need processing
                 continue # process next node from the queue
@@ -2103,7 +2105,7 @@ def get_bit_automaton(atm, original_bit_width):
     bit_automata.prone_all_symbol_sets()
     return bit_automata
 
-def get_strided_automata2(atm ,stride_value, is_scalar, base_value = 0):
+def get_strided_automata2(atm ,stride_value, is_scalar, base_value = 0, add_residual=False):
     '''
 
     :param atm: to be strided automata
@@ -2112,6 +2114,26 @@ def get_strided_automata2(atm ,stride_value, is_scalar, base_value = 0):
     :param base_value: base value for scalar case
     :return: strided automata
     '''
+
+
+    if add_residual:
+        report_nodes = list(atm.get_filtered_nodes(lambda n: n.report))
+        res_nodes = []
+        star_sym_set = PackedIntervalSet([PackedInterval(PackedInput((0,)), PackedInput((1, )))])
+        for rn in report_nodes:
+            left_node = rn
+            for i in range(1, stride_value):
+                new_id = atm.get_new_id()
+                new_node = S_T_E(start_type=StartType.non_start if atm.is_homogeneous else StartType.unknown,
+                                 is_report=True, is_marked=False, id=new_id,
+                                 symbol_set=star_sym_set if atm.is_homogeneous else None,
+                                                 adjacent_S_T_E_s=None, report_residual=i,
+                                                 report_code=rn.report_code)
+                res_nodes.append(new_node)
+                atm.add_element(new_node)
+                atm.add_edge(left_node, new_node, symbol_set=star_sym_set, start_type=StartType.non_start)
+                left_node = new_node
+
 
     processed_nodes, total_nodes = 0, atm.nodes_count
 
@@ -2225,7 +2247,9 @@ def get_strided_automata2(atm ,stride_value, is_scalar, base_value = 0):
                 strided_atm.add_edge(ste_translation[curr_node], ste_translation[k],
                                          symbol_set=sym_set, start_type=StartType.non_start)
 
-
+    if add_residual:
+        for rn in res_nodes:
+            atm.delete_node(rn)
     strided_atm.prone_all_symbol_sets()
     return strided_atm
 
