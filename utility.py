@@ -255,15 +255,6 @@ class InputDistributer(object):
 
             yield b
 
-
-
-
-
-
-
-
-
-
 def multi_byte_stream(file_path, chunk_size):
     with open(file_path,'rb') as f:
         for read_bytes in iter(lambda: f.read(chunk_size), b''):
@@ -357,11 +348,47 @@ def draw_symbols_len_histogram(atm):
 
     plt.show()
 
+def _replace_equivalent_symbols(symbol_dictionary_list, atms_list):
+    '''
+    :param atms: list of auotmatas
+    :param symbol_dictionary_list: a dictionary from nodes to set of 1D numbers
+    :return: a list of automatas with replaces symbols
+    '''
 
-def get_equivalent_symbols(atms_list):
+
+    for atm, sym_dic in zip(atms_list, symbol_dictionary_list):
+        node_edge_iter = atm.nodes if atm.is_homogeneous else atm.get_edges()
+
+        for ne in node_edge_iter:
+
+            if atm.is_homogeneous and ne.type == ElementsType.FAKE_ROOT:
+                continue
+            sym_set = ne.symbols if atm.is_homogeneous else ne['symbol_set']
+
+            new_symbol_set = PackedIntervalSet([])
+
+            ivls = get_interval(list(sym_dic[sym_set]))
+
+            for l, r in ivls:
+                left_pt = PackedInput((l,))
+                right_pt = PackedInput((r,))
+                new_symbol_set.add_interval(PackedInterval(left_pt, right_pt))
+
+            new_symbol_set.prone()
+            new_symbol_set.merge() # this is not necessary. TODO remove it
+
+            if atm.is_homogeneous:
+                ne.symbols = new_symbol_set
+            else:
+                ne['symbol_set'] = new_symbol_set
+
+        atm.stride_value = 1
+
+def get_equivalent_symbols(atms_list, replace = True):
     '''
     this function receives an input list of automatas and returns list of sets witk equivalnet symbols in the same set
     :param atms_list: list of automatas
+    :param replace: True/False, if True, replaces the original autoamtaon symbol set
     :return: list of sets of equivalent symbols in the same set
     '''
     assert all((atm.stride_value == atms_list[0].stride_value for atm in atms_list))
@@ -369,12 +396,13 @@ def get_equivalent_symbols(atms_list):
     symbol_map = {}
     size = 0
     for atm in atms_list:
-        assert atm.is_homogeneous
-        for q in atm.nodes:
-            if q.type == ElementsType.FAKE_ROOT:
+        node_edge_iter = atm.nodes if atm.is_homogeneous else atm.get_edges()
+        for ne in node_edge_iter:
+            if atm.is_homogeneous and ne.type == ElementsType.FAKE_ROOT:
                 continue
             buffer = {}
-            for pt in q.symbols.points:
+            sym_set = ne.symbols if atm.is_homogeneous else ne['symbol_set']
+            for pt in sym_set.points:
                 current_map = symbol_map.get(pt, 0)
                 if current_map not in buffer:
                     size += 1
@@ -390,23 +418,25 @@ def get_equivalent_symbols(atms_list):
 
     for atm in atms_list:
         optimal_dic = {}
-        for q in atm.nodes:
-            if q.type == ElementsType.FAKE_ROOT:
+        node_edge_iter = atm.nodes if atm.is_homogeneous else atm.get_edges()
+        for ne in node_edge_iter:
+            if atm.is_homogeneous and ne.type == ElementsType.FAKE_ROOT:
                 continue
-            for pt in q.symbols.points:
+            sym_set = ne.symbols if atm.is_homogeneous else ne['symbol_set']
+            for pt in sym_set.points:
                 orig_label = symbol_map[pt]
                 if orig_label not in assigned_dic:
                     assigned_dic[orig_label] = len(assigned_dic) + 1
 
                 new_dic[pt] = assigned_dic[orig_label]
-                optimal_dic.setdefault(q, set()).add(assigned_dic[orig_label])
+                optimal_dic.setdefault(sym_set, set()).add(assigned_dic[orig_label])
 
         optimal_dics.append(optimal_dic)
 
-    return new_dic, optimal_dics
+    if replace:
+        _replace_equivalent_symbols(symbol_dictionary_list=optimal_dics, atms_list=atms_list)
 
-
-
+    return new_dic
 
 def get_interval(inp_list):
     '''
@@ -437,39 +467,11 @@ def get_interval(inp_list):
 
 
 
-def replace_equivalent_symbols(symbol_dictionary_list, atms_list):
-    '''
-    :param atms: list of auotmatas
-    :param symbol_dictionary_list: a dictionary from nodes to list of 1D numbers
-    :return: a list with replaces symbols
-    '''
-
-    for atm, sym_dic in zip(atms_list, symbol_dictionary_list):
-        assert atm.is_homogeneous
-
-        for q in atm.nodes:
-
-            if q.type == ElementsType.FAKE_ROOT:
-                continue
-            new_symbol_set = PackedIntervalSet([])
-
-            ivls = get_interval(list(sym_dic[q]))
-
-            for l, r in ivls:
-                left_pt = PackedInput((l,))
-                right_pt = PackedInput((r,))
-                new_symbol_set.add_interval(PackedInterval(left_pt, right_pt))
-
-            new_symbol_set.prone()
-            new_symbol_set.merge()
-
-            q.symbols = new_symbol_set
-
-        atm.stride_value = 1
 
 
 
-def get_binary_val(val , bits_count):
+
+def get_binary_val(val , bits_count, left_first = True):
     '''
     this function receives an integer and returns back a binary value with bit width as bit counts
     :param val: the input value
@@ -483,7 +485,8 @@ def get_binary_val(val , bits_count):
         val /= 2
 
     assert val == 0, 'wrong bit counts'
-    result.reverse()
+    if left_first:
+        result.reverse()
     return result
 
 
@@ -557,10 +560,10 @@ def replace_with_unified_symbol(atm, bits_count):
                 continue
 
             if node.symbols.is_star(max_val=pow(2, bits_count) - 1):
-                out_dic[node] = set(range(dst_sym_size + 1))  # we added 1 here to cover complement of symbols for star
+                out_dic[node.symbols] = set(range(dst_sym_size + 1))  # we added 1 here to cover complement of symbols for star
 
             else:
-                val_set = out_dic.setdefault(node, set())
+                val_set = out_dic.setdefault(node.symbols, set())
                 for pt in node.symbols.points:
                     val_set.add(pt_dic[pt[0]])
 
@@ -569,7 +572,7 @@ def replace_with_unified_symbol(atm, bits_count):
     alphabet_list = _get_alphabet_list(atm, bits_count=bits_count)
     pt_dic = {ch: alphabet_list.index(ch) for ch in alphabet_list}
     sym_dict = get_sym_dictionary(atm, pt_dic=pt_dic, bits_count=bits_count)
-    replace_equivalent_symbols(symbol_dictionary_list=[sym_dict], atms_list=[atm])
+    _replace_equivalent_symbols(symbol_dictionary_list=[sym_dict], atms_list=[atm])
 
     return atm
 

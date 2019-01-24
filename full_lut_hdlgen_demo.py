@@ -52,6 +52,7 @@ before_match_reg=False
 after_match_reg=False
 ste_type=1
 use_bram=False
+compression_depth = 2
 
 
 for uat in under_process_atms:
@@ -80,21 +81,19 @@ for uat in under_process_atms:
             print 'processing {0} stride{3} automata {1} from {2}'.format(uat, atm_idx, len(automatas), stride_val)
 
             if use_compression:
-                symbol_dict, symbol_dictionary_list = get_equivalent_symbols([atm])
-                print 'number of first pipeline symbols', len(set(symbol_dict.values()))
 
-                initial_dic = symbol_dict
-                initial_bits = int(math.ceil(math.log(max(initial_dic.values()), 2)))
-                width_list = [initial_bits]
-                replace_equivalent_symbols(symbol_dictionary_list, [atm])
-                bit_size.append(initial_bits)
+                bc_sym_dict, bc_node_sym_list = get_equivalent_symbols([atm])
+                print 'number of first pipeline symbols', len(set(bc_sym_dict.values()))
+                bc_bits_len = int(math.ceil(math.log(max(bc_sym_dict.values()), 2)))
+
+                replace_equivalent_symbols(bc_node_sym_list, [atm])
 
                 hd_gen.generate_compressors(original_width=8*pow(2,stride_val), byte_trans_map=symbol_dict, byte_map_width=initial_bits,
                                             translation_list=[], idx=atm_idx, width_list=[], initial_width=initial_bits*pow(2,stride_val),
                                             output_width=initial_bits*pow(2,stride_val),
                                             file_path=os.path.join(hdl_apth, 'compressor' + str(atm_idx) + '.v'))
 
-            for _ in range(stride_val):
+            for s in range(stride_val):
                 atm = atm.get_single_stride_graph()
                 if hom_between is True:
                     atm.make_homogenous()

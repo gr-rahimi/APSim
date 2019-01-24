@@ -3,16 +3,16 @@ from automata.automata_network import compare_input, compare_strided, StartType,
 from anml_zoo import anml_path,input_path,AnmalZoo
 from tqdm import tqdm
 import pickle
-from utility import minimize_automata, multi_byte_stream, get_equivalent_symbols, replace_equivalent_symbols, replace_with_unified_symbol
+from utility import minimize_automata, multi_byte_stream, get_equivalent_symbols, replace_with_unified_symbol
 import math
 from automata.HDL.hdl_generator import test_compressor
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
 
-automatas = atma.parse_anml_file(anml_path[AnmalZoo.Snort])
+automatas = atma.parse_anml_file(anml_path[AnmalZoo.Levenshtein])
 automatas.remove_ors()
-#replace_with_unified_symbol(atm=automatas, bits_count=8)
+replace_with_unified_symbol(atm=automatas, bits_count=8)
 automatas = automatas.get_connected_components_as_automatas()
 
 #automatas=pickle.load(open('Snort1-50.pkl', 'rb'))
@@ -46,7 +46,7 @@ for s in automatas:
     stride_dict_list = []
     for i in range(4):
 
-        symbol_dict, symbol_dictionary_list = get_equivalent_symbols([s])
+        symbol_dict, symbol_dictionary_list = get_equivalent_symbols([s], replace=True)
 
         if i == 0:
             initial_dic = symbol_dict
@@ -60,12 +60,11 @@ for s in automatas:
                             width_list=[],
                             initial_width=initial_bits,
                             output_width=initial_bits)
-            replace_equivalent_symbols(symbol_dictionary_list, [s])
+
         else:
             stride_dict_list.append(symbol_dict)
             width_list.append(int(math.ceil(math.log(max(symbol_dict.values()), 2))))
             print len(set(symbol_dict.values()))
-            replace_equivalent_symbols(symbol_dictionary_list, [s])
             test_compressor(original_width=pow(2, i) * 8,
                             byte_trans_map=initial_dic,
                             byte_map_width=initial_bits,

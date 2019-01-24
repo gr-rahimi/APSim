@@ -135,10 +135,8 @@ class Automatanetwork(object):
     def stride_value(self, value):
         self._stride = value
 
-
-    @property
-    def edges(self):
-        return self._my_graph.edges
+    def get_edges(self, data=True, keys=False):
+        return self._my_graph.edges(data=data, keys=keys)
 
     def get_filtered_nodes(self,lambda_func):
         return (n for n in self.nodes if lambda_func(n))
