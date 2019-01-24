@@ -31,7 +31,7 @@ module Automata_{{automata.id}}(input clk,
            {%- endfor -%}
            );
 
-wire all_inpiut;
+wire all_input;
 wire start_of_data;
 
 assign all_input = 1'b1;

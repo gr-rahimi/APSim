@@ -238,11 +238,11 @@ def generate_full_lut(atms_list, single_out ,before_match_reg, after_match_reg, 
         template = env.get_template('Single_Automata.template')
         template.globals['predecessors'] = networkx.MultiDiGraph.predecessors
         template.globals['get_summary'] = Automatanetwork.get_summary # maybe better to move to utility module
-        for idx, (automata, bram_match_id_list) in enumerate(zip(stage, bram_match_id_list_all)):
+        for automata, bram_match_id_list, idx in zip(stage, bram_match_id_list_all, id_to_comp_dict[stage_idx]):
             rendered_content = template.render(automata=automata,
                                                before_match_reg=before_match_reg, after_match_reg=after_match_reg,
                                                bram_match_id_list=bram_match_id_list,
-                                               bit_feed_size = bit_feed_size if not use_compression else id_to_comp_dict[stage_idx][idx] )
+                                               bit_feed_size = bit_feed_size if not use_compression else id_to_comp_dict[stage_idx][idx])
             with open(os.path.join(folder_name, automata.id+'.v',), 'w') as f:
                 f.writelines(rendered_content)
 

@@ -1,12 +1,12 @@
 {#
-@param original_width
-@param byte_trans_map
-@param byte_map_width
-@param translation_list: list of dictionaries for translation
-@param idx: index that will be attached to the end of module name
-@param width_list: list of width for input, output and mid sizes
+@param original_width: the original width of input example for 2-byte stride, it should be 16
+@param byte_trans_map: this is the dictionary for byte-compressor(first layer), 8bits to byte_map_width bits
+@param byte_map_width: this is the length of a single byte-compressor output in bits
+@param translation_list: list of dictionaries for mid-layers compressors. keys are 2d tuples and values are a single value
+@param idx: index that will be attached to the end of module name. this is for making names uniques
+@param width_list: list of width for input, output and mid sizes. this list contain only the width of mid layers . Width are calculated only fro a single module
 @param initial_width: size of the initial input symbols in bits. this template generates a pyramid using table width
-@param output_width: size of the final output
+@param output_width: size of the final output. This is the total size of compressor in bits.
 #}
 
 module Byte_Compressor_{{idx}}(
@@ -15,12 +15,20 @@ module Byte_Compressor_{{idx}}(
                                 output reg[{{byte_map_width - 1}}:0] out_sym);
 always @(posedge clk)
 begin
+{#
     {% for key, value in byte_trans_map.iteritems() -%}
-    {% if loop.index0 == 0 %}if {% else %}else if {% endif %}(inp_sym == 8'd{{key[0]}})
+    {% if loop.index0 == 0 %}if {% else %} else if {% endif %}(inp_sym == 8'd{{key[0]}})
         out_sym <= {{byte_map_width}}'d{{value}};
     {% endfor %}
     else
         out_sym <= {{byte_map_width}}'d0;
+#}
+    case (inp_sym)
+    {% for key, value in byte_trans_map.iteritems() -%}
+        8'd{{key[0]}}: out_sym <= {{byte_map_width}}'d{{value}};
+    {% endfor %}
+    default: out_sym <= {{byte_map_width}}'d0;
+    endcase
 end
 endmodule
 
@@ -103,7 +111,7 @@ Symbol_Compressor{{idx}}_{{w}}_{{c}} sym_compressor(
 {% endfor %}
 
 {%else%}
-assign compresses_out = byte_com_to_reduce;
+assign compressed_out = byte_com_to_reduce;
 {% endif %}
 
 endmodule

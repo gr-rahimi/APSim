@@ -12,6 +12,7 @@ import random
 import os.path
 from automata.elemnts.ste import PackedInput
 
+logging.basicConfig(level=logging.DEBUG)
 
 def reza_test(inp_dic, atm):
     eq_set = set()
@@ -52,6 +53,7 @@ after_match_reg=False
 ste_type=1
 use_bram=False
 
+
 for uat in under_process_atms:
     automatas = atma.parse_anml_file(anml_path[uat])
     automatas.remove_ors()
@@ -87,9 +89,10 @@ for uat in under_process_atms:
                 replace_equivalent_symbols(symbol_dictionary_list, [atm])
                 bit_size.append(initial_bits)
 
-                hd_gen.generate_compressors(original_width=8, byte_trans_map=symbol_dict, byte_map_width=initial_bits,
-                                            translation_list=[], idx=atm_idx, width_list=[], initial_width=initial_bits,
-                                            output_width=initial_bits, file_path=os.path.join(hdl_apth, 'compressor'+ str(atm_idx)+ '.v'))
+                hd_gen.generate_compressors(original_width=8*pow(2,stride_val), byte_trans_map=symbol_dict, byte_map_width=initial_bits,
+                                            translation_list=[], idx=atm_idx, width_list=[], initial_width=initial_bits*pow(2,stride_val),
+                                            output_width=initial_bits*pow(2,stride_val),
+                                            file_path=os.path.join(hdl_apth, 'compressor' + str(atm_idx) + '.v'))
 
             for _ in range(stride_val):
                 atm = atm.get_single_stride_graph()
@@ -98,8 +101,13 @@ for uat in under_process_atms:
 
             if not atm.is_homogeneous:
                 atm.make_homogenous()
+
             minimize_automata(atm, merge_reports=True, same_residuals_only=True, same_report_code=True,
-                            combine_symbols=True if hom_between is not True else False)
+                              combine_symbols=True if hom_between is not True else False)
+
+
+
+
 
             strided_automatas.append(atm)
 
@@ -111,7 +119,7 @@ for uat in under_process_atms:
                                 single_out=False, before_match_reg=False, after_match_reg=False,
                                 ste_type=1, folder_name=hdl_apth, use_bram=False,
                                 bram_criteria=lambda n: len(n.symbols) > 8 ,bit_feed_size=pow(2, stride_val)*8,
-                                id_to_comp_dict=[{i:bs * pow(2, stride_val) for i, bs in zip(range(atms_per_stage), bit_size[j:j+atms_per_stage])}
+                                id_to_comp_dict=[{i:bs * pow(2, stride_val) for i, bs in zip(range(j, j+atms_per_stage), bit_size[j:j+atms_per_stage])}
                                                  for j in range(0, len(strided_automatas), atms_per_stage)] if use_compression else None,
                                 comp_dict=[{atm.id:i for atm, i in zip(strided_automatas[j: j+atms_per_stage],
                                                              range(j, j+atms_per_stage))} for j in range(0, len(strided_automatas), atms_per_stage)] if use_compression else None,

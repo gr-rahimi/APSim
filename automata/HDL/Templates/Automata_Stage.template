@@ -101,8 +101,8 @@ wire [{{comp_bit_len - 1}}:0] from_comp_{{comp_idx}};
 wire [{{id_to_comp_dict[comp_dict[atm.id]]}}:0] from_comp_{{comp_dict[atm.id]}};
 Symbol_Compressor_Pipeline_{{comp_dict[atm.id]}} sym_comp_{{comp_dict[atm.id]}}(
                             .clk(clk),
-                            .symbol(top_symbol),
-                            .compressed_out(from_comp_{{comp_idx}})
+                            .symbol(top_symbols),
+                            .compressed_out(from_comp_{{comp_dict[atm.id]}})
                             );
 {% do unique_compressors.append(comp_dict[atm.id]) %}
 {% endif %}
