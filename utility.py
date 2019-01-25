@@ -521,7 +521,7 @@ def _get_alphabet_list(atm, bits_count):
     :param atm: the input automata
     :return: a set of unque integers
     '''
-    assert atm.stride_value==1
+    assert atm.stride_value==1 and atm.is_homogeneous
     pt_set=set()
     for node in atm.nodes:
         if node.type == ElementsType.FAKE_ROOT:
@@ -535,7 +535,7 @@ def _get_alphabet_list(atm, bits_count):
 
     return list(pt_set)
 
-def replace_with_unified_symbol(atm, bits_count):
+def replace_with_unified_symbol(atm, bits_count, is_input_homogeneous):
     '''
     this function receives a single stride homogemneous automata  and replace the symbols with integers starting from 0
     and the last integers for start case
@@ -543,6 +543,7 @@ def replace_with_unified_symbol(atm, bits_count):
     :param bits_count: number of bits of symbols for current autoamta
     :return: None
     '''
+    assert atm.is_homogeneous and atm.stride_value==1
 
     def get_sym_dictionary(atm, pt_dic, bits_count):
         '''
@@ -560,7 +561,7 @@ def replace_with_unified_symbol(atm, bits_count):
                 continue
 
             if node.symbols.is_star(max_val=pow(2, bits_count) - 1):
-                out_dic[node.symbols] = set(range(dst_sym_size + 1))  # we added 1 here to cover complement of symbols for star
+                out_dic[node.symbols] = set(range(dst_sym_size + (1 if not is_input_homogeneous else 0)))  # we added 1 here to cover complement of symbols for star
 
             else:
                 val_set = out_dic.setdefault(node.symbols, set())
