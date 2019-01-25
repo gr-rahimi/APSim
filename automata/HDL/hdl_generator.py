@@ -178,7 +178,7 @@ def generate_compressors(original_width, byte_trans_map, byte_map_width, transla
     :param original_width: the original width of compressor
     :param byte_trans_map: a dictionary for the byte level compressor
     :param byte_map_width: bit length of the byte compressor output
-    :param translation_list: a list of dictionaries to convert input to output for compressor (not byte level)
+    :param translation_list: a list of dictionaries to convert input to output for compressor (not contains byte level)
     :param idx: the id that will be asigned to the compressor
     :param width_list: list of width of compressors
     :param initial_width: total bit size of input of compressor not (not byte level)

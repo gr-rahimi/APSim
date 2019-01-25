@@ -3,7 +3,7 @@ from automata.automata_network import compare_input, compare_strided, StartType
 from anml_zoo import anml_path,input_path,AnmalZoo
 from tqdm import tqdm
 import pickle
-from utility import minimize_automata, multi_byte_stream, draw_symbols_len_histogram, get_equivalent_symbols, replace_equivalent_symbols
+from utility import minimize_automata, multi_byte_stream, draw_symbols_len_histogram, get_equivalent_symbols
 import automata.HDL.hdl_generator as hd_gen
 import csv
 import logging
@@ -34,8 +34,6 @@ def reza_test(inp_dic, atm):
         else:
             assert kh == result
 
-
-
 random.seed=3
 
 #Snort, EntityResolution, ClamAV, Hamming, Dotstart, Custom, Bro217, Levenstein, Bril,
@@ -65,9 +63,9 @@ for uat in under_process_atms:
         automatas = automatas[:number_of_autoamtas]
 
     number_of_stages = math.ceil(len(automatas) / float(automata_per_stage))
-    for stride_val in range(4):
+    for stride_val in range(2, 4):
 
-        hdl_apth = hd_gen.get_hdl_folder_path(prefix=str(uat), number_of_atms=len(automatas), stride_value=stride_val,
+        hdl_apth = hd_gen.get_hdl_folder_path(prefix=str(uat) + 'comp_D' + str(compression_depth), number_of_atms=len(automatas), stride_value=stride_val,
                                               before_match_reg=before_match_reg, after_match_reg=after_match_reg,
                                               ste_type=ste_type, use_bram=use_bram)
 
@@ -82,19 +80,20 @@ for uat in under_process_atms:
 
             if use_compression:
 
-                bc_sym_dict, bc_node_sym_list = get_equivalent_symbols([atm])
+                bc_sym_dict = get_equivalent_symbols([atm], replace=True)
                 print 'number of first pipeline symbols', len(set(bc_sym_dict.values()))
                 bc_bits_len = int(math.ceil(math.log(max(bc_sym_dict.values()), 2)))
+                bit_size.append(bc_bits_len)
 
-                replace_equivalent_symbols(bc_node_sym_list, [atm])
-
-                hd_gen.generate_compressors(original_width=8*pow(2,stride_val), byte_trans_map=symbol_dict, byte_map_width=initial_bits,
-                                            translation_list=[], idx=atm_idx, width_list=[], initial_width=initial_bits*pow(2,stride_val),
-                                            output_width=initial_bits*pow(2,stride_val),
-                                            file_path=os.path.join(hdl_apth, 'compressor' + str(atm_idx) + '.v'))
+            translation_list, width_list = [], [bc_bits_len]
 
             for s in range(stride_val):
                 atm = atm.get_single_stride_graph()
+                if s < compression_depth:
+                    new_translation = get_equivalent_symbols([atm], replace=True)
+                    translation_list.append(new_translation)
+                    width_list.append(int(math.ceil(math.log(max(new_translation.values()), 2))))
+
                 if hom_between is True:
                     atm.make_homogenous()
 
@@ -104,9 +103,12 @@ for uat in under_process_atms:
             minimize_automata(atm, merge_reports=True, same_residuals_only=True, same_report_code=True,
                               combine_symbols=True if hom_between is not True else False)
 
-
-
-
+            hd_gen.generate_compressors(original_width=8 * pow(2, stride_val), byte_trans_map=bc_sym_dict,
+                                        byte_map_width=bc_bits_len,
+                                        translation_list=translation_list, idx=atm_idx, width_list=width_list if len(width_list) > 1 else [],
+                                        initial_width=bc_bits_len * pow(2, stride_val),
+                                        output_width=width_list[-1] * pow(2, max(0, stride_val - compression_depth)),
+                                        file_path=os.path.join(hdl_apth, 'compressor' + str(atm_idx) + '.v'))
 
             strided_automatas.append(atm)
 
@@ -123,19 +125,3 @@ for uat in under_process_atms:
                                 comp_dict=[{atm.id:i for atm, i in zip(strided_automatas[j: j+atms_per_stage],
                                                              range(j, j+atms_per_stage))} for j in range(0, len(strided_automatas), atms_per_stage)] if use_compression else None,
                                 use_compression=use_compression)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

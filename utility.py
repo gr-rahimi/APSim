@@ -363,7 +363,7 @@ def _replace_equivalent_symbols(symbol_dictionary_list, atms_list):
 
             if atm.is_homogeneous and ne.type == ElementsType.FAKE_ROOT:
                 continue
-            sym_set = ne.symbols if atm.is_homogeneous else ne['symbol_set']
+            sym_set = ne.symbols if atm.is_homogeneous else ne[2]['symbol_set']
 
             new_symbol_set = PackedIntervalSet([])
 
@@ -380,7 +380,7 @@ def _replace_equivalent_symbols(symbol_dictionary_list, atms_list):
             if atm.is_homogeneous:
                 ne.symbols = new_symbol_set
             else:
-                ne['symbol_set'] = new_symbol_set
+                ne[2]['symbol_set'] = new_symbol_set
 
         atm.stride_value = 1
 
@@ -401,7 +401,7 @@ def get_equivalent_symbols(atms_list, replace = True):
             if atm.is_homogeneous and ne.type == ElementsType.FAKE_ROOT:
                 continue
             buffer = {}
-            sym_set = ne.symbols if atm.is_homogeneous else ne['symbol_set']
+            sym_set = ne.symbols if atm.is_homogeneous else ne[2]['symbol_set']
             for pt in sym_set.points:
                 current_map = symbol_map.get(pt, 0)
                 if current_map not in buffer:
@@ -422,7 +422,7 @@ def get_equivalent_symbols(atms_list, replace = True):
         for ne in node_edge_iter:
             if atm.is_homogeneous and ne.type == ElementsType.FAKE_ROOT:
                 continue
-            sym_set = ne.symbols if atm.is_homogeneous else ne['symbol_set']
+            sym_set = ne.symbols if atm.is_homogeneous else ne[2]['symbol_set']
             for pt in sym_set.points:
                 orig_label = symbol_map[pt]
                 if orig_label not in assigned_dic:
@@ -574,5 +574,5 @@ def replace_with_unified_symbol(atm, bits_count):
     sym_dict = get_sym_dictionary(atm, pt_dic=pt_dic, bits_count=bits_count)
     _replace_equivalent_symbols(symbol_dictionary_list=[sym_dict], atms_list=[atm])
 
-    return atm
+    return alphabet_list
 
