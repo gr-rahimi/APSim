@@ -489,7 +489,7 @@ class Automatanetwork(object):
 
         nodes_list = list(self.nodes)
         for node in nodes_list:
-            if not node.marked:
+            if not node.marked and node.type!=ElementsType.FAKE_ROOT:
                 self.delete_node(node)
 
     @property

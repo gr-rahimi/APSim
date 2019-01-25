@@ -78,12 +78,11 @@ for uat in under_process_atms:
 
             print 'processing {0} stride{3} automata {1} from {2}'.format(uat, atm_idx, len(automatas), stride_val)
 
+            bc_bits_len = 8
             if use_compression:
-
                 bc_sym_dict = get_equivalent_symbols([atm], replace=True)
                 print 'number of first pipeline symbols', len(set(bc_sym_dict.values()))
                 bc_bits_len = int(math.ceil(math.log(max(bc_sym_dict.values()), 2)))
-                bit_size.append(bc_bits_len)
 
             translation_list, width_list = [], [bc_bits_len]
 
@@ -111,6 +110,8 @@ for uat in under_process_atms:
                                         file_path=os.path.join(hdl_apth, 'compressor' + str(atm_idx) + '.v'))
 
             strided_automatas.append(atm)
+            if use_compression:
+                bit_size.append(width_list[-1])
 
         atms_per_stage = int(math.ceil(len(strided_automatas) / float(number_of_stages)))
 
@@ -120,7 +121,7 @@ for uat in under_process_atms:
                                 single_out=False, before_match_reg=False, after_match_reg=False,
                                 ste_type=1, folder_name=hdl_apth, use_bram=False,
                                 bram_criteria=lambda n: len(n.symbols) > 8 ,bit_feed_size=pow(2, stride_val)*8,
-                                id_to_comp_dict=[{i:bs * pow(2, stride_val) for i, bs in zip(range(j, j+atms_per_stage), bit_size[j:j+atms_per_stage])}
+                                id_to_comp_dict=[{i:bs * pow(2, max(0, stride_val - compression_depth)) for i, bs in zip(range(j, j+atms_per_stage), bit_size[j:j+atms_per_stage])}
                                                  for j in range(0, len(strided_automatas), atms_per_stage)] if use_compression else None,
                                 comp_dict=[{atm.id:i for atm, i in zip(strided_automatas[j: j+atms_per_stage],
                                                              range(j, j+atms_per_stage))} for j in range(0, len(strided_automatas), atms_per_stage)] if use_compression else None,

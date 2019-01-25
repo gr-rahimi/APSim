@@ -576,4 +576,3 @@ def replace_with_unified_symbol(atm, bits_count, is_input_homogeneous):
     _replace_equivalent_symbols(symbol_dictionary_list=[sym_dict], atms_list=[atm])
 
     return alphabet_list
-

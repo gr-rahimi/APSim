@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 automatas = atma.parse_anml_file(anml_path[AnmalZoo.Levenshtein])
 automatas.remove_ors()
-replace_with_unified_symbol(atm=automatas, bits_count=8)
+replace_with_unified_symbol(atm=automatas, bits_count=8, is_input_homogeneous=True)
 automatas = automatas.get_connected_components_as_automatas()
 
 #automatas=pickle.load(open('Snort1-50.pkl', 'rb'))
@@ -21,11 +21,11 @@ org_atm = automatas[0]
 print org_atm.get_summary(logo='original')
 org_atm.draw_graph('original.svg')
 
-bit_atm=get_bit_automaton(atm=org_atm, original_bit_width=8)
+bit_atm=get_bit_automaton(atm=org_atm, original_bit_width=3)
 #bit_atm.draw_graph('bitwise.svg')
 print bit_atm.get_summary(logo='bitwise')
 
-strided_b_atm=get_strided_automata2(atm=bit_atm, stride_value=12, is_scalar=True, base_value=2, add_residual=True)
+strided_b_atm=get_strided_automata2(atm=bit_atm, stride_value=8, is_scalar=True, base_value=2, add_residual=False)
 print strided_b_atm.get_summary(logo='strided bitwise')
 #strided_b_atm.draw_graph('strided.svg')
 
