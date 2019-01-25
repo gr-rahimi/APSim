@@ -101,9 +101,9 @@ assign from_w0_to_c{{loop.index0}}_bot = byte_com_to_reduce[{{start_index + 2*wi
 
 {% for end_index in range(0, output_width, width_list[-1])%}
 {% if loop.index0 == 0%}
-assign compressed_out[{{end_index + width_list[-1] -1}}:{{end_index}}] = from_w{{width_list|length - 1}}_to_c{{loop.index0}}_top;
+assign compressed_out[{{end_index + width_list[-1] -1}}:{{end_index}}] = from_w{{width_list|length - 1}}_to_c{{loop.index0//2}}_top;
 {% else %}
-assign compressed_out[{{end_index + width_list[-1] -1}}:{{end_index}}] = from_w{{width_list|length - 1}}_to_c{{loop.index0}}_bot;
+assign compressed_out[{{end_index + width_list[-1] -1}}:{{end_index}}] = from_w{{width_list|length - 1}}_to_c{{loop.index0//2}}_bot;
 {% endif %}
 {% endfor %}
 {% set ns=namespace(modules_count=initial_width//(2*width_list[0])) %}

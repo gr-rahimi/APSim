@@ -50,7 +50,7 @@ before_match_reg=False
 after_match_reg=False
 ste_type=1
 use_bram=False
-compression_depth = 2
+compression_depth = 1
 
 
 for uat in under_process_atms:
@@ -65,9 +65,10 @@ for uat in under_process_atms:
     number_of_stages = math.ceil(len(automatas) / float(automata_per_stage))
     for stride_val in range(2, 4):
 
-        hdl_apth = hd_gen.get_hdl_folder_path(prefix=str(uat) + 'comp_D' + str(compression_depth), number_of_atms=len(automatas), stride_value=stride_val,
+        hdl_apth = hd_gen.get_hdl_folder_path(prefix=str(uat), number_of_atms=len(automatas), stride_value=stride_val,
                                               before_match_reg=before_match_reg, after_match_reg=after_match_reg,
-                                              ste_type=ste_type, use_bram=use_bram)
+                                              ste_type=ste_type, use_bram=use_bram, use_compression=use_compression,
+                                              compression_depth=compression_depth)
 
         hd_gen.clean_and_make_path(hdl_apth)
 
@@ -102,15 +103,16 @@ for uat in under_process_atms:
             minimize_automata(atm, merge_reports=True, same_residuals_only=True, same_report_code=True,
                               combine_symbols=True if hom_between is not True else False)
 
-            hd_gen.generate_compressors(original_width=8 * pow(2, stride_val), byte_trans_map=bc_sym_dict,
-                                        byte_map_width=bc_bits_len,
-                                        translation_list=translation_list, idx=atm_idx, width_list=width_list if len(width_list) > 1 else [],
-                                        initial_width=bc_bits_len * pow(2, stride_val),
-                                        output_width=width_list[-1] * pow(2, max(0, stride_val - compression_depth)),
-                                        file_path=os.path.join(hdl_apth, 'compressor' + str(atm_idx) + '.v'))
-
             strided_automatas.append(atm)
             if use_compression:
+                hd_gen.generate_compressors(original_width=8 * pow(2, stride_val), byte_trans_map=bc_sym_dict,
+                                            byte_map_width=bc_bits_len,
+                                            translation_list=translation_list, idx=atm_idx,
+                                            width_list=width_list if len(width_list) > 1 else [],
+                                            initial_width=bc_bits_len * pow(2, stride_val),
+                                            output_width=width_list[-1] * pow(2,
+                                                                              max(0, stride_val - compression_depth)),
+                                            file_path=os.path.join(hdl_apth, 'compressor' + str(atm_idx) + '.v'))
                 bit_size.append(width_list[-1])
 
         atms_per_stage = int(math.ceil(len(strided_automatas) / float(number_of_stages)))

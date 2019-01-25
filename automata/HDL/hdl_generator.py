@@ -200,10 +200,13 @@ def generate_compressors(original_width, byte_trans_map, byte_map_width, transla
     with open(file_path, 'w') as f:
         f.writelines(rendered_content)
 
-def get_hdl_folder_path(prefix, number_of_atms, stride_value, before_match_reg, after_match_reg, ste_type, use_bram):
+def get_hdl_folder_path(prefix, number_of_atms, stride_value, before_match_reg, after_match_reg, ste_type, use_bram,
+                        use_compression, compression_depth):
     folder_name = prefix + 'stage_' + str(number_of_atms) + '_stride' + str(stride_value) + (
         '_before' if before_match_reg else '') + ('_after' if after_match_reg else '') + \
-                   ('_ste' + str(ste_type)) + ('_withbram' if use_bram else '_nobram')
+                   ('_ste' + str(ste_type)) + ('_withbram' if use_bram else '_nobram') + \
+                  ('with_compD' if use_compression else 'no_comp') + (str(compression_depth) if use_compression else '')
+
     return os.path.join('/Users/gholamrezarahimi/Downloads/HDL',folder_name)
 
 def clean_and_make_path(path):
@@ -213,6 +216,22 @@ def clean_and_make_path(path):
 def generate_full_lut(atms_list, single_out ,before_match_reg, after_match_reg, ste_type,
                       use_bram, bram_criteria = None, folder_name = None, bit_feed_size=None, id_to_comp_dict=None,
                       comp_dict=None, use_compression=False):
+    '''
+
+    :param atms_list:
+    :param single_out:
+    :param before_match_reg:
+    :param after_match_reg:
+    :param ste_type:
+    :param use_bram:
+    :param bram_criteria:
+    :param folder_name:
+    :param bit_feed_size:
+    :param id_to_comp_dict: a list of dictionaries from compressor ids to their output len. This is the total bit counts
+    :param comp_dict:
+    :param use_compression:
+    :return:
+    '''
 
     env = Environment(loader=FileSystemLoader('automata/HDL/Templates'), extensions=['jinja2.ext.do'])
 
@@ -238,7 +257,8 @@ def generate_full_lut(atms_list, single_out ,before_match_reg, after_match_reg, 
         template = env.get_template('Single_Automata.template')
         template.globals['predecessors'] = networkx.MultiDiGraph.predecessors
         template.globals['get_summary'] = Automatanetwork.get_summary # maybe better to move to utility module
-        for automata, bram_match_id_list, idx in zip(stage, bram_match_id_list_all, id_to_comp_dict[stage_idx]):
+        for automata, bram_match_id_list, idx in zip(stage, bram_match_id_list_all, id_to_comp_dict[stage_idx] if use_compression else count()):
+
             rendered_content = template.render(automata=automata,
                                                before_match_reg=before_match_reg, after_match_reg=after_match_reg,
                                                bram_match_id_list=bram_match_id_list,
@@ -252,7 +272,8 @@ def generate_full_lut(atms_list, single_out ,before_match_reg, after_match_reg, 
                                            summary_str=_get_stage_summary(stage), single_out=single_out,
                                            bram_list=bram_list, bram_match_id_list=bram_match_id_list_all,
                                            stage_index=stage_idx, bit_feed_size=bit_feed_size,
-                                           id_to_comp_dict=id_to_comp_dict[stage_idx], comp_dict=comp_dict[stage_idx],
+                                           id_to_comp_dict=id_to_comp_dict[stage_idx] if use_compression else None,
+                                           comp_dict=comp_dict[stage_idx] if use_compression else None,
                                            use_compression=use_compression)
         with open(os.path.join(folder_name, 'stage{}.v'.format(stage_idx)), 'w') as f:
             f.writelines(rendered_content)
