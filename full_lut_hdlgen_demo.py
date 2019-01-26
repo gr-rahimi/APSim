@@ -89,7 +89,7 @@ for uat in under_process_atms:
 
             for s in range(stride_val):
                 atm = atm.get_single_stride_graph()
-                if s < compression_depth:
+                if use_compression and s < compression_depth:
                     new_translation = get_equivalent_symbols([atm], replace=True)
                     translation_list.append(new_translation)
                     width_list.append(int(math.ceil(math.log(max(new_translation.values()), 2))))
