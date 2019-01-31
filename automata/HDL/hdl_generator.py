@@ -322,7 +322,8 @@ class HDL_Gen(object):
 
     @classmethod
     def _get_sym_map_bit_len(cls, sym_dict):
-        return int(math.ceil(math.log(len(set(sym_dict.values())), 2)))
+        codes_max = max(sym_dict.values())
+        return int(math.ceil(math.log(codes_max + 1, 2))) # this one is for code 0 which will be assigned to
 
     def _generate_compressors(self, original_width, byte_trans_map, byte_map_width, translation_list, idx, width_list,
                              initial_width, output_width):
