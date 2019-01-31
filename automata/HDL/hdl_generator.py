@@ -301,7 +301,7 @@ class HDL_Gen(object):
             self._atm_to_comp_id[atm_id] = self._comp_id
         width_list = [] if not translation_list else [HDL_Gen._get_sym_map_bit_len(d) for d in chain([byte_trans_map],
                                                                                                      translation_list)]
-        initial_width = byte_map_width*pow(2, stride_value)
+        initial_width = byte_map_width*stride_value
         output_width = stride_value *(byte_map_width if not translation_list else
                                       HDL_Gen._get_sym_map_bit_len(translation_list[-1]))
 
