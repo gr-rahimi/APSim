@@ -4,34 +4,12 @@ import shutil, os
 from automata.automata_network import Automatanetwork
 from automata.elemnts.element import FakeRoot
 import numpy as np
-from itertools import count
+from itertools import count, chain
+import math
+from collections import namedtuple
 
 
 
-def _get_stage_summary(atms):
-    total_nodes = 0
-    total_reports = 0
-    total_edges = 0
-    total_sym_count = 0
-
-    for atm in atms:
-        total_nodes += atm.nodes_count
-        total_reports += sum (1 for r in atm.get_filtered_nodes(lambda ste: ste.report))
-        total_edges += atm.get_number_of_edges()
-        for n in atm.nodes:
-            if n.id != FakeRoot.fake_root_id:
-                total_sym_count += len(n.symbols)
-
-
-    str_list = ['******************** Summary {}********************']
-
-    str_list.append("total nodes = {}".format(total_nodes))
-    str_list.append("total reports = {}".format(total_reports))
-    str_list.append("total edges = {}".format(total_edges))
-    str_list.append("average symbols len = {}".format(float(total_sym_count) / total_nodes))
-    str_list.append('#######################################################')
-
-    return '\n'.join(str_list)
 
 
 def _genrate_bram_hex_content_from_matrix(bram_matrix):
@@ -154,6 +132,8 @@ def _generte_bram_stes(atms, classifier_func, placement_policy):
                     new_bram.append((atm, node))
 
                 bram_list.append(new_bram)
+        else:
+            raise NotImplementedError()
 
     return bram_list, bram_match_id_list_all
 
@@ -171,34 +151,7 @@ def test_compressor(original_width, byte_trans_map, byte_map_width, translation_
     with open('test_compressor.v', 'w') as f:
         f.writelines(rendered_content)
 
-def generate_compressors(original_width, byte_trans_map, byte_map_width, translation_list, idx, width_list, initial_width,
-             output_width, file_path):
-    '''
 
-    :param original_width: the original width of compressor
-    :param byte_trans_map: a dictionary for the byte level compressor
-    :param byte_map_width: bit length of the byte compressor output
-    :param translation_list: a list of dictionaries to convert input to output for compressor (not contains byte level)
-    :param idx: the id that will be asigned to the compressor
-    :param width_list: list of width of compressors
-    :param initial_width: total bit size of input of compressor not (not byte level)
-    :param output_width: total bit width of the output
-    :param file_path: path to write the results to
-    :return: None
-    '''
-    env = Environment(loader=FileSystemLoader('automata/HDL/Templates'), extensions=['jinja2.ext.do'])
-    template = env.get_template('compressor_pipeline.template')
-    rendered_content = template.render(original_width=original_width,
-                                       byte_trans_map=byte_trans_map,
-                                       byte_map_width=byte_map_width,
-                                       translation_list=translation_list,
-                                       idx=idx,
-                                       width_list=width_list,
-                                       initial_width=initial_width,
-                                       output_width=output_width)
-
-    with open(file_path, 'w') as f:
-        f.writelines(rendered_content)
 
 def get_hdl_folder_path(prefix, number_of_atms, stride_value, before_match_reg, after_match_reg, ste_type, use_bram,
                         use_compression, compression_depth):
@@ -209,13 +162,12 @@ def get_hdl_folder_path(prefix, number_of_atms, stride_value, before_match_reg, 
 
     return os.path.join('/Users/gholamrezarahimi/Downloads/HDL',folder_name)
 
-def clean_and_make_path(path):
-    shutil.rmtree(path, ignore_errors=True)
-    os.mkdir(path)
 
 def generate_full_lut(atms_list, single_out ,before_match_reg, after_match_reg, ste_type,
                       use_bram, bram_criteria = None, folder_name = None, bit_feed_size=None, id_to_comp_dict=None,
                       comp_dict=None, use_compression=False):
+
+    assert use_bram == False
     '''
 
     :param atms_list:
@@ -226,7 +178,7 @@ def generate_full_lut(atms_list, single_out ,before_match_reg, after_match_reg, 
     :param use_bram:
     :param bram_criteria:
     :param folder_name:
-    :param bit_feed_size:
+    :param bit_feed_size: total amount of bits comming in before compression(depands on the stride value)
     :param id_to_comp_dict: a list of dictionaries from compressor ids to their output len. This is the total bit counts
     :param comp_dict:
     :param use_compression:
@@ -235,8 +187,12 @@ def generate_full_lut(atms_list, single_out ,before_match_reg, after_match_reg, 
 
     env = Environment(loader=FileSystemLoader('automata/HDL/Templates'), extensions=['jinja2.ext.do'])
 
+    ################ Generate STE
+
+
     for stage_idx, stage in enumerate(atms_list):
         if use_bram:
+            raise RuntimeError('this code needs to be modified')
             template = env.get_template('bram_module.template')
             bram_list, bram_match_id_list_all = _generte_bram_stes(stage, bram_criteria, 'FF')
             for bram_idx, bram in enumerate(bram_list):
@@ -249,49 +205,219 @@ def generate_full_lut(atms_list, single_out ,before_match_reg, after_match_reg, 
         else:
             bram_list, bram_match_id_list_all = [], [[]] * len(stage)
 
-        template = env.get_template('Single_STE.template')
-        rendered_content = template.render(ste_type=ste_type)
-        with open(os.path.join(folder_name, 'ste.v'), 'w') as f:
-            f.writelines(rendered_content)
 
-        template = env.get_template('Single_Automata.template')
+class HDL_Gen(object):
+    def __init__(self, path, before_match_reg, after_match_reg, ste_type, total_input_len=8):
+        '''
+        :param path: path to generate verilog files
+        :param before_match_reg
+        :param after_match_reg
+        :param one_input_len: it implies what is the original bit size. this will be used in flexamata
+        '''
+        self._path = path
+        self._clean_and_make_path()
+        self._before_match_reg = before_match_reg
+        self._after_match_reg = after_match_reg
+        self._ste_type = ste_type
+        self._env = Environment(loader=FileSystemLoader('automata/HDL/Templates'), extensions=['jinja2.ext.do'])
+        self._total_input_len =  total_input_len
+        self._comp_id, self._stage_id = -1, -1 # tracking assign id for compressors
+        self._atm_to_comp_id = {}  # key= atm_id, value=compressor_id
+        self._comp_info = {}  # key=comp_id, value=compressor out_len
+        self._atm_info = {}  # this dictionary keeps the required information in tempalates for individual automatas
+        self._stage_info = {} # keeps information about automatas in the same stage. key= stage_idx, value= list of atm_ids
+         # this is a 2D list for keeping autoamatas that reide in the same stage
+        self._Atm_Interface = namedtuple('Atm_Interface',['id', 'nodes', 'nodes_count', 'reports_count', 'edges_count',
+                                                          'stride_value', 'use_compression'])
+        self._Node_Interface = namedtuple('Node_Interface', ['id', 'report', 'sym_count'])
+
+
+    def _generate_single_automata(self, automata, inp_bit_len):
+        '''
+        this function generates a single automata
+        :param automata: input autoamata
+        :param inp_bit_len: bit size fo the input. if this autamata uses compressed input, this value represents the
+        total len (with stride) of tat value
+        :return: None
+        '''
+
+        template = self._env.get_template('Single_Automata.template')
         template.globals['predecessors'] = networkx.MultiDiGraph.predecessors
-        template.globals['get_summary'] = Automatanetwork.get_summary # maybe better to move to utility module
-        for automata, bram_match_id_list, idx in zip(stage, bram_match_id_list_all, id_to_comp_dict[stage_idx] if use_compression else count()):
+        template.globals['get_summary'] = Automatanetwork.get_summary  # maybe better to move to utility module
 
-            rendered_content = template.render(automata=automata,
-                                               before_match_reg=before_match_reg, after_match_reg=after_match_reg,
-                                               bram_match_id_list=bram_match_id_list,
-                                               bit_feed_size = bit_feed_size if not use_compression else id_to_comp_dict[stage_idx][idx])
-            with open(os.path.join(folder_name, automata.id+'.v',), 'w') as f:
-                f.writelines(rendered_content)
+        rendered_content = template.render(automata=automata,
+                                           before_match_reg=self._before_match_reg,
+                                           after_match_reg=self._after_match_reg,
+                                           bram_match_id_list=[],
+                                           bit_feed_size=inp_bit_len) # TODO change the name of bit_feed_size in template. it is confusing with other bit_feed_size which is non compressed len
 
-
-        template = env.get_template('Automata_Stage.template')
-        rendered_content = template.render(automatas=stage,
-                                           summary_str=_get_stage_summary(stage), single_out=single_out,
-                                           bram_list=bram_list, bram_match_id_list=bram_match_id_list_all,
-                                           stage_index=stage_idx, bit_feed_size=bit_feed_size,
-                                           id_to_comp_dict=id_to_comp_dict[stage_idx] if use_compression else None,
-                                           comp_dict=comp_dict[stage_idx] if use_compression else None,
-                                           use_compression=use_compression)
-        with open(os.path.join(folder_name, 'stage{}.v'.format(stage_idx)), 'w') as f:
+        with open(os.path.join(self._path, automata.id + '.v', ), 'w') as f:
             f.writelines(rendered_content)
 
-    template = env.get_template('Top_Module.template')
-    rendered_content = template.render(automatas=atms_list,bit_feed_size=bit_feed_size )
-    with open(os.path.join(folder_name, 'top_module.v'), 'w') as f:
-        f.writelines(rendered_content)
+    def register_automata(self, atm, use_compression, byte_trans_map=None, translation_list=None,
+                          compression_depth=None):
+        '''
+        :param atm:
+        :param use_compression:
+        :param byte_trans_map:
+        :param translation_list:
+        :param compression_depth:
+        :return:
+        '''
+        if not use_compression:
+            self._generate_single_automata(automata=atm, inp_bit_len=self._total_input_len)
+        if use_compression:
+            single_map_len = HDL_Gen._get_sym_map_bit_len(byte_trans_map if not translation_list else translation_list[-1])
+            inp_bit_len = single_map_len * atm.stride_value
+            self._generate_single_automata(atm, inp_bit_len=inp_bit_len)
 
-    # TCL script
-    template = env.get_template('tcl.template')
-    rendered_content = template.render()
-    with open(os.path.join(folder_name, 'my_script.tcl'), 'w') as f:
-        f.writelines(rendered_content.encode('utf-8'))
+        assert atm.id not in self._atm_info
+        atm_interface = self._Atm_Interface(id=atm.id, nodes=[], nodes_count=atm.nodes_count,
+                                            reports_count=sum(1 for _ in atm.get_filtered_nodes(lambda ste: ste.report)),
+                                            edges_count=atm.get_number_of_edges(), stride_value=atm.stride_value,
+                                            use_compression=use_compression)
+        self._atm_info[atm.id] = atm_interface
+        for node in atm.nodes:
+            atm_interface.nodes.append(self._Node_Interface(id=node.id, report=node.report,
+                                                            sym_count=0 if node.id==FakeRoot.fake_root_id else len(node.symbols)))
 
-    # Timing constrains
-    template = env.get_template('clk_constrain.template')
-    rendered_content = template.render()
-    with open(os.path.join(folder_name, 'clk_constrain.xdc'), 'w') as f:
-        f.writelines(rendered_content)
 
+
+    def register_compressor(self, atm_ids, stride_value, byte_trans_map, translation_list, compression_depth):
+        '''
+
+        :param atms: list of automata ids that will have same compression unit
+        :param stride_value: stride value of compressor
+        :param byte_trans_map:
+        :param translation_list:
+        :param compression_depth:
+        :return: the id of the comressor
+        '''
+        assert atm_ids
+
+        byte_map_width = HDL_Gen._get_sym_map_bit_len(byte_trans_map)
+        self._comp_id += 1
+        for atm_id in atm_ids:
+            self._atm_to_comp_id[atm_id] = self._comp_id
+        width_list = [] if not translation_list else [HDL_Gen._get_sym_map_bit_len(d) for d in chain([byte_trans_map],
+                                                                                                     translation_list)]
+        initial_width = byte_map_width*pow(2, stride_value)
+        output_width = stride_value *(byte_map_width if not translation_list else
+                                      HDL_Gen._get_sym_map_bit_len(translation_list[-1]))
+
+        self._generate_compressors(original_width=self._total_input_len,
+                                   byte_trans_map=byte_trans_map,
+                                   byte_map_width=byte_map_width,
+                                   translation_list=translation_list,
+                                   idx=self._comp_id,
+                                   width_list=width_list,
+                                   initial_width=initial_width,
+                                   output_width=output_width)
+        self._comp_info[self._comp_id] = output_width
+        return self._comp_id
+
+    def _clean_and_make_path(self):
+        shutil.rmtree(self._path, ignore_errors=True)
+        os.mkdir(self._path)
+
+    @classmethod
+    def _get_sym_map_bit_len(cls, sym_dict):
+        return int(math.ceil(math.log(max(sym_dict.values()), 2)))
+
+    def _generate_compressors(self, original_width, byte_trans_map, byte_map_width, translation_list, idx, width_list,
+                             initial_width, output_width):
+        '''
+
+        :param original_width: the original width of compressor
+        :param byte_trans_map: a dictionary for the byte level compressor
+        :param byte_map_width: bit length of the byte compressor output
+        :param translation_list: a list of dictionaries to convert input to output for compressor (not contains byte level)
+        :param idx: the id that will be asigned to the compressor
+        :param width_list: list of width of compressors
+        :param initial_width: total bit size of input of compressor not (not byte level)
+        :param output_width: total bit width of the output
+        :param file_path: path to write the results to
+        :return: None
+        '''
+        template = self._env.get_template('compressor_pipeline.template')
+        rendered_content = template.render(original_width=original_width,
+                                           byte_trans_map=byte_trans_map,
+                                           byte_map_width=byte_map_width,
+                                           translation_list=translation_list,
+                                           idx=idx,
+                                           width_list=width_list,
+                                           initial_width=initial_width,
+                                           output_width=output_width)
+
+        file_path = os.path.join(self._path, 'compressor' + str(idx) + '.v')
+
+        with open(file_path, 'w') as f:
+            f.writelines(rendered_content)
+
+    def _get_stage_summary(self, atms):
+        total_nodes = 0
+        total_reports = 0
+        total_edges = 0
+        total_sym_count = 0
+
+        for atm in atms:
+            total_nodes += atm.nodes_count
+            total_reports += atm.reports_count
+            total_edges += atm.edges_count
+            for n in atm.nodes:
+                total_sym_count += n.sym_count
+
+        str_list = ['******************** Summary {}********************']
+
+        str_list.append("total nodes = {}".format(total_nodes))
+        str_list.append("total reports = {}".format(total_reports))
+        str_list.append("total edges = {}".format(total_edges))
+        str_list.append("average symbols len = {}".format(float(total_sym_count) / total_nodes))
+        str_list.append('#######################################################')
+
+        return '\n'.join(str_list)
+
+    def register_stage(self, atms_id, single_out):
+        '''
+
+        :param atms_id: list of ids of automatas in the same stage
+        :return: None
+        '''
+        self._stage_id += 1
+        self._stage_info[self._stage_id] = list(atms_id)
+        template = self._env.get_template('Automata_Stage.template')
+        rendered_content = template.render(automatas=[self._atm_info[temp_atm_id] for temp_atm_id in atms_id],
+                                           summary_str=self._get_stage_summary(self._atm_info.values()),
+                                           single_out=single_out, bram_list=[],
+                                           bram_match_id_list=[[] for _ in atms_id],
+                                           stage_index=self._stage_id,
+                                           bit_feed_size=self._total_input_len,
+                                           id_to_comp_dict={self._atm_to_comp_id[atm_id]:self._comp_info[self._atm_to_comp_id[atm_id]] for atm_id in atms_id if atm_id in self._atm_to_comp_id},
+                                           comp_dict={atm_id:self._atm_to_comp_id[atm_id] for atm_id in atms_id if atm_id in self._atm_to_comp_id})
+        with open(os.path.join(self._path, 'stage{}.v'.format(self._stage_id)), 'w') as f:
+            f.writelines(rendered_content)
+
+    def finilize(self):
+        atms_list = [[self._atm_info[atm_id] for atm_id in atms_id]for atms_id in self._stage_info.values()]
+
+        template = self._env.get_template('Top_Module.template')
+        rendered_content = template.render(automatas=atms_list, bit_feed_size=self._total_input_len)
+        with open(os.path.join(self._path, 'top_module.v'), 'w') as f:
+            f.writelines(rendered_content)
+
+        template = self._env.get_template('Single_STE.template')
+        rendered_content = template.render(ste_type=self._ste_type)
+        with open(os.path.join(self._path, 'ste.v'), 'w') as f:
+            f.writelines(rendered_content)
+
+        # TCL script
+        template = self._env.get_template('tcl.template')
+        rendered_content = template.render()
+        with open(os.path.join(self._path, 'my_script.tcl'), 'w') as f:
+            f.writelines(rendered_content.encode('utf-8'))
+
+        # Timing constrains
+        template = self._env.get_template('clk_constrain.template')
+        rendered_content = template.render()
+        with open(os.path.join(self._path, 'clk_constrain.xdc'), 'w') as f:
+            f.writelines(rendered_content)

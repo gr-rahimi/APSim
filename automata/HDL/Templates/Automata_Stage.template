@@ -12,7 +12,6 @@ list of tuples(atm.id, node.id) to track the assigned
 @param bit_feed_size: number of bits being feed in each cycle
 @param id_to_comp_dict t: a dictionary from compressor ids to their output len. This is the total bit counts
 @param comp_dict: a dictionary to translate from automata ids to compressor ids
-@param use_compression: use compression if True
 #}
 
 /*
@@ -76,7 +75,7 @@ bram_module_{{loop.index0}} bram_module_{{loop.index0}}_ins (
 Automata_{{atm.id}} automata_{{atm.id}} (.clk(clk),
                      .run(run),
                      .reset(reset),
-                     .symbols({%if not use_compression %}top_symbols {% else %}from_comp_{{comp_dict[atm.id]}}{% endif %})
+                     .symbols({%if not atm.use_compression %}top_symbols {% else %}from_comp_{{comp_dict[atm.id]}}{% endif %})
                      {%- for node_id in bram_match_id_list[loop.index0]%}
                      , .{{atm.id}}_w_match_{{node_id}}({{atm.id}}_w_match_{{node_id}})
                      {%- endfor %}
@@ -87,16 +86,9 @@ Automata_{{atm.id}} automata_{{atm.id}} (.clk(clk),
 {% endfor %}
 
 
-{% if use_compression %}
-{#
-{% for comp_idx, comp_bit_len in id_to_comp_dict.iteritems() %}
-wire [{{comp_bit_len - 1}}:0] from_comp_{{comp_idx}};
-{% endfor %}
-#}
-
 {% set unique_compressors=[] %}
 {% for atm in automatas %}
-{% if comp_dict[atm.id] not in unique_compressors %}
+{% if atm.use_compression and comp_dict[atm.id] not in unique_compressors %}
 
 wire [{{id_to_comp_dict[comp_dict[atm.id]]}}:0] from_comp_{{comp_dict[atm.id]}};
 Symbol_Compressor_Pipeline_{{comp_dict[atm.id]}} sym_comp_{{comp_dict[atm.id]}}(
@@ -107,9 +99,6 @@ Symbol_Compressor_Pipeline_{{comp_dict[atm.id]}} sym_comp_{{comp_dict[atm.id]}}(
 {% do unique_compressors.append(comp_dict[atm.id]) %}
 {% endif %}
 {% endfor %}
-
-{% endif %}
-
 
 endmodule
 

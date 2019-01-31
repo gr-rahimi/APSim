@@ -44,13 +44,13 @@ exempts = {(AnmalZoo.Snort, 1411)}
 hom_between = False
 number_of_autoamtas = 6
 automata_per_stage = 3
-use_compression = True
+use_compression = False
 single_out=False
 before_match_reg=False
 after_match_reg=False
 ste_type=1
 use_bram=False
-compression_depth = 1
+compression_depth = 0
 
 
 for uat in under_process_atms:
@@ -70,7 +70,9 @@ for uat in under_process_atms:
                                               ste_type=ste_type, use_bram=use_bram, use_compression=use_compression,
                                               compression_depth=compression_depth)
 
-        hd_gen.clean_and_make_path(hdl_apth)
+        generator_ins = hd_gen.HDL_Gen(path=hdl_apth, before_match_reg=before_match_reg,
+                                       after_match_reg=after_match_reg, ste_type=ste_type,
+                                       total_input_len=8*pow(2, stride_val))
 
         strided_automatas, bit_size,  = [], []
         for atm_idx, atm in enumerate(automatas):
@@ -82,17 +84,15 @@ for uat in under_process_atms:
             bc_bits_len = 8
             if use_compression:
                 bc_sym_dict = get_equivalent_symbols([atm], replace=True)
-                print 'number of first pipeline symbols', len(set(bc_sym_dict.values()))
                 bc_bits_len = int(math.ceil(math.log(max(bc_sym_dict.values()), 2)))
 
-            translation_list, width_list = [], [bc_bits_len]
+            translation_list = []
 
             for s in range(stride_val):
                 atm = atm.get_single_stride_graph()
                 if use_compression and s < compression_depth:
                     new_translation = get_equivalent_symbols([atm], replace=True)
                     translation_list.append(new_translation)
-                    width_list.append(int(math.ceil(math.log(max(new_translation.values()), 2))))
 
                 if hom_between is True:
                     atm.make_homogenous()
@@ -103,28 +103,19 @@ for uat in under_process_atms:
             minimize_automata(atm, merge_reports=True, same_residuals_only=True, same_report_code=True,
                               combine_symbols=True if hom_between is not True else False)
 
-            strided_automatas.append(atm)
+            strided_automatas.append(atm.id)
+
+            generator_ins.register_automata(atm=atm, use_compression=use_compression, byte_trans_map=bc_sym_dict if use_compression else None,
+                                            translation_list=translation_list, compression_depth=compression_depth)
             if use_compression:
-                hd_gen.generate_compressors(original_width=8 * pow(2, stride_val), byte_trans_map=bc_sym_dict,
-                                            byte_map_width=bc_bits_len,
-                                            translation_list=translation_list, idx=atm_idx,
-                                            width_list=width_list if len(width_list) > 1 else [],
-                                            initial_width=bc_bits_len * pow(2, stride_val),
-                                            output_width=width_list[-1] * pow(2,
-                                                                              max(0, stride_val - compression_depth)),
-                                            file_path=os.path.join(hdl_apth, 'compressor' + str(atm_idx) + '.v'))
-                bit_size.append(width_list[-1])
+                generator_ins.register_compressor([atm.id], pow(2, atm.stride_value - 1), byte_trans_map=bc_sym_dict,
+                                                  translation_list=translation_list,
+                                                  compression_depth=compression_depth)
 
         atms_per_stage = int(math.ceil(len(strided_automatas) / float(number_of_stages)))
 
-        hd_gen.generate_full_lut(
-                                [strided_automatas[i:i + atms_per_stage]
-                                 for i in range(0, len(strided_automatas), atms_per_stage)],
-                                single_out=False, before_match_reg=False, after_match_reg=False,
-                                ste_type=1, folder_name=hdl_apth, use_bram=False,
-                                bram_criteria=lambda n: len(n.symbols) > 8 ,bit_feed_size=pow(2, stride_val)*8,
-                                id_to_comp_dict=[{i:bs * pow(2, max(0, stride_val - compression_depth)) for i, bs in zip(range(j, j+atms_per_stage), bit_size[j:j+atms_per_stage])}
-                                                 for j in range(0, len(strided_automatas), atms_per_stage)] if use_compression else None,
-                                comp_dict=[{atm.id:i for atm, i in zip(strided_automatas[j: j+atms_per_stage],
-                                                             range(j, j+atms_per_stage))} for j in range(0, len(strided_automatas), atms_per_stage)] if use_compression else None,
-                                use_compression=use_compression)
+        for st_idx in range(0, len(strided_automatas), atms_per_stage):
+            same_stage_atms_id = [atm_id for atm_id in strided_automatas[st_idx:st_idx+atms_per_stage]]
+            generator_ins.register_stage(same_stage_atms_id, single_out=False)
+
+        generator_ins.finilize()
