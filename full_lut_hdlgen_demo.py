@@ -42,15 +42,15 @@ random.seed=3
 under_process_atms = [AnmalZoo.Hamming]
 exempts = {(AnmalZoo.Snort, 1411)}
 hom_between = False
-number_of_autoamtas = 6
-automata_per_stage = 3
-use_compression = False
+number_of_autoamtas = 200
+automata_per_stage = 50
+use_compression = True
 single_out=False
 before_match_reg=False
 after_match_reg=False
 ste_type=1
 use_bram=False
-compression_depth = 0
+compression_depth = 1
 
 
 for uat in under_process_atms:
@@ -63,7 +63,7 @@ for uat in under_process_atms:
         automatas = automatas[:number_of_autoamtas]
 
     number_of_stages = math.ceil(len(automatas) / float(automata_per_stage))
-    for stride_val in range(2, 4):
+    for stride_val in range(1, 4):
 
         hdl_apth = hd_gen.get_hdl_folder_path(prefix=str(uat), number_of_atms=len(automatas), stride_value=stride_val,
                                               before_match_reg=before_match_reg, after_match_reg=after_match_reg,
@@ -108,9 +108,8 @@ for uat in under_process_atms:
             generator_ins.register_automata(atm=atm, use_compression=use_compression, byte_trans_map=bc_sym_dict if use_compression else None,
                                             translation_list=translation_list, compression_depth=compression_depth)
             if use_compression:
-                generator_ins.register_compressor([atm.id], pow(2, atm.stride_value - 1), byte_trans_map=bc_sym_dict,
-                                                  translation_list=translation_list,
-                                                  compression_depth=compression_depth)
+                generator_ins.register_compressor([atm.id], byte_trans_map=bc_sym_dict,
+                                                  translation_list=translation_list)
 
         atms_per_stage = int(math.ceil(len(strided_automatas) / float(number_of_stages)))
 

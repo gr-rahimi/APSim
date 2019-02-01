@@ -283,7 +283,7 @@ class HDL_Gen(object):
 
 
 
-    def register_compressor(self, atm_ids, stride_value, byte_trans_map, translation_list, compression_depth):
+    def register_compressor(self, atm_ids,byte_trans_map, translation_list):
         '''
 
         :param atms: list of automata ids that will have same compression unit
@@ -301,9 +301,16 @@ class HDL_Gen(object):
             self._atm_to_comp_id[atm_id] = self._comp_id
         width_list = [] if not translation_list else [HDL_Gen._get_sym_map_bit_len(d) for d in chain([byte_trans_map],
                                                                                                      translation_list)]
-        initial_width = byte_map_width*stride_value
-        output_width = stride_value *(byte_map_width if not translation_list else
-                                      HDL_Gen._get_sym_map_bit_len(translation_list[-1]))
+
+        bc_counts = self._total_input_len / 8
+        initial_width = bc_counts * byte_map_width
+        if translation_list:
+            output_width = initial_width
+        else:
+            last_reduced_comp = bc_counts
+            for _ in range(len(width_list)):
+                last_reduced_comp /= 2
+            output_width = last_reduced_comp * width_list[-1]
 
         self._generate_compressors(original_width=self._total_input_len,
                                    byte_trans_map=byte_trans_map,
