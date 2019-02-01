@@ -304,11 +304,11 @@ class HDL_Gen(object):
 
         bc_counts = self._total_input_len / 8
         initial_width = bc_counts * byte_map_width
-        if translation_list:
+        if not translation_list:
             output_width = initial_width
         else:
             last_reduced_comp = bc_counts
-            for _ in range(len(width_list)):
+            for _ in range(len(translation_list)):
                 last_reduced_comp /= 2
             output_width = last_reduced_comp * width_list[-1]
 
