@@ -160,7 +160,7 @@ def get_hdl_folder_path(prefix, number_of_atms, stride_value, before_match_reg, 
                    ('_ste' + str(ste_type)) + ('_withbram' if use_bram else '_nobram') + \
                   ('with_compD' if use_compression else 'no_comp') + (str(compression_depth) if use_compression else '')
 
-    return os.path.join('/Users/gholamrezarahimi/Downloads/HDL',folder_name)
+    return os.path.join('/Volumes/gr5yf/HDL',folder_name)
 
 
 def generate_full_lut(atms_list, single_out ,before_match_reg, after_match_reg, ste_type,
