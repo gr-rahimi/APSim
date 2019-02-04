@@ -384,11 +384,12 @@ def _replace_equivalent_symbols(symbol_dictionary_list, atms_list):
 
         atm.stride_value = 1
 
-def get_equivalent_symbols(atms_list, replace = True):
+def get_equivalent_symbols(atms_list, replace = True, use_random_assignment = False):
     '''
     this function receives an input list of automatas and returns list of sets witk equivalnet symbols in the same set
     :param atms_list: list of automatas
     :param replace: True/False, if True, replaces the original autoamtaon symbol set
+    :param use_random_assignment: if true, assign codes randomly else use an optimal policy
     :return: list of sets of equivalent symbols in the same set
     '''
     assert all((atm.stride_value == atms_list[0].stride_value for atm in atms_list))
@@ -416,6 +417,9 @@ def get_equivalent_symbols(atms_list, replace = True):
     assigned_dic = {} # keeps the last assignment in order
     new_dic = {}
 
+    if use_random_assignment is False:
+        sym_graph = nx.MultiGraph()
+
     for atm in atms_list:
         optimal_dic = {}
         node_edge_iter = atm.nodes if atm.is_homogeneous else atm.get_edges()
@@ -427,11 +431,60 @@ def get_equivalent_symbols(atms_list, replace = True):
                 orig_label = symbol_map[pt]
                 if orig_label not in assigned_dic:
                     assigned_dic[orig_label] = len(assigned_dic) + 1
-
                 new_dic[pt] = assigned_dic[orig_label]
                 optimal_dic.setdefault(sym_set, set()).add(assigned_dic[orig_label])
 
+            if use_random_assignment is False:
+                # first adding nodes
+                for new_s in optimal_dic[sym_set]:
+                    if new_s not in sym_graph:
+                        sym_graph.add_node(new_s)
+                # second adding edges
+                for src_s in optimal_dic[sym_set]:
+                    for dst_s in optimal_dic[sym_set]:
+                        if src_s != dst_s:
+                            sym_graph.add_edge(src_s, dst_s)
         optimal_dics.append(optimal_dic)
+
+    if use_random_assignment is False:
+        new_map = {}
+        removed_nodes = set()
+        while sym_graph.nodes:
+            min_degree, min_node = None, None
+            for n in sym_graph.nodes:
+                if min_degree == None:
+                    min_degree, min_node = sym_graph.degree(n), n
+                elif sym_graph.degree(n) < min_degree:
+                    min_degree, min_node = sym_graph.degree(n), n
+
+            new_map[min_node] = len(new_map) + 1
+
+            current_node = min_node
+
+            while current_node and sym_graph.neighbors(current_node):
+
+                best_degree, best_node = None, None
+
+                for neighb in sym_graph.neighbors(current_node):
+                    if best_degree == None:
+                        best_degree, best_node = sym_graph.number_of_edges(current_node, neighb), neighb
+                    elif sym_graph.number_of_edges(current_node, neighb) > best_degree:
+                        best_degree, best_node = sym_graph.number_of_edges(current_node, neighb), neighb
+
+                sym_graph.remove_node(current_node)
+                current_node = best_node
+                if best_node:
+                    new_map[best_node] = len(new_map) + 1
+
+            if current_node:
+                sym_graph.remove_node(current_node)
+
+        for opt_dic in optimal_dics:
+            for sym_set in opt_dic:
+                old_set = opt_dic[sym_set]
+                new_set = set([new_map[ch] for ch in old_set])
+
+            opt_dic[sym_set] = new_set
 
     if replace:
         _replace_equivalent_symbols(symbol_dictionary_list=optimal_dics, atms_list=atms_list)
