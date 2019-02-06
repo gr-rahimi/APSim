@@ -39,12 +39,12 @@ random.seed=3
 #Snort, EntityResolution, ClamAV, Hamming, Dotstart, Custom, Bro217, Levenstein, Bril,
 # Randomfor, Dotstar03, ExactMath,Dotstar06, Fermi, PowerEN, Protomata, Dotstart09, Ranges1, SPM, Ranges 05
 #SynthBring, Synthcorering
-under_process_atms = [AnmalZoo.Dotstar03, AnmalZoo.Levenshtein, AnmalZoo.RandomForest, AnmalZoo.Dotstar]
+under_process_atms = [AnmalZoo.Levenshtein]
 exempts = {(AnmalZoo.Snort, 1411)}
 hom_between = False
 number_of_autoamtas = 200
 automata_per_stage = 50
-use_compression = False
+use_compression = True
 single_out=False
 before_match_reg=False
 after_match_reg=False
@@ -63,7 +63,7 @@ for uat in under_process_atms:
         automatas = automatas[:number_of_autoamtas]
 
     number_of_stages = math.ceil(len(automatas) / float(automata_per_stage))
-    for stride_val in range(3):
+    for stride_val in range(4):
 
         hdl_apth = hd_gen.get_hdl_folder_path(prefix=str(uat), number_of_atms=len(automatas), stride_value=stride_val,
                                               before_match_reg=before_match_reg, after_match_reg=after_match_reg,
@@ -80,6 +80,7 @@ for uat in under_process_atms:
                 continue
 
             print 'processing {0} stride{3} automata {1} from {2}'.format(uat, atm_idx, len(automatas), stride_val)
+            atm.remove_all_start_nodes()
 
             bc_bits_len = 8
             if use_compression:

@@ -259,7 +259,7 @@ class Automatanetwork(object):
         It assumes that the graph in current state is a homogeneous graph
         :return: a graph with a single step stride
         """
-        #assert not self.does_have_all_input(), "Automata should not have all-input nodes"
+        assert not self.does_have_all_input(), "Automata should not have all-input nodes"
         dq = deque()
         self.unmark_all_nodes()
         strided_graph = Automatanetwork(id = self._id + "_S1",is_homogenous= False, stride= self.stride_value*2)
@@ -1202,6 +1202,7 @@ class Automatanetwork(object):
         """
         this funstion add a new node that accepts Dot Kleene start and connect it to all "all_input nodes"
         please note that we assume all start nodes are not report nodes
+        :param minimize_after: run minimization after removal
         :return: a graph taht does not have any start node with all_input condition
         """
 
@@ -1225,7 +1226,7 @@ class Automatanetwork(object):
                 continue
             if node.start_type == StartType.all_input:
                 node.start_type=StartType.start_of_data
-                self.add_edge(star_node,node)
+                self.add_edge(star_node, node)
 
 
     def get_connected_components_size(self):
@@ -2118,6 +2119,7 @@ def get_strided_automata2(atm ,stride_value, is_scalar, base_value = 0, add_resi
     :return: strided automata
     '''
 
+    assert not atm.does_have_all_input(), "Automata should not have all-input nodes"
 
     if add_residual:
         report_nodes = list(atm.get_filtered_nodes(lambda n: n.report))
@@ -2267,6 +2269,7 @@ def get_strided_automata(atm ,stride_value, is_scalar, base_value = 0):
     :param base_value: base value for scalar case
     :return: strided automata
     '''
+    assert not atm.does_have_all_input(), "Automata should not have all-input nodes"
     strided_atm = Automatanetwork(id=atm.id + 'S' + '1' if is_scalar else str(stride_value) , is_homogenous=False,
                                   stride=1 if is_scalar else stride_value)
 
