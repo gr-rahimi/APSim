@@ -23,11 +23,16 @@ begin
     else
         out_sym <= {{byte_map_width}}'d0;
 #}
-    case (inp_sym)
+    casex (inp_sym)
     {% for key, value in byte_trans_map.iteritems() -%}
         8'd{{key[0]}}: out_sym <= {{byte_map_width}}'d{{value}};
     {% endfor %}
+    {% if byte_trans_map|length == 256 %}
+    default: out_sym <= {{byte_map_width}}'bx;
+    {% else %}
     default: out_sym <= {{byte_map_width}}'d0;
+    {% endif %}
+
     endcase
 end
 endmodule
@@ -52,11 +57,19 @@ begin
         out_sym <= {{width_list[loop.index]}}'d0;
 #}
 
-    case ({top_sym, bot_sym})
+    casex ({top_sym, bot_sym})
+    {% set ns=namespace(code_zero_found=False) %}
     {% for key, value in c.iteritems() -%}
+    {%- if value == 0 -%}
+        {%- set ns.code_zero_found = True -%}
+    {%- endif -%}
     {% raw %} { {% endraw %} {{width_list[outloop.index0]}}'d{{key[0]}}, {{width_list[outloop.index0]}}'d{{key[1]}} {% raw %}}{% endraw %}: out_sym <= {{width_list[outloop.index]}}'d{{value}};
     {% endfor %}
+    {% if not ns.code_zero_found %}
     default: out_sym <= {{width_list[loop.index]}}'d0;
+    {% else %}
+    default: out_sym <= {{width_list[loop.index]}}'bx;
+    {% endif %}
     endcase
 
 end

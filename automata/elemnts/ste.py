@@ -332,9 +332,9 @@ class PackedIntervalSet(object):
 
 
     @classmethod
-    def get_star(cls, dim):
+    def get_star(cls, dim, max_val):
         left_pt = PackedInput(tuple(0 for _ in range(dim)))
-        right_pt = PackedInput(tuple(255 for _ in range(dim)))
+        right_pt = PackedInput(tuple(max_val for _ in range(dim)))
         packed_interval = PackedInterval(p1=left_pt, p2=right_pt)
         return PackedIntervalSet([packed_interval])
 

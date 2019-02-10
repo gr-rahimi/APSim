@@ -12,7 +12,7 @@ import random
 import os.path
 from automata.elemnts.ste import PackedInput
 
-logging.basicConfig(level=logging.DEBUG)
+#logging.basicConfig(level=logging.DEBUG)
 
 def reza_test(inp_dic, atm):
     eq_set = set()
@@ -42,8 +42,8 @@ random.seed=3
 under_process_atms = [AnmalZoo.Levenshtein]
 exempts = {(AnmalZoo.Snort, 1411)}
 hom_between = False
-number_of_autoamtas = 200
-automata_per_stage = 50
+number_of_autoamtas = 50
+automata_per_stage = 10
 use_compression = True
 single_out=False
 before_match_reg=False
@@ -57,6 +57,7 @@ for uat in under_process_atms:
     automatas = atma.parse_anml_file(anml_path[uat])
     automatas.remove_ors()
     automatas = automatas.get_connected_components_as_automatas()
+    #automatas=pickle.load(open('Snort1-10.pkl', 'rb'))
 
     if len(automatas) > number_of_autoamtas:
         #automatas = random.sample(automatas, number_of_autoamtas)
@@ -86,6 +87,7 @@ for uat in under_process_atms:
             if use_compression:
                 bc_sym_dict = get_equivalent_symbols([atm], replace=True)
                 bc_bits_len = int(math.ceil(math.log(max(bc_sym_dict.values()), 2)))
+
 
             translation_list = []
 

@@ -80,7 +80,7 @@ for anml in AnmalZoo:
     linear_count = 0
     full_count = 0
 
-    new_automata = atma.Automatanetwork(id = "temp",is_homogenous = True, stride = 1)
+    new_automata = atma.Automatanetwork(id="temp", is_homogenous=True, stride=1, max_val=255)
     print "start combining automatas for linear case", anml
     linear_set=[]
     for ca in tqdm(linear_combined):
@@ -90,7 +90,7 @@ for anml in AnmalZoo:
     inb_counter_linear, _= new_automata.count_interconnect_activity(input_path[anml],
                                                        inbound_set_list=linear_set, outbound_set_list=[set()])
 
-    new_automata = atma.Automatanetwork(id="temp", is_homogenous=True, stride=1)
+    new_automata = atma.Automatanetwork(id="temp", is_homogenous=True, stride=1, max_val=255)
     print "start combining automatas for full case", anml
     full_set = []
     for ca in tqdm(full_mesh_combined):

@@ -13,7 +13,7 @@ env = Environment(loader=FileSystemLoader('Templates'), extensions=['jinja2.ext.
 # print rendered_content
 
 
-atm = Automatanetwork(id='temp_automata', is_homogenous=True, stride=2)
+atm = Automatanetwork(id='temp_automata', is_homogenous=True, stride=2, max_val=255)
 symbol_set1 = PackedIntervalSet([PackedInterval(PackedInput((1,2)),PackedInput((3,5))),
                                  PackedInterval(PackedInput((44,76)),PackedInput((78,99)))])
 

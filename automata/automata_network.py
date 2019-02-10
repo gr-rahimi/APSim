@@ -30,7 +30,7 @@ class Automatanetwork(object):
     start_type_data_key = 'start_type'
 
 
-    def __init__(self, id ,is_homogenous, stride):
+    def __init__(self, id, is_homogenous, stride, max_val):
         if '-' in id:
             id = id.replace('-', '_')
 
@@ -44,6 +44,7 @@ class Automatanetwork(object):
         self._id = id
         #TODO cleanup, _last_index?
         self.last_assigned_id = 0
+        self._max_val = max_val
 
     def _clear_mark_idx(self):
         for node in self.nodes:
@@ -57,10 +58,10 @@ class Automatanetwork(object):
 
     @classmethod
     # this function is used in connecteed components detection
-    def _from_graph(cls, id ,is_homogenous, graph ,stride, last_assigned_id):
+    def _from_graph(cls, id ,is_homogenous, graph ,stride, last_assigned_id, max_val):
         assert is_homogenous, "graph should be in homogenous state"
 
-        automata = Automatanetwork(id = id,is_homogenous = True, stride = stride)
+        automata = Automatanetwork(id=id, is_homogenous=True, stride=stride, max_val=max_val)
         automata.last_assigned_id = last_assigned_id
         del automata._my_graph
         automata._my_graph = graph
@@ -72,6 +73,25 @@ class Automatanetwork(object):
                 automata.add_edge(automata.fake_root, node)
         return automata
 
+    @property
+    def max_val_dim(self):
+        return self._max_val
+
+    @max_val_dim.setter
+    def max_val_dim(self, max_val):
+        self._max_val = max_val
+
+    @property
+    def bit_len(self):
+        return self._bit_len
+
+    @bit_len.setter
+    def bit_len(self, bit_len):
+        self._bit_len = bit_len
+
+    @property
+    def total_bitlen(self):
+        return  self._bit_len * self._stride_value
 
     @property
     def id(self):
@@ -97,7 +117,7 @@ class Automatanetwork(object):
         Automatanetwork._check_validity(xml_node)
 
         #TODO xml files are always homogeneous
-        graph_ins = Automatanetwork(id=xml_node.attrib['id'], is_homogenous=True, stride=1)
+        graph_ins = Automatanetwork(id=xml_node.attrib['id'], is_homogenous=True, stride=1, max_val=255)
 
         original_id_to_node = {}
 
@@ -262,13 +282,14 @@ class Automatanetwork(object):
         assert not self.does_have_all_input(), "Automata should not have all-input nodes"
         dq = deque()
         self.unmark_all_nodes()
-        strided_graph = Automatanetwork(id = self._id + "_S1",is_homogenous= False, stride= self.stride_value*2)
+        strided_graph = Automatanetwork(id=self._id + "_S1", is_homogenous=False, stride=self.stride_value * 2,
+                                        max_val=self.max_val_dim)
         self.fake_root.marked = True
         ###
         dq.appendleft(self.fake_root)
         residual_STEs_dic = {}
         new_STEs_dic = {self.fake_root.id:strided_graph.fake_root}
-        star_symbol_set = PackedIntervalSet.get_star(self.stride_value)
+        star_symbol_set = PackedIntervalSet.get_star(self.stride_value, self.max_val_dim)
 
         while dq:
 
@@ -949,8 +970,10 @@ class Automatanetwork(object):
         assert self.is_homogeneous, "This operation is available only for homogeneous"
         assert not self.does_have_special_elements()
 
-        left_automata = Automatanetwork(id = self._id+"_split1",is_homogenous= True, stride= int(self.stride_value/2))
-        right_automata = Automatanetwork(id = self._id+"_split2", is_homogenous=True, stride=int(self.stride_value/2))
+        left_automata = Automatanetwork(id=self._id + "_split1", is_homogenous=True, stride=int(self.stride_value / 2),
+                                        max_val=self.max_val_dim)
+        right_automata = Automatanetwork(id=self._id + "_split2", is_homogenous=True, stride=int(self.stride_value / 2),
+                                         max_val=self.max_val_dim)
         self.unmark_all_nodes()
         self.fake_root.marked = True  # fake root has been added in the constructor for both splited graphs
 
@@ -1213,7 +1236,7 @@ class Automatanetwork(object):
             return
 
         star_node = S_T_E(start_type = StartType.start_of_data, is_report=False, is_marked=False,
-                          id=self.get_new_id(), symbol_set=PackedIntervalSet.get_star(dim=1), adjacent_S_T_E_s=None,
+                          id=self.get_new_id(), symbol_set=PackedIntervalSet.get_star(dim=1, max_val=self.max_val_dim), adjacent_S_T_E_s=None,
                           report_residual=-1, report_code=-1)
 
         self.add_element(to_add_element = star_node, connect_to_fake_root = True)
@@ -1246,7 +1269,8 @@ class Automatanetwork(object):
             sg = self._my_graph.subgraph(cc)
             new_graph = nx.MultiDiGraph(sg)
             new_autoama = Automatanetwork._from_graph(id=self._id + str(cc_idx),is_homogenous=True, graph = new_graph,
-                                                      stride=self.stride_value, last_assigned_id=self.last_assigned_id)
+                                                      stride=self.stride_value, last_assigned_id=self.last_assigned_id,
+                                                      max_val=self.max_val_dim)
             splitted_automatas.append(new_autoama)
 
         return splitted_automatas
@@ -1964,7 +1988,7 @@ def get_bit_automaton(atm, original_bit_width):
     assert original_bit_width > 1, 'this automata is already bitwise'
     assert atm.stride_value == 1, 'input automata should not be strided'
 
-    bit_automata = Automatanetwork(id=atm.id + 'bitwise', is_homogenous=False, stride=1)
+    bit_automata = Automatanetwork(id=atm.id + 'bitwise', is_homogenous=False, stride=1, max_val=1)
     atm.unmark_all_nodes()
     ste_translation = {atm.fake_root: bit_automata.fake_root}
     left_path_trans, right_path_trans = {}, {}
@@ -2142,10 +2166,10 @@ def get_strided_automata2(atm ,stride_value, is_scalar, base_value = 0, add_resi
 
     processed_nodes, total_nodes = 0, atm.nodes_count
 
-    strided_atm = Automatanetwork(id=atm.id + 'S' + '1' if is_scalar else str(stride_value) , is_homogenous=False,
-                                  stride=1 if is_scalar else stride_value)
+    strided_atm = Automatanetwork(id=atm.id + 'S' + '1' if is_scalar else str(stride_value), is_homogenous=False,
+                                  stride=1 if is_scalar else stride_value, max_val=pow(2, stride_value) -1)
 
-    assert is_scalar and atm.stride_value == 1
+    assert is_scalar and atm.stride_value == 1 and atm.max_val_dim<2
     atm.unmark_all_nodes()
     ste_translation = {atm.fake_root: strided_atm.fake_root}
     dq = [atm.fake_root]
@@ -2270,10 +2294,10 @@ def get_strided_automata(atm ,stride_value, is_scalar, base_value = 0):
     :return: strided automata
     '''
     assert not atm.does_have_all_input(), "Automata should not have all-input nodes"
-    strided_atm = Automatanetwork(id=atm.id + 'S' + '1' if is_scalar else str(stride_value) , is_homogenous=False,
-                                  stride=1 if is_scalar else stride_value)
+    strided_atm = Automatanetwork(id=atm.id + 'S' + '1' if is_scalar else str(stride_value), is_homogenous=False,
+                                  stride=1 if is_scalar else stride_value, max_val=pow(2, stride_value) -1)
 
-    assert not is_scalar or atm.stride_value == 1
+    assert (not is_scalar or atm.stride_value == 1) and atm.max_val_dim < 2
     atm.unmark_all_nodes()
     ste_translation = {atm.fake_root: strided_atm.fake_root}
     dq = [atm.fake_root]

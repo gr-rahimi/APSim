@@ -4,7 +4,7 @@ from automata.elemnts.element import StartType
 from utility import minimize_automata, get_equivalent_symbols
 
 
-my_Automata = Automatanetwork(id="test1", is_homogenous=True, stride=1)
+my_Automata = Automatanetwork(id="test1", is_homogenous=True, stride=1, max_val=255)
 
 ste0 = S_T_E(start_type=StartType.all_input, is_report=False, is_marked=False, id = my_Automata.get_new_id(),
              symbol_set=get_Symbol_type(True)([PackedInterval(PackedInput((0, )), PackedInput((112,))),

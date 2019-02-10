@@ -22,7 +22,7 @@ max_fan_in = 3
 max_fan_out = 3
 
 def gen_fully_connected_automata(size):
-    atm = atma.automata_network.Automatanetwork(id="full automata", is_homogenous=True, stride=1)
+    atm = atma.automata_network.Automatanetwork(id="full automata", is_homogenous=True, stride=1, max_val=255)
     for i in range(size):
         to_add_ste = automata.elemnts.ste.S_T_E(start_type= StartType.start_of_data if i == 0 else StartType.non_start,
                                                 is_report = False, is_marked=False, id= str(i),

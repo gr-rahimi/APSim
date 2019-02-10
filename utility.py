@@ -1,4 +1,5 @@
 from matplotlib import colors
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
@@ -348,7 +349,7 @@ def draw_symbols_len_histogram(atm):
 
     plt.show()
 
-def _replace_equivalent_symbols(symbol_dictionary_list, atms_list):
+def _replace_equivalent_symbols(symbol_dictionary_list, atms_list, max_val):
     '''
     :param atms: list of auotmatas
     :param symbol_dictionary_list: a dictionary from nodes to set of 1D numbers
@@ -383,16 +384,20 @@ def _replace_equivalent_symbols(symbol_dictionary_list, atms_list):
                 ne[2]['symbol_set'] = new_symbol_set
 
         atm.stride_value = 1
+        atm.max_val_dim = max_val
 
-def get_equivalent_symbols(atms_list, replace = True, use_random_assignment = False):
+
+def get_equivalent_symbols(atms_list, replace=True, use_random_assignment=False, is_input_homogeneous=False):
     '''
     this function receives an input list of automatas and returns list of sets witk equivalnet symbols in the same set
     :param atms_list: list of automatas
     :param replace: True/False, if True, replaces the original autoamtaon symbol set
     :param use_random_assignment: if true, assign codes randomly else use an optimal policy
+    :param is_input_homogeneous: if True it means all the input is in the same set as symbols
     :return: list of sets of equivalent symbols in the same set
     '''
-    assert all((atm.stride_value == atms_list[0].stride_value for atm in atms_list))
+    assert atms_list
+    assert all((atm.stride_value == atms_list[0].stride_value and atm.max_val_dim == atms_list[0].max_val_dim for atm in atms_list))
 
     symbol_map = {}
     size = 0
@@ -411,11 +416,13 @@ def get_equivalent_symbols(atms_list, replace = True, use_random_assignment = Fa
 
                 symbol_map[pt] = buffer[current_map]
 
-
     # optimal range assignment
     optimal_dics = [] # keep tracks of compressed labels for each ste
     assigned_dic = {} # keeps the last assignment in order
     new_dic = {}
+
+    assert pow(atms_list[0].max_val_dim + 1, atms_list[0].stride_value) >= len(symbol_map), 'This conndition should be satisfied'
+    need_extra_code = is_input_homogeneous is False and pow(atms_list[0].max_val_dim + 1, atms_list[0].stride_value) > len(symbol_map) # check if the automatas cover all the input cases
 
     if use_random_assignment is False:
         sym_graph = nx.MultiGraph()
@@ -430,7 +437,7 @@ def get_equivalent_symbols(atms_list, replace = True, use_random_assignment = Fa
             for pt in sym_set.points:
                 orig_label = symbol_map[pt]
                 if orig_label not in assigned_dic:
-                    assigned_dic[orig_label] = len(assigned_dic) + 1
+                    assigned_dic[orig_label] = len(assigned_dic) + (1 if need_extra_code else 0)
                 new_dic[pt] = assigned_dic[orig_label]
                 optimal_dic.setdefault(sym_set, set()).add(assigned_dic[orig_label])
 
@@ -446,9 +453,9 @@ def get_equivalent_symbols(atms_list, replace = True, use_random_assignment = Fa
                             sym_graph.add_edge(src_s, dst_s)
         optimal_dics.append(optimal_dic)
 
+
     if use_random_assignment is False:
         new_map = {}
-        removed_nodes = set()
         while sym_graph.nodes:
             min_degree, min_node = None, None
             for n in sym_graph.nodes:
@@ -457,11 +464,11 @@ def get_equivalent_symbols(atms_list, replace = True, use_random_assignment = Fa
                 elif sym_graph.degree(n) < min_degree:
                     min_degree, min_node = sym_graph.degree(n), n
 
-            new_map[min_node] = len(new_map) + 1
+            new_map[min_node] = len(new_map) + (1 if need_extra_code else 0)
 
             current_node = min_node
 
-            while current_node and sym_graph.neighbors(current_node):
+            while current_node is not None and sym_graph.neighbors(current_node):
 
                 best_degree, best_node = None, None
 
@@ -473,23 +480,29 @@ def get_equivalent_symbols(atms_list, replace = True, use_random_assignment = Fa
 
                 sym_graph.remove_node(current_node)
                 current_node = best_node
-                if best_node:
-                    new_map[best_node] = len(new_map) + 1
+                if best_node is not None:
+                    new_map[best_node] = len(new_map) + (1 if need_extra_code else 0)
 
-            if current_node:
+            if current_node is not None:
                 sym_graph.remove_node(current_node)
 
         for opt_dic in optimal_dics:
             for sym_set in opt_dic:
                 old_set = opt_dic[sym_set]
+                new_set=set()
+                for ch in old_set:
+                    new_set.add(new_map[ch])
                 new_set = set([new_map[ch] for ch in old_set])
 
             opt_dic[sym_set] = new_set
 
     if replace:
-        _replace_equivalent_symbols(symbol_dictionary_list=optimal_dics, atms_list=atms_list)
+        _replace_equivalent_symbols(symbol_dictionary_list=optimal_dics, atms_list=atms_list, max_val=len(new_map) + (-1 if need_extra_code is False else 0))
 
-    return new_dic
+    if use_random_assignment is False:
+        return {pt:new_map[pt_map] for pt, pt_map in new_dic.iteritems()}
+    else:
+        return new_dic
 
 def get_interval(inp_list):
     '''
@@ -575,18 +588,20 @@ def _get_alphabet_list(atm, bits_count):
     :return: a set of unque integers
     '''
     assert atm.stride_value==1 and atm.is_homogeneous
+    has_star = False
     pt_set=set()
     for node in atm.nodes:
         if node.type == ElementsType.FAKE_ROOT:
             continue
 
         if node.symbols.is_star(pow(2, bits_count) - 1):
+            has_star = True
             continue
 
         for pt in node.symbols.points:
             pt_set.add(pt[0])
 
-    return list(pt_set)
+    return list(pt_set), has_star
 
 def replace_with_unified_symbol(atm, bits_count, is_input_homogeneous):
     '''
@@ -608,13 +623,14 @@ def replace_with_unified_symbol(atm, bits_count, is_input_homogeneous):
         '''
         assert atm.stride_value == 1
         out_dic = {}
-        dst_sym_size = len(set(pt_dic.itervalues()))
+        codes_max = max(pt_dic.itervalues())
+        bit_len = int(math.ceil(math.log(codes_max + 1, 2)))
         for node in atm.nodes:
             if node.type == ElementsType.FAKE_ROOT:
                 continue
 
             if node.symbols.is_star(max_val=pow(2, bits_count) - 1):
-                out_dic[node.symbols] = set(range(dst_sym_size + (1 if not is_input_homogeneous else 0)))  # we added 1 here to cover complement of symbols for star
+                out_dic[node.symbols] = set(range(pow(2, bit_len)))
 
             else:
                 val_set = out_dic.setdefault(node.symbols, set())
@@ -623,8 +639,8 @@ def replace_with_unified_symbol(atm, bits_count, is_input_homogeneous):
 
         return out_dic
 
-    alphabet_list = _get_alphabet_list(atm, bits_count=bits_count)
-    pt_dic = {ch: alphabet_list.index(ch) for ch in alphabet_list}
+    alphabet_list, has_star = _get_alphabet_list(atm, bits_count=bits_count)
+    pt_dic = {ch: (ch_idx + (1 if is_input_homogeneous is False and len(alphabet_list)!=pow(2,bits_count) and has_star is False else 0))for ch_idx, ch in enumerate(alphabet_list)}
     sym_dict = get_sym_dictionary(atm, pt_dic=pt_dic, bits_count=bits_count)
     _replace_equivalent_symbols(symbol_dictionary_list=[sym_dict], atms_list=[atm])
 
