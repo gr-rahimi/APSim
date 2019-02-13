@@ -1458,7 +1458,7 @@ class Automatanetwork(object):
                             self.delete_node(sec_neighb_node)
                             first_neighb_node.symbols.prone() # it is not necessary
                             first_neighb_node.symbols.merge()
-                        else:
+                        elif combine_equal_syms_only is False:
                             for interval in sec_neighb_node.symbols:
                                 first_neighb_node.symbols.add_interval(interval)
                             first_neighb_node.symbols.prone()
@@ -2144,6 +2144,7 @@ def get_strided_automata2(atm ,stride_value, is_scalar, base_value = 0, add_resi
     '''
 
     assert not atm.does_have_all_input(), "Automata should not have all-input nodes"
+    assert stride_value > 1, 'destination stride should be bigger than 1'
 
     if add_residual:
         report_nodes = list(atm.get_filtered_nodes(lambda n: n.report))

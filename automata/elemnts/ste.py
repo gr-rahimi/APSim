@@ -290,7 +290,7 @@ class PackedIntervalSet(object):
 
             ranges = [(ivl.left[d], ivl.right[d]) for ivl in self._interval_set]
             ranges = sorted(set(ranges))
-            curr_time = 0
+            curr_time = -1
             processed_range_idx = -1
             finish_list = []
             last_covered_time = -1
