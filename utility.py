@@ -580,7 +580,7 @@ def is_there_a_binary_path(atm, src, dst, val, bits_count):
 
 
 
-def _get_alphabet_list(atm, bits_count):
+def _get_alphabet_list(atm):
     '''
     this function returns set of unique symbols of all STEs in an automata
     the input automata should have stride 1 and homogeneous
@@ -594,7 +594,7 @@ def _get_alphabet_list(atm, bits_count):
         if node.type == ElementsType.FAKE_ROOT:
             continue
 
-        if node.symbols.is_star(pow(2, bits_count) - 1):
+        if node.symbols.is_star(atm.max_val_dim):
             has_star = True
             continue
 
@@ -603,17 +603,16 @@ def _get_alphabet_list(atm, bits_count):
 
     return list(pt_set), has_star
 
-def replace_with_unified_symbol(atm, bits_count, is_input_homogeneous):
+def replace_with_unified_symbol(atm, is_input_homogeneous):
     '''
     this function receives a single stride homogemneous automata  and replace the symbols with integers starting from 0
     and the last integers for start case
     :param atm: input atm
-    :param bits_count: number of bits of symbols for current autoamta
     :return: None
     '''
     assert atm.is_homogeneous and atm.stride_value==1
 
-    def get_sym_dictionary(atm, pt_dic, bits_count):
+    def get_sym_dictionary(atm, pt_dic):
         '''
         this function receives an automata and a point dictionary. it returns a new dictionary whcih keys are nodes and values
         are a set of new symbols
@@ -624,14 +623,13 @@ def replace_with_unified_symbol(atm, bits_count, is_input_homogeneous):
         assert atm.stride_value == 1
         out_dic = {}
         codes_max = max(pt_dic.itervalues())
-        bit_len = int(math.ceil(math.log(codes_max + 1, 2)))
+
         for node in atm.nodes:
             if node.type == ElementsType.FAKE_ROOT:
                 continue
 
-            if node.symbols.is_star(max_val=pow(2, bits_count) - 1):
-                out_dic[node.symbols] = set(range(pow(2, bit_len)))
-
+            if node.symbols.is_star(max_val=atm.max_val_dim):
+                out_dic[node.symbols] = set(range(codes_max + 1))
             else:
                 val_set = out_dic.setdefault(node.symbols, set())
                 for pt in node.symbols.points:
@@ -639,9 +637,9 @@ def replace_with_unified_symbol(atm, bits_count, is_input_homogeneous):
 
         return out_dic
 
-    alphabet_list, has_star = _get_alphabet_list(atm, bits_count=bits_count)
-    pt_dic = {ch: (ch_idx + (1 if is_input_homogeneous is False and len(alphabet_list)!=pow(2,bits_count) and has_star is False else 0))for ch_idx, ch in enumerate(alphabet_list)}
-    sym_dict = get_sym_dictionary(atm, pt_dic=pt_dic, bits_count=bits_count)
-    _replace_equivalent_symbols(symbol_dictionary_list=[sym_dict], atms_list=[atm])
+    alphabet_list, has_star = _get_alphabet_list(atm)
+    pt_dic = {ch: (ch_idx + (1 if is_input_homogeneous is False and len(alphabet_list) < (atm.max_val_dim + 1) and has_star is False else 0))for ch_idx, ch in enumerate(alphabet_list)}
+    sym_dict = get_sym_dictionary(atm, pt_dic=pt_dic)
+    _replace_equivalent_symbols(symbol_dictionary_list=[sym_dict], atms_list=[atm], max_val=max(pt_dic.itervalues()))
 
     return alphabet_list

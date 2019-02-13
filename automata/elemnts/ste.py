@@ -11,6 +11,7 @@ from sortedcontainers import SortedSet
 
 symbol_type = 1 #cl
 
+
 def get_Symbol_type(is_naive = False):
     if symbol_type == 1:
         return PackedIntervalSet
@@ -19,7 +20,6 @@ def get_Symbol_type(is_naive = False):
             return GeneratorSymbolSet
         else:
             return NaiveSymbolSet
-
 
 
 class GeneratorSymbolSet(object):
@@ -114,8 +114,6 @@ class GeneratorSymbolSet(object):
         pass
 
 
-
-
 class NaiveSymbolSet(GeneratorSymbolSet):
     def __init__(self, intervals):
         '''
@@ -144,10 +142,6 @@ class NaiveSymbolSet(GeneratorSymbolSet):
                 yield left_list, right_list
 
         return my_generator()
-
-
-
-
 
 
 class ComparableMixin(object):
@@ -666,33 +660,5 @@ class S_T_E(BaseElement):
     @property
     def type(self):
         return ElementsType.STE
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
