@@ -187,6 +187,9 @@ class PackedInput(ComparableMixin):
     def point(self):
         return self._point
 
+    def __hash__(self):
+        return hash(self._point)
+
 
 class PackedInterval(object):
 
