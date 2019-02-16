@@ -45,6 +45,10 @@ class OrElement(BaseElement):
     def type(self):
         return ElementsType.OR
 
+    @property
+    def is_fake(self):
+        return False
+
 
 
 

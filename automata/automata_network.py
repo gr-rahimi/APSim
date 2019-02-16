@@ -407,10 +407,13 @@ class Automatanetwork(object):
         self._my_graph.remove_node(node)
 
 
-    def _make_homogeneous_STE(self, current_ste, delete_original_ste):
+    def _make_homogeneous_STE(self, current_ste, delete_original_ste, plus_src):
         """
 
         :param current_ste: the STE that needs to be homogeneos
+        :param delete_original_ste: if true, it will delete the original STE
+        :param plus_src: if this parameter is True, the autoamtaon will be homogeneous based on source and symbol sets.
+        otherwise, it only be homogeneous based on symbol set
         :return:
         """
 
@@ -428,33 +431,37 @@ class Automatanetwork(object):
             start_type = edge[2]['start_type']
 
             if start_type == StartType.non_start:
+                in_dic_sym_set=src_dict_non_start.setdefault(edge[0], PackedIntervalSet([]))
                 for l in symbol_set:
-                    src_dict_non_start.setdefault(edge[0], PackedIntervalSet([])).add_interval(l)
+                    in_dic_sym_set.add_interval(l)
             elif start_type == StartType.start_of_data:
+                in_dic_sym_set = src_dict_start_of_data.setdefault(edge[0], PackedIntervalSet([]))
                 for l in symbol_set:
-                    src_dict_start_of_data.setdefault(edge[0], PackedIntervalSet([])).add_interval(l)
+                    in_dic_sym_set.add_interval(l)
             elif start_type == StartType.all_input:
+                in_dic_sym_set = src_dict_all_start.setdefault(edge[0], PackedIntervalSet([]))
                 for l in symbol_set:
-                    src_dict_all_start.setdefault(edge[0], PackedIntervalSet([])).add_interval(l)
+                    in_dic_sym_set.add_interval(l)
             else:
                 assert False  # It should not happen
 
         new_nodes = []
         new_all_input_nodes = self._make_homogenous_node(curr_node=current_ste, connectivity_dic=src_dict_all_start,
-                                                         start_type=StartType.all_input)
+                                                         start_type=StartType.all_input, plus_src=plus_src)
         new_nodes.extend(new_all_input_nodes)
 
         new_start_of_data_nodes = self._make_homogenous_node(curr_node=current_ste,
                                                              connectivity_dic=src_dict_start_of_data,
-                                                             start_type=StartType.start_of_data)
+                                                             start_type=StartType.start_of_data, plus_src=plus_src)
         new_nodes.extend(new_start_of_data_nodes)
 
         new_non_start_nodes = self._make_homogenous_node(curr_node=current_ste, connectivity_dic=src_dict_non_start,
-                                                         start_type=StartType.non_start)
+                                                         start_type=StartType.non_start, plus_src=plus_src)
         new_nodes.extend(new_non_start_nodes)
 
         if self.does_STE_has_self_loop(current_ste):  # handling self loop nodes
             self_loop_on_edge_char_set = src_dict_non_start[current_ste]
+
             self_loop_handler = S_T_E(start_type=StartType.non_start, is_report=current_ste.report,
                                       is_marked=True, id=self.get_new_id(),
                                       symbol_set=self_loop_on_edge_char_set,
@@ -476,8 +483,10 @@ class Automatanetwork(object):
         if delete_original_ste:
             self.delete_node(current_ste)
 
-    def make_homogenous(self):
+    def make_homogenous(self, plus_src):
         """
+        :param plus_src: if this parameter is True, the autoamtaon will be homogeneous based on source and symbol sets.
+        otherwise, it only be homogeneous based on symbol set
         :return:
         """
         self.unmark_all_nodes()
@@ -503,7 +512,7 @@ class Automatanetwork(object):
                     pred.marked = True
                     dq.appendleft(pred)
 
-            self._make_homogeneous_STE(current_ste= current_ste, delete_original_ste = True)
+            self._make_homogeneous_STE(current_ste=current_ste, delete_original_ste=True, plus_src=plus_src)
 
         self.is_homogeneous = True
 
@@ -804,10 +813,16 @@ class Automatanetwork(object):
 
         return dict(zip(nodes, best_individual))
 
+    def _make_homogenous_node(self, curr_node, connectivity_dic, start_type, plus_src):
+        '''
 
-
-
-    def _make_homogenous_node(self, curr_node, connectivity_dic, start_type):
+        :param curr_node:
+        :param connectivity_dic:
+        :param start_type:
+        :param plus_src: if this parameter is True, the autoamtaon will be homogeneous based on source and symbol sets.
+        otherwise, it only be homogeneous based on symbol set
+        :return:
+        '''
 
         new_nodes = []
         new_node_dic={}
@@ -815,7 +830,7 @@ class Automatanetwork(object):
         for neighb, on_edge_char_set in connectivity_dic.iteritems():
             create_new_node = False
             if curr_node != neighb:
-                if on_edge_char_set not in new_node_dic:
+                if plus_src is True or on_edge_char_set not in new_node_dic:
                     create_new_node = True
                     new_node = S_T_E(start_type=start_type, is_report=curr_node.report, is_marked=True,
                                      id=self.get_new_id(),
@@ -827,10 +842,10 @@ class Automatanetwork(object):
                 else:
                     new_node = new_node_dic[on_edge_char_set]
                 if create_new_node:
-                    self.add_element(new_node, connect_to_fake_root= False) # it will not be coonected to fake_root since the graph is not homogeneous at the moment
+                    self.add_element(new_node, connect_to_fake_root=False) # it will not be coonected to fake_root since the graph is not homogeneous at the moment
                     new_nodes.append(new_node)
-                self.add_edge(neighb, new_node, symbol_set = new_node.symbols, start_type = new_node.start_type)
-                out_edges = self._my_graph.out_edges(curr_node, data = True, keys = False)
+                self.add_edge(neighb, new_node, symbol_set=new_node.symbols, start_type=new_node.start_type)
+                out_edges = self._my_graph.out_edges(curr_node, data=True, keys=False)
 
                 for edge in out_edges:
                     if edge[1] != edge[0]:
@@ -840,7 +855,6 @@ class Automatanetwork(object):
             else:
                 assert start_type == StartType.non_start, "self loops should be in non start category"
                 continue # self-loops node will be processed later
-
         return new_nodes
 
 

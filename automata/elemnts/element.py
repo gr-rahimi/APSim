@@ -50,6 +50,9 @@ class BaseElement(object):
     @abstractproperty
     def type(self):
         pass
+    @abstractproperty
+    def is_fake(self):
+        pass
 
     def __hash__(self):
         return hash(self.id)
@@ -176,6 +179,10 @@ class FakeRoot(BaseElement):
     @property
     def type(self):
         return ElementsType.FAKE_ROOT
+
+    @property
+    def is_fake(self):
+        return True
 
 
 

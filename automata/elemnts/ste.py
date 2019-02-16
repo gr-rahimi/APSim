@@ -664,4 +664,8 @@ class S_T_E(BaseElement):
     def type(self):
         return ElementsType.STE
 
+    @property
+    def is_fake(self):
+        return False
+
 
