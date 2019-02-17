@@ -11,9 +11,11 @@ import logging
 #Snort, EntityResolution, ClamAV, Hamming, Dotstart, Custom, Bro217, Levenstein, Bril,
 # Randomfor, Dotstar03, ExactMath,Dotstar06, Fermi, PowerEN, Protomata, Dotstart09, Ranges1, SPM, Ranges 05
 #SynthBring, Synthcorering
-under_process_atms = [AnmalZoo.Levenshtein]
+under_process_atms = [AnmalZoo.Snort]
 exempts = {(AnmalZoo.Snort, 1411)}
-hom_between = False # make homogeneous between strides if True
+hom_between = True # make homogeneous between strides if True
+plus_src=True
+
 for uat in under_process_atms:
 
     automatas = atma.parse_anml_file(anml_path[uat])
@@ -23,11 +25,12 @@ for uat in under_process_atms:
     filed_names = ['number_of_states', 'number_of_edges', 'max_fan_in', 'max_fan_out',
                    'max_symbol_len', 'min_symbol_len', 'total_sym']
 
-    for stride_val in range(7):
+    for stride_val in range(3):
         with open(str(uat)+'_'+str(stride_val)+'.csv', 'w') as csv_file:
             csv_writer = csv.writer(csv_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
             csv_writer.writerow(filed_names)
-            for atm_idx, atm in enumerate(automatas[:1]):
+            for atm_idx, atm in enumerate(automatas[2:3]):
+                atm.remove_all_start_nodes()
                 if (uat, atm_idx) in exempts:
                     continue
                 print 'processing {0} stride{3} automata {1} from {2}'.format(uat, atm_idx, len(automatas), stride_val)
@@ -36,12 +39,19 @@ for uat in under_process_atms:
                 for _ in range(stride_val):
                     atm = atm.get_single_stride_graph()
                     if hom_between:
-                        atm.make_homogenous()
+                        atm.make_homogenous(plus_src=plus_src)
 
                 if not atm.is_homogeneous:
                     atm.make_homogenous()
                 minimize_automata(atm, merge_reports=True, same_residuals_only=True, same_report_code=True,
-                                  combine_symbols=True if hom_between is not True else False)
+                                  combine_equal_syms_only=True)
+
+                atm.draw_graph(str(uat) + '_'+str(stride_val)+str(plus_src)+'.svg')
+
+                for n in atm.nodes:
+                    if n.is_fake:
+                        continue
+                    assert n.is_symbolset_splitable()
 
                 all_nodes = filter(lambda n: n.id != 0 , atm.nodes)  # filter fake root
                 all_nodes_symbols_len_count = [len(n.symbols) for n in all_nodes]
