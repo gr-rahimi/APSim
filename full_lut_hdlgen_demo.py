@@ -39,12 +39,12 @@ random.seed=3
 #Snort, EntityResolution, ClamAV, Hamming, Dotstart, Custom, Bro217, Levenstein, Bril,
 # Randomfor, Dotstar03, ExactMath,Dotstar06, Fermi, PowerEN, Protomata, Dotstart09, Ranges1, SPM, Ranges 05
 #SynthBring, Synthcorering
-under_process_atms = [AnmalZoo.Levenshtein]
+under_process_atms = [AnmalZoo.Snort]
 exempts = {(AnmalZoo.Snort, 1411)}
 hom_between = False
 number_of_autoamtas = 50
-automata_per_stage = 10
-use_compression = True
+automata_per_stage = 50
+use_compression = False
 single_out=False
 before_match_reg=False
 after_match_reg=False
@@ -64,7 +64,7 @@ for uat in under_process_atms:
         automatas = automatas[:number_of_autoamtas]
 
     number_of_stages = math.ceil(len(automatas) / float(automata_per_stage))
-    for stride_val in range(4):
+    for stride_val in range(3):
 
         hdl_apth = hd_gen.get_hdl_folder_path(prefix=str(uat), number_of_atms=len(automatas), stride_value=stride_val,
                                               before_match_reg=before_match_reg, after_match_reg=after_match_reg,
@@ -109,7 +109,7 @@ for uat in under_process_atms:
             strided_automatas.append(atm.id)
 
             generator_ins.register_automata(atm=atm, use_compression=use_compression, byte_trans_map=bc_sym_dict if use_compression else None,
-                                            translation_list=translation_list, compression_depth=compression_depth)
+                                            translation_list=translation_list)
             if use_compression:
                 generator_ins.register_compressor([atm.id], byte_trans_map=bc_sym_dict,
                                                   translation_list=translation_list)

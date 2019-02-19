@@ -72,10 +72,12 @@ def generate_semi_diagonal_route(basic_block_size, one_dir_copy):
 
 
 def minimize_automata(automata,
-                      merge_reports = True, same_residuals_only = True,
-                      same_report_code = True, left_merge = True, right_merge = True,
-                      combine_symbols = True, combine_equal_syms_only = False):
+                      merge_reports=True, same_residuals_only=True,
+                      same_report_code=True, left_merge=True, right_merge=True,
+                      combine_symbols=True, combine_equal_syms_only=False, add_all_input=True):
     assert automata.is_homogeneous, 'minimization only works for homogeneous representation'
+
+
     original_node_count = automata.nodes_count
 
     automata.prone_all_symbol_sets()
@@ -96,6 +98,8 @@ def minimize_automata(automata,
         if combine_symbols:
             logging.debug("combine symbol set")
             automata.combine_symbol_sets(merge_reports, same_residuals_only, same_report_code, combine_equal_syms_only)
+        if add_all_input:
+            automata.add_all_start_node()
         new_node_count = automata.nodes_count
         assert new_node_count <= current_node_cont, "it should always be smaller"
         if new_node_count == current_node_cont:

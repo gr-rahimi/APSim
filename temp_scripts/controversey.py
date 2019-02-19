@@ -52,7 +52,7 @@ ste11 = S_T_E(start_type=StartType.non_start, is_report=False, is_marked=False, 
 
 
 hmh=True
-plus_src=False
+plus_src=True
 
 my_Automata.add_element(ste1)
 my_Automata.add_element(ste2)

@@ -30,7 +30,6 @@ for uat in under_process_atms:
             csv_writer = csv.writer(csv_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
             csv_writer.writerow(filed_names)
             for atm_idx, atm in enumerate(automatas[2:3]):
-                atm.remove_all_start_nodes()
                 if (uat, atm_idx) in exempts:
                     continue
                 print 'processing {0} stride{3} automata {1} from {2}'.format(uat, atm_idx, len(automatas), stride_val)

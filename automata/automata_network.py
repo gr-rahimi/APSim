@@ -279,7 +279,12 @@ class Automatanetwork(object):
         It assumes that the graph in current state is a homogeneous graph
         :return: a graph with a single step stride
         """
-        assert not self.does_have_all_input(), "Automata should not have all-input nodes"
+
+        does_have_all_input = self.does_have_all_input()
+
+        if does_have_all_input:
+            self.remove_all_start_nodes()
+
         dq = deque()
         self.unmark_all_nodes()
         strided_graph = Automatanetwork(id=self._id + "_S1", is_homogenous=False, stride=self.stride_value * 2,
@@ -372,7 +377,13 @@ class Automatanetwork(object):
                                                        if current_ste.start_type == StartType.fake_root
                                                        else StartType.non_start)
         strided_graph.prone_all_symbol_sets()
+
+        if does_have_all_input:
+            self.add_all_start_node()
+
         return strided_graph
+
+
 
     def _refine_edges(self):
         """
@@ -405,6 +416,18 @@ class Automatanetwork(object):
         #TODO log message for this operation
         assert node in self.nodes
         self._my_graph.remove_node(node)
+
+    def delete_edge(self, src, dst):
+        '''
+        remove an edge between source and destenation
+        :param src: source node
+        :param dst: destenation node
+        :return: None
+        '''
+
+        assert self._my_graph.number_of_edges(src, dst) == 1, 'there should be only one edge between src and dst'
+
+        self._my_graph.remove_edge(src, dst)
 
 
     def _make_homogeneous_STE(self, current_ste, delete_original_ste, plus_src):
@@ -1235,6 +1258,34 @@ class Automatanetwork(object):
                 return True
         return False
 
+    def add_all_start_node(self):
+        '''
+        this function looks for star nodes that ttry to simulate all start node and remove them
+        :return: None
+        '''
+
+        assert self.is_homogeneous, 'this function only works for homogeneous automatons'
+        star_nodes = [] # keeps a list of nodes that can be removed
+
+        for neighb in self._my_graph.neighbors(self.fake_root):
+            if neighb.symbols.is_star(self.max_val_dim) and self.does_STE_has_self_loop(neighb):
+                star_nodes.append(neighb)
+
+
+        for sn in star_nodes:
+            valid = True
+            for sn_neighbor in self._my_graph.neighbors(sn):
+                if sn_neighbor.is_start is False:
+                    valid = False
+
+            if valid is True:
+                for sn_neighbor in self._my_graph.neighbors(sn):
+                    self.delete_edge(self.fake_root, sn_neighbor)# we want to make sure that the edge lable is consistent
+                    sn_neighbor.start_type = StartType.all_input
+                    self.add_edge(self.fake_root, sn_neighbor)
+                self.delete_node(sn)
+
+
     def remove_all_start_nodes(self):
         """
         this funstion add a new node that accepts Dot Kleene start and connect it to all "all_input nodes"
@@ -1243,28 +1294,27 @@ class Automatanetwork(object):
         :return: a graph taht does not have any start node with all_input condition
         """
 
-        assert self.is_homogeneous and self.stride_value == 1,\
-            "Graph should be in homogenous state to handle this situation and alaso it should be single stride"
+        assert self.is_homogeneous, "Graph should be in homogenous state to handle this situation"
 
         if not self.does_have_all_input():
             return
 
-        star_node = S_T_E(start_type = StartType.start_of_data, is_report=False, is_marked=False,
-                          id=self.get_new_id(), symbol_set=PackedIntervalSet.get_star(dim=1, max_val=self.max_val_dim), adjacent_S_T_E_s=None,
-                          report_residual=-1, report_code=-1)
+        star_node = S_T_E(start_type=StartType.start_of_data, is_report=False, is_marked=False,
+                          id=self.get_new_id(), symbol_set=PackedIntervalSet.get_star(dim=self.stride_value,
+                                                                                      max_val=self.max_val_dim),
+                          adjacent_S_T_E_s=None, report_residual=-1, report_code=-1)
 
-        self.add_element(to_add_element = star_node, connect_to_fake_root = True)
-
+        self.add_element(to_add_element=star_node, connect_to_fake_root=True)
         self.add_edge(star_node, star_node)
 
         for node in self._my_graph.neighbors(self.fake_root):
-
             if node == star_node:
                 continue
             if node.start_type == StartType.all_input:
-                node.start_type=StartType.start_of_data
+                self.delete_edge(self.fake_root, node) # edge labels should be updated
+                node.start_type = StartType.start_of_data
                 self.add_edge(star_node, node)
-
+                self.add_edge(self.fake_root, node)
 
     def get_connected_components_size(self):
         undirected_graph= self._my_graph.to_undirected()

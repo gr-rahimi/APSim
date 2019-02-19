@@ -236,8 +236,14 @@ class PackedInterval(object):
         :param max_val: maximum value of star. for 8 bit, it is 255
         :return: True if it is star
         '''
-        assert self.dim == 1
-        return self.left[0] == 0 and self.right[0] == max_val
+
+        for d in range(self.dim):
+            if self.left[d] == 0 and self.right[d] == max_val:
+                continue
+            else:
+                return False
+
+        return True
 
     def __hash__(self):
         return hash((self.left, self.right))
@@ -509,7 +515,6 @@ class PackedIntervalSet(object):
         :Param maximum acceptable value
         :return: True if it is
         '''
-        assert self.dim == 1
         for ivl in self:
             if ivl.is_interval_star(max_val=max_val):
                 return True
