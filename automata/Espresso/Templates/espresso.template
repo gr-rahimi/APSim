@@ -1,0 +1,17 @@
+{#
+@param symset: the symbol set that needs to be feed into
+@param max_val: the maximum value that will feed into (starts from 0)
+#}
+.mv {{symset.dim + 1}} 0 {% for _ in range(symset.dim) %}{{max_val + 1}} {%endfor %}2
+{% for ivl in symset -%}
+    {% for d in range(symset.dim) -%}
+        {%- set dim_left = ivl.left[d] -%}
+        {%- set dim_right = ivl.right[d] -%}
+        {%- for b in range(max_val + 1) -%}
+        {% if b<dim_left or b>dim_right %}0{% else %}1{% endif -%}
+        {%- endfor-%}
+        |
+    {%- endfor -%}
+    01
+{% endfor %}
+

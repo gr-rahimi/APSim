@@ -11,7 +11,7 @@ import logging
 #Snort, EntityResolution, ClamAV, Hamming, Dotstart, Custom, Bro217, Levenstein, Bril,
 # Randomfor, Dotstar03, ExactMath,Dotstar06, Fermi, PowerEN, Protomata, Dotstart09, Ranges1, SPM, Ranges 05
 #SynthBring, Synthcorering
-under_process_atms = [AnmalZoo.Snort]
+under_process_atms = [AnmalZoo.Hamming]
 exempts = {(AnmalZoo.Snort, 1411)}
 hom_between = True # make homogeneous between strides if True
 plus_src=True

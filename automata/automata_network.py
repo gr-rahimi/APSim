@@ -16,6 +16,7 @@ from deap import algorithms, base, creator, tools
 import numpy as np
 import utility
 from networkx.drawing.nx_agraph import write_dot
+from automata.Espresso.espresso import get_splitted_sym_sets
 import logging
 
 
@@ -378,9 +379,6 @@ class Automatanetwork(object):
                                                        else StartType.non_start)
         strided_graph.prone_all_symbol_sets()
 
-        if does_have_all_input:
-            self.add_all_start_node()
-
         return strided_graph
 
 
@@ -506,9 +504,65 @@ class Automatanetwork(object):
         if delete_original_ste:
             self.delete_node(current_ste)
 
-    def make_homogenous(self, plus_src):
+    def fix_split_node(self, node):
+        '''
+        this function splits a single node
+        :param node: the node that needs to be splitted
+        :return:
+        '''
+        assert node.symbols.is_splittable() is False, 'this node does not need to be splitted'
+        assert self.is_homogeneous
+        new_sym_count, new_syms_list = get_splitted_sym_sets(node.symbols, self.max_val_dim)
+        self_loop = self.does_STE_has_self_loop(node)
+
+        preds = set(self.get_predecessors(node))
+        neighbs = set(self.get_neighbors(node))
+
+        if self_loop:
+            preds.remove(node)
+            neighbs.remove()
+
+        if self.fake_root in preds:
+            preds.remove(self.fake_root) # fake root will be added automatically
+
+
+        for new_sym in new_syms_list:
+            new_node = S_T_E(start_type=node.start_type,
+                             is_report=node.report,
+                             is_marked=False,
+                             id=self.get_new_id(),
+                             symbol_set=new_sym,
+                             adjacent_S_T_E_s=None,
+                             report_residual=node.report_residual,
+                             report_code=node.report_code)
+
+            self.add_element(new_node)
+            if self_loop:
+                self.add_edge(new_node, new_node)
+
+            for pred in preds:
+                self.add_edge(pred, new_node)
+
+            for neighb in neighbs:
+                self.add_edge(new_node, neighb)
+
+        self.delete_node(node)  # delete node from graph
+
+    def fix_split_all(self):
+        '''
+        this function fixed any state that it is not splittable
+        :return:
+        '''
+        assert self.is_homogeneous
+        for node in list(self.nodes):
+            if node.is_fake:
+                continue
+            if node.symbols.is_splittable() is False:
+                self.fix_split_node(node)
+
+    def make_homogenous(self, plus_src = False):
         """
-        :param plus_src: if this parameter is True, the autoamtaon will be homogeneous based on source and symbol sets.
+        :param plus_src: if this parameter is True, the autoamaton will be homogeneous based on source and symbol sets.
         otherwise, it only be homogeneous based on symbol set
         :return:
         """
@@ -1275,7 +1329,7 @@ class Automatanetwork(object):
         for sn in star_nodes:
             valid = True
             for sn_neighbor in self._my_graph.neighbors(sn):
-                if sn_neighbor.is_start is False:
+                if sn_neighbor.is_start() is False:
                     valid = False
 
             if valid is True:

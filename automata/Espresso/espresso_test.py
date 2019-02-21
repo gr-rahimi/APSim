@@ -1,13 +1,17 @@
+import subprocess
 from jinja2 import Environment, FileSystemLoader
 from automata.elemnts.ste import PackedIntervalSet, PackedInterval, PackedInput
 
+from automata.Espresso.espresso import get_splitted_sym_sets
+
+import re
+
 symset= PackedIntervalSet([])
 
-symset.add_interval(PackedInterval(PackedInput((10,20)), PackedInput((40, 60))))
-symset.add_interval(PackedInterval(PackedInput((80,100)), PackedInput((85, 110))))
+symset.add_interval(PackedInterval(PackedInput((5, 5)), PackedInput((8, 9))))
+symset.add_interval(PackedInterval(PackedInput((4, 5)), PackedInput((7, 9))))
+symset.add_interval(PackedInterval(PackedInput((8, 1)), PackedInput((9, 6))))
 
-env = Environment(loader=FileSystemLoader('automata/Espresso/Templates'), extensions=['jinja2.ext.do'])
-template = env.get_template('espresso.template')
-out_str=template.render(symset=symset, max_val=255)
-print out_str
+a,b = get_splitted_sym_sets(symset=symset, max_val=15)
+print a,b
 
