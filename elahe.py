@@ -8,11 +8,13 @@ import automata.HDL.hdl_generator as hd_gen
 import csv
 import logging
 
+#logging.basicConfig(level=logging.DEBUG)
+
 #Snort, EntityResolution, ClamAV, Hamming, Dotstart, Custom, Bro217, Levenstein, Bril,
 # Randomfor, Dotstar03, ExactMath,Dotstar06, Fermi, PowerEN, Protomata, Dotstart09, Ranges1, SPM, Ranges 05
 #SynthBring, Synthcorering
 
-uat = AnmalZoo.TCP
+uat = AnmalZoo.Hamming
 
 automatas = atma.parse_anml_file(anml_path[uat])
 automata_name = str(uat)
@@ -37,7 +39,9 @@ for stride_val in range(4):
     with open(automata_name + '_' + str(stride_val) + '.csv', 'w') as csv_file:
         csv_writer = csv.writer(csv_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         csv_writer.writerow(filed_names)
+        automatas = automatas[:1]
         for atm_idx, atm in enumerate(automatas):
+            #print atm.get_summary()
 
             for _ in range(stride_val):
                 atm = atm.get_single_stride_graph()

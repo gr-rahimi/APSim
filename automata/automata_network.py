@@ -520,7 +520,7 @@ class Automatanetwork(object):
 
         if self_loop:
             preds.remove(node)
-            neighbs.remove()
+            neighbs.remove(node)
 
         if self.fake_root in preds:
             preds.remove(self.fake_root) # fake root will be added automatically
