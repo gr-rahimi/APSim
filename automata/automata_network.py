@@ -202,7 +202,7 @@ class Automatanetwork(object):
 
     @property
     def edges_count(self):
-        self._my_graph.number_of_edges() - self.number_of_start_nodes
+        return self._my_graph.number_of_edges() - self.number_of_start_nodes
 
     def get_neighbors(self, node):
         return self._my_graph.neighbors(node)
