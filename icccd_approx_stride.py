@@ -1,12 +1,9 @@
 import automata as atma
-from automata.automata_network import compare_input, compare_strided
-from anml_zoo import anml_path,input_path,AnmalZoo
+from automata.AnmalZoo.anml_zoo import anml_path,input_path,AnmalZoo
 from tqdm import tqdm
 tqdm.monitor_interval = 0
-import pickle
-from utility import minimize_automata
 import csv
-import os, shutil
+import os
 
 samples_per_automata = 5
 

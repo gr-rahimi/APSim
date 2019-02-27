@@ -1,14 +1,7 @@
 from __future__ import division
 import automata as atma
-from automata.automata_network import compare_input, compare_strided
-from anml_zoo import anml_path,input_path,AnmalZoo
-import os, shutil
+from automata.AnmalZoo.anml_zoo import anml_path, AnmalZoo
 from tqdm import tqdm
-import pickle
-import matplotlib.pyplot as plt
-from matplotlib import colors
-import numpy as np
-import utility
 from switch_map.basic_box import  BaseSwitch
 
 

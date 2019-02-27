@@ -13,7 +13,10 @@ def get_splitted_sym_sets(symset, max_val):
     :param max_val: the maximum value that the automata accept
     :return:
     '''
-    env = Environment(loader=FileSystemLoader('automata/Espresso/Templates'), extensions=['jinja2.ext.do'])
+
+    module_abs_dir = os.path.dirname(os.path.abspath(__file__))
+
+    env = Environment(loader=FileSystemLoader(os.path.join(module_abs_dir, 'Templates')), extensions=['jinja2.ext.do'])
     template = env.get_template('espresso.template')
     template_rendered = template.render(symset=symset, max_val=max_val)
 

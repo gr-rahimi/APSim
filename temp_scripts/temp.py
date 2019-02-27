@@ -1,8 +1,7 @@
-from automata.automata_network import Automatanetwork, get_bit_automaton, get_strided_automata2
+from automata.automata_network import Automatanetwork
 from automata.elemnts.ste import S_T_E, PackedIntervalSet, PackedInterval, PackedInput, get_Symbol_type
 from automata.elemnts.element import StartType
-from utility import minimize_automata, get_equivalent_symbols
-
+from automata.utility.utility import minimize_automata
 
 my_Automata = Automatanetwork(id="test1", is_homogenous=True, stride=1, max_val=255)
 

@@ -1,15 +1,9 @@
 import automata as atma
-from automata.automata_network import compare_input, compare_strided, StartType
-from anml_zoo import anml_path,input_path,AnmalZoo
-from tqdm import tqdm
-import pickle
-from utility import minimize_automata, multi_byte_stream, draw_symbols_len_histogram, get_equivalent_symbols
+from automata.AnmalZoo.anml_zoo import anml_path, AnmalZoo
+from automata.utility.utility import minimize_automata, get_equivalent_symbols
 import automata.HDL.hdl_generator as hd_gen
-import csv
-import logging
 import math
 import random
-import os.path
 from automata.elemnts.ste import PackedInput
 
 #logging.basicConfig(level=logging.DEBUG)

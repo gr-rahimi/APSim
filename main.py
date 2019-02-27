@@ -1,9 +1,7 @@
 import automata as atma
-from automata.automata_network import compare_input, compare_strided, StartType, get_bit_automaton, get_strided_automata2, get_strided_automata
-from anml_zoo import anml_path,input_path,AnmalZoo
-from tqdm import tqdm
-import pickle
-from utility import minimize_automata, multi_byte_stream, get_equivalent_symbols, replace_with_unified_symbol
+from automata.automata_network import compare_input, get_bit_automaton, get_strided_automata2
+from automata.AnmalZoo.anml_zoo import anml_path, AnmalZoo
+from automata.utility.utility import minimize_automata, get_equivalent_symbols, replace_with_unified_symbol
 import math
 from automata.HDL.hdl_generator import test_compressor
 import logging

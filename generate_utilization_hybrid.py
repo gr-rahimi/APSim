@@ -1,20 +1,14 @@
 from __future__ import division
 import automata as atma
-from automata.automata_network import compare_input, compare_strided
-from anml_zoo import anml_path,input_path,AnmalZoo
-import os, shutil
+from automata.AnmalZoo.anml_zoo import anml_path, AnmalZoo
 from tqdm import tqdm
-import pickle
-import matplotlib.pyplot as plt
-from matplotlib import colors
-import numpy as np
-import utility
+from automata.utility import utility
 from switch_map.basic_box import  BaseSwitch
 
 
 
 #diagonal_routing = utility.generate_diagonal_route(256,10)
-diagonal_routing = utility.generate_semi_diagonal_route(1,5)
+diagonal_routing = utility.generate_semi_diagonal_route(1, 5)
 
 full_mesh_routing = [[1 for _ in range(256)] for _ in range(256)]
 

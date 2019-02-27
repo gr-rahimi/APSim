@@ -1,14 +1,6 @@
 import automata as atma
-from automata.automata_network import compare_input, compare_strided, StartType
-from anml_zoo import anml_path,input_path,AnmalZoo
-from tqdm import tqdm
-import pickle
-from utility import minimize_automata, multi_byte_stream, draw_symbols_len_histogram
-import automata.HDL.hdl_generator as hd_gen
-import csv
-import logging
-
-from automata.Espresso.espresso import get_splitted_sym_sets
+from automata.AnmalZoo.anml_zoo import anml_path, AnmalZoo
+from automata.utility.utility import minimize_automata
 
 #Snort, EntityResolution, ClamAV, Hamming, Dotstart, Custom, Bro217, Levenstein, Bril,
 # Randomfor, Dotstar03, ExactMath,Dotstar06, Fermi, PowerEN, Protomata, Dotstart09, Ranges1, SPM, Ranges 05

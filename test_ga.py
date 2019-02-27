@@ -1,15 +1,6 @@
 import automata as atma
-from automata.automata_network import compare_input, compare_strided
-from anml_zoo import anml_path,input_path,AnmalZoo
-from tqdm import tqdm
-import pickle
-import matplotlib.pyplot as plt
-from matplotlib import colors
-import utility
-import networkx as nx
-import networkx.algorithms.isomorphism as iso
-
-
+from automata.AnmalZoo.anml_zoo import anml_path, AnmalZoo
+from automata.utility import utility
 
 automata = atma.parse_anml_file(anml_path[AnmalZoo.Snort])
 print "Finished processing from anml file. Here is the summary"
@@ -37,7 +28,7 @@ orig_automatas = automata.get_connected_components_as_automatas()
 current_automata = orig_automatas[0]
 #current_automata.set_max_fan_in(4)
 #current_automata.set_max_fan_out(4)
-routing_matrix = utility.generate_diagonal_route(256,10)
+routing_matrix = utility.generate_diagonal_route(256, 10)
 #routing_matrix= utility.cut_switch_box(routing_matrix, current_automata.get_number_of_nodes() + 1)
 #routing_matrix = utility.generate_diagonal_route()
 

@@ -1,16 +1,10 @@
 from __future__ import division
 import automata as atma
-from automata.automata_network import compare_input, compare_strided
-from anml_zoo import anml_path,input_path,AnmalZoo
-import os, shutil
-from tqdm import tqdm
-import pickle
+from automata.AnmalZoo.anml_zoo import anml_path, AnmalZoo
 import matplotlib.pyplot as plt
-from matplotlib import colors
-import numpy as np
-import utility
+from automata.utility import utility
 
-diagonal_routing = utility.generate_diagonal_route(256,10)
+diagonal_routing = utility.generate_diagonal_route(256, 10)
 
 automata = atma.parse_anml_file(anml_path[AnmalZoo.Snort])
 automata.remove_ors()

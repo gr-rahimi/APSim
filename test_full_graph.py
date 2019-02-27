@@ -1,19 +1,12 @@
 from __future__ import division
 import automata as atma
-from automata.automata_network import compare_input, compare_strided
-from anml_zoo import anml_path,input_path,AnmalZoo
-import os, shutil
-from tqdm import tqdm
-import pickle
 import matplotlib.pyplot as plt
-from matplotlib import colors
-import numpy as np
-import utility
+from automata.utility import utility
 import automata
 from automata.elemnts.ste import S_T_E
 from automata.elemnts.element import StartType
 
-diagonal_routing = utility.generate_diagonal_route(256,10)
+diagonal_routing = utility.generate_diagonal_route(256, 10)
 
 
 

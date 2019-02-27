@@ -1,19 +1,12 @@
 from __future__ import division
 import automata as atma
-from automata.automata_network import compare_input, compare_strided
-from anml_zoo import anml_path,input_path,AnmalZoo
+from automata.AnmalZoo.anml_zoo import anml_path, AnmalZoo
 import os, shutil
 from tqdm import tqdm
-import pickle
-import matplotlib.pyplot as plt
-from matplotlib import colors
 import numpy as np
-import utility
+from automata.utility import utility
 
-
-
-
-diagonal_routing = utility.generate_diagonal_route(256,10)
+diagonal_routing = utility.generate_diagonal_route(256, 10)
 
 
 for anml in [AnmalZoo.Dotstar03, AnmalZoo.Dotstar06, AnmalZoo.Dotstar09, AnmalZoo.Ranges05,
@@ -37,7 +30,7 @@ for anml in [AnmalZoo.Dotstar03, AnmalZoo.Dotstar06, AnmalZoo.Dotstar09, AnmalZo
 
         bfs_cost, bfs_label_dictionary = cc.bfs_rout(diagonal_routing, None)
         switch_map = cc.draw_native_switch_box("Results/" + str(anml) + "/number_" + str(cc_idx) + "bfs_cost_" + str(bfs_cost), bfs_label_dictionary,
-                                               True,dpi = 100)
+                                               True, dpi=100)
         if not acc_switch_map:
             acc_switch_map = switch_map
         else:
@@ -51,7 +44,7 @@ for anml in [AnmalZoo.Dotstar03, AnmalZoo.Dotstar06, AnmalZoo.Dotstar09, AnmalZo
 
     heat_map = np.array(acc_switch_map) / cc_idx
 
-    utility.draw_matrix("Results/"+str(anml)+"/heat_map.png",heat_map, [i/256 for i in range(257)], dpi =500)
+    utility.draw_matrix("Results/" + str(anml) + "/heat_map.png", heat_map, [i / 256 for i in range(257)], dpi =500)
     #utility.draw_matrix("Results/" + str(anml) + "/heat_map.png", heat_map, [0,1/(cc_idx+1), 1], dpi=500)
 
 
