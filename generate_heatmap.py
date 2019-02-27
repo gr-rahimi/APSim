@@ -7,7 +7,7 @@ import numpy as np
 from automata.utility import utility
 
 
-number_of_automatas = 10
+number_of_automatas = 1
 draw_individually = False
 max_stride = 3
 switch_size = 256
@@ -38,14 +38,17 @@ for anml in [AnmalZoo.PowerEN]:
         for cc_idx, cc in enumerate(ccs[:number_of_automatas]):
             print "processing {} , id {}".format(anml, cc_idx)
 
+
             for _ in range(stride):
                 cc = cc.get_single_stride_graph()
 
             if cc.is_homogeneous is False:
                 cc.make_homogenous()
 
+            utility.minimize_automata(cc)
             cc.fix_split_all()
-            utility.minimize_automata(cc, combine_equal_syms_only=True)
+
+            print cc.get_summary()
 
             bfs_cost, bfs_label_dictionary = cc.bfs_rout(diagonal_routing)
 

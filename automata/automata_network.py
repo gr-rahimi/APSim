@@ -974,8 +974,8 @@ class Automatanetwork(object):
         str_list = []
         str_list.append("******************** Summary {}********************".format(logo))
         str_list.append("report for {}".format(self._id))
-        nc = self.self.nodes_count
-        ec = self.self.edges_count
+        nc = self.nodes_count
+        ec = self.edges_count
         str_list.append("Number of nodes = {}".format(nc))
         str_list.append("Number of edges = {}".format(ec))
         str_list.append("Average edge per node = {}".format(float(nc)/ec))
