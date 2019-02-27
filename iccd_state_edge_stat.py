@@ -38,18 +38,18 @@ for automata_name, automata_path in anml_path.iteritems():
 
         for scc in strides_list:
             result=[]
-            result.append((scc.get_number_of_nodes(without_fake_root=True), scc.get_number_of_edges()))
+            result.append((scc.get_number_of_nodes(without_fake_root=True), scc.edges_count))
             if(not scc.is_homogeneous()):
                 scc.make_homogenous()
-            result.append((scc.get_number_of_nodes(without_fake_root=True), scc.get_number_of_edges()))
+            result.append((scc.get_number_of_nodes(without_fake_root=True), scc.edges_count))
             minimize_automata(scc, merge_reports = False, same_residuals_only = False, same_report_code = False)
-            result.append((scc.get_number_of_nodes(without_fake_root=True), scc.get_number_of_edges()))
+            result.append((scc.get_number_of_nodes(without_fake_root=True), scc.edges_count))
             minimize_automata(scc, merge_reports=True, same_residuals_only=True, same_report_code=True)
-            result.append((scc.get_number_of_nodes(without_fake_root=True), scc.get_number_of_edges()))
+            result.append((scc.get_number_of_nodes(without_fake_root=True), scc.edges_count))
             minimize_automata(scc, merge_reports=True, same_residuals_only=True, same_report_code=False)
-            result.append((scc.get_number_of_nodes(without_fake_root=True), scc.get_number_of_edges()))
+            result.append((scc.get_number_of_nodes(without_fake_root=True), scc.edges_count))
             minimize_automata(scc, merge_reports=True, same_residuals_only=False, same_report_code=False)
-            result.append((scc.get_number_of_nodes(without_fake_root=True), scc.get_number_of_edges()))
+            result.append((scc.get_number_of_nodes(without_fake_root=True), scc.edges_count))
             total_result.append(result)
 
     del orig_automatas, strides_list, automata

@@ -6,14 +6,19 @@ from tqdm import tqdm
 import numpy as np
 from automata.utility import utility
 
-diagonal_routing = utility.generate_diagonal_route(256, 10)
 
+number_of_automatas = 10
+draw_individually = False
+max_stride = 3
+switch_size = 256
+diagonal_routing = utility.generate_diagonal_route(switch_size, 10)
 
-for anml in [AnmalZoo.Dotstar03, AnmalZoo.Dotstar06, AnmalZoo.Dotstar09, AnmalZoo.Ranges05,
-             AnmalZoo.Ranges1, AnmalZoo.ExactMath, AnmalZoo.Bro217, AnmalZoo.TCP]:
+for anml in [AnmalZoo.PowerEN]:
 
     if anml in [AnmalZoo.ClamAV, AnmalZoo.Synthetic_CoreRings]:
         continue
+
+
 
     if not os.path.exists("Results/"+str(anml)):
         os.makedirs("Results/"+str(anml)) #make directory if it does not exist
@@ -24,28 +29,34 @@ for anml in [AnmalZoo.Dotstar03, AnmalZoo.Dotstar06, AnmalZoo.Dotstar09, AnmalZo
     automata = atma.parse_anml_file(anml_path[anml])
     automata.remove_ors()
     #utility.minimize_automata(automata)
-    acc_switch_map = None # accumulative switch map
+    acc_switch_map = np.zeros((switch_size, switch_size)) # accumulative switch map
     ccs = automata.get_connected_components_as_automatas()
-    for cc_idx, cc in enumerate(tqdm(ccs)):
 
-        bfs_cost, bfs_label_dictionary = cc.bfs_rout(diagonal_routing, None)
-        switch_map = cc.draw_native_switch_box("Results/" + str(anml) + "/number_" + str(cc_idx) + "bfs_cost_" + str(bfs_cost), bfs_label_dictionary,
-                                               True, dpi=100)
-        if not acc_switch_map:
-            acc_switch_map = switch_map
-        else:
-            X = len(switch_map)
-            Y = len(switch_map[0])
-            assert X == len(acc_switch_map) and Y == len(acc_switch_map[0]), "they should hacve equal size"
+    for stride in range(max_stride + 1): # one more for the original automata
 
-            for x in range(X):
-                for y in range(Y):
-                    acc_switch_map[x][y] += switch_map[x][y]
+        print "starting stride ", stride
+        for cc_idx, cc in enumerate(ccs[:number_of_automatas]):
+            print "processing {} , id {}".format(anml, cc_idx)
 
-    heat_map = np.array(acc_switch_map) / cc_idx
+            for _ in range(stride):
+                cc = cc.get_single_stride_graph()
 
-    utility.draw_matrix("Results/" + str(anml) + "/heat_map.png", heat_map, [i / 256 for i in range(257)], dpi =500)
-    #utility.draw_matrix("Results/" + str(anml) + "/heat_map.png", heat_map, [0,1/(cc_idx+1), 1], dpi=500)
+            if cc.is_homogeneous is False:
+                cc.make_homogenous()
+
+            cc.fix_split_all()
+            utility.minimize_automata(cc, combine_equal_syms_only=True)
+
+            bfs_cost, bfs_label_dictionary = cc.bfs_rout(diagonal_routing)
+
+            switch_map = cc.get_connectivity_matrix(node_dictionary=bfs_label_dictionary)
+
+            acc_switch_map += switch_map
+
+        heat_map = acc_switch_map / number_of_automatas
+
+        utility.draw_matrix(file_to_save="Results/" + str(anml) + "/heat_mapS"+str(stride)+".png", matrix=heat_map,
+                            boundries=[i / 256 for i in range(257)], dpi=500)
 
 
 

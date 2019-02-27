@@ -14,7 +14,7 @@ import time, operator
 import math
 from deap import algorithms, base, creator, tools
 import numpy as np
-import utility
+from automata.utility import utility
 from networkx.drawing.nx_agraph import write_dot
 from automata.Espresso.espresso import get_splitted_sym_sets
 import logging
@@ -200,14 +200,18 @@ class Automatanetwork(object):
     def nodes_count(self):
         return len(self._my_graph) -1 # fake_root is not counted
 
+    @property
+    def edges_count(self):
+        self._my_graph.number_of_edges() - self.number_of_start_nodes
+
     def get_neighbors(self, node):
         return self._my_graph.neighbors(node)
 
     def get_predecessors(self, node):
         return self._my_graph.predecessors(node)
 
-    #TODO make this a poperty
     def get_number_of_edges(self):
+        logging.warning("get number of edges will be deprecated. use edges_count instead!")
         return self._my_graph.number_of_edges() - self.number_of_start_nodes
 
     def get_average_intervals(self):
@@ -674,7 +678,7 @@ class Automatanetwork(object):
         :param start_from_root: if set to True, first all the start nodes will be pushed. Otherwise each
         start node will be procesessed independently
         :param set_nodes_idx:
-        :return:
+        :return: a dictionary from nodes to their BFS label
         """
         node_to_index = {}
         last_assigned_id = -1
@@ -736,7 +740,7 @@ class Automatanetwork(object):
         nodes_count = self.nodes_count
         assert nodes_count <= 256, "it only works for small automatas"
         nodes_count = 256
-        switch_map = [[0 for _ in range(nodes_count)] for _ in range(nodes_count)]
+        switch_map = np.zeros((nodes_count, nodes_count))
 
         for node in node_dictionary:
             for neighb in self._my_graph.neighbors(node):
@@ -745,7 +749,7 @@ class Automatanetwork(object):
         return switch_map
 
     def draw_native_switch_box(self, path, node_idx_dictionary, write_cycle_in_file, **kwargs):
-        assert not self.fake_root in node_idx_dictionary
+        assert self.fake_root not in node_idx_dictionary
         switch_map = self.get_connectivity_matrix(node_idx_dictionary)
 
         bounds = [0, 0.5, 1]
@@ -786,8 +790,16 @@ class Automatanetwork(object):
             self.add_edge(new_nodes_dictionary[src], new_nodes_dictionary[dst])
         return set(new_nodes_dictionary.values())
 
+    def get_number_of_cycles(self):
+        return len(list(nx.simple_cycles(self._my_graph)))
 
     def get_routing_cost(self, routing_template, node_dictionary):
+        '''
+
+        :param routing_template:
+        :param node_dictionary:
+        :return:
+        '''
         assert not self.fake_root in node_dictionary
         cost = 0
         for current_node in node_dictionary:
@@ -796,11 +808,16 @@ class Automatanetwork(object):
                     cost += 1
         return cost
 
-    def bfs_rout(self,routing_template, available_rows):
+    def bfs_rout(self,routing_template):
+        '''
+
+        :param routing_template: a matrix of zeros and ones. A one means that there is a switch at that particular
+         location
+        :return:
+        '''
         node_dictionary = self.get_BFS_label_dictionary()
         assert not self.fake_root in node_dictionary
         cost = self.get_routing_cost(routing_template, node_dictionary)
-        print "BFS cost =", cost
         return cost, node_dictionary
 
     #TODO this function has not been checked for the new version
@@ -957,8 +974,11 @@ class Automatanetwork(object):
         str_list = []
         str_list.append("******************** Summary {}********************".format(logo))
         str_list.append("report for {}".format(self._id))
-        str_list.append("Number of nodes = {}".format(self.nodes_count))
-        str_list.append("Number of edges = {}".format(self.get_number_of_edges()))
+        nc = self.self.nodes_count
+        ec = self.self.edges_count
+        str_list.append("Number of nodes = {}".format(nc))
+        str_list.append("Number of edges = {}".format(ec))
+        str_list.append("Average edge per node = {}".format(float(nc)/ec))
         str_list.append("Number of start nodes = {}".format(self.number_of_start_nodes))
         str_list.append("Number of report nodes = {}".format(self.number_of_report_nodes))
         str_list.append("does have all_input = {}".format(self.does_have_all_input()))

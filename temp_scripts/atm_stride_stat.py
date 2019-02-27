@@ -50,7 +50,7 @@ for uat in under_process_atms:
                 all_nodes = filter(lambda n: n.id != 0 , atm.nodes)  # filter fake root
                 all_nodes_symbols_len_count = [len(n.symbols) for n in all_nodes]
 
-                csv_writer.writerow([atm.nodes_count, atm.get_number_of_edges(), atm.max_STE_in_degree(),
+                csv_writer.writerow([atm.nodes_count, atm.edges_count, atm.max_STE_in_degree(),
                                      atm.max_STE_out_degree(), max(all_nodes_symbols_len_count),
                                      min(all_nodes_symbols_len_count), sum(all_nodes_symbols_len_count)])
 

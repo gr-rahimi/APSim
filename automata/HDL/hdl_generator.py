@@ -272,7 +272,7 @@ class HDL_Gen(object):
         assert atm.id not in self._atm_info
         atm_interface = self._Atm_Interface(id=atm.id, nodes=[], nodes_count=atm.nodes_count,
                                             reports_count=sum(1 for _ in atm.get_filtered_nodes(lambda ste: ste.report)),
-                                            edges_count=atm.get_number_of_edges(), stride_value=atm.stride_value,
+                                            edges_count=atm.edges_count, stride_value=atm.stride_value,
                                             use_compression=use_compression)
         self._atm_info[atm.id] = atm_interface
         for node in atm.nodes:

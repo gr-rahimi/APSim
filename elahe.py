@@ -51,12 +51,12 @@ for stride_val in range(4):
             all_nodes_symbols_len_count = [len(n.symbols) for n in all_nodes]
 
             n_states += atm.nodes_count
-            n_edges += atm.get_number_of_edges()
+            n_edges += atm.edges_count
             n_maxFanin += atm.max_STE_in_degree()
             n_maxFanout += atm.max_STE_out_degree()
             n_symbols += sum(all_nodes_symbols_len_count)
 
-            csv_writer.writerow([atm.nodes_count, atm.get_number_of_edges(), atm.max_STE_in_degree(), atm.max_STE_out_degree(), sum(all_nodes_symbols_len_count)])
+            csv_writer.writerow([atm.nodes_count, atm.edges_count, atm.max_STE_in_degree(), atm.max_STE_out_degree(), sum(all_nodes_symbols_len_count)])
         csv_writer.writerow([])
         csv_writer.writerow([n_states/len(automatas),n_edges/len(automatas),n_maxFanin/len(automatas),n_maxFanout/len(automatas),n_symbols/len(automatas)])
         print stride_val, ":\t", n_states/len(automatas), "\t", n_edges/len(automatas), "\t", n_maxFanin/len(automatas), "\t", n_maxFanout/len(automatas), "\t", n_symbols/len(automatas)

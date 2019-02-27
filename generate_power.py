@@ -26,7 +26,7 @@ for anml in AnmalZoo:
     automata = atma.parse_anml_file(anml_path[anml])
     print "start processing", anml
     automata.remove_ors()
-    total_edges = automata.get_number_of_edges()
+    total_edges = automata.edges_count
     ccs = automata.get_connected_components_as_automatas()
     ccs.sort(key = lambda cc : cc.get_number_of_nodes(True), reverse=True)
 
