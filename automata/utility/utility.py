@@ -607,10 +607,11 @@ def _get_alphabet_list(atm):
 
     return list(pt_set), has_star
 
-def replace_with_unified_symbol(atm, is_input_homogeneous):
+def get_unified_symbol(atm, is_input_homogeneous, replace):
     '''
     this function receives a single stride homogemneous automata  and replace the symbols with integers starting from 0
     and the last integers for start case
+    :param replace:
     :param atm: input atm
     :return: None
     '''
@@ -642,8 +643,9 @@ def replace_with_unified_symbol(atm, is_input_homogeneous):
         return out_dic
 
     alphabet_list, has_star = _get_alphabet_list(atm)
-    pt_dic = {ch: (ch_idx + (1 if is_input_homogeneous is False and len(alphabet_list) < (atm.max_val_dim + 1) and has_star is False else 0))for ch_idx, ch in enumerate(alphabet_list)}
-    sym_dict = get_sym_dictionary(atm, pt_dic=pt_dic)
-    _replace_equivalent_symbols(symbol_dictionary_list=[sym_dict], atms_list=[atm], max_val=max(pt_dic.itervalues()))
+    if replace is True:
+        pt_dic = {ch: (ch_idx + (1 if is_input_homogeneous is False and len(alphabet_list) < (atm.max_val_dim + 1) and has_star is False else 0))for ch_idx, ch in enumerate(alphabet_list)}
+        sym_dict = get_sym_dictionary(atm, pt_dic=pt_dic)
+        _replace_equivalent_symbols(symbol_dictionary_list=[sym_dict], atms_list=[atm], max_val=max(pt_dic.itervalues()))
 
     return alphabet_list

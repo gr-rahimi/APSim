@@ -1,7 +1,7 @@
 import automata as atma
 from automata.automata_network import compare_input, get_bit_automaton, get_strided_automata2
 from automata.AnmalZoo.anml_zoo import anml_path, AnmalZoo
-from automata.utility.utility import minimize_automata, get_equivalent_symbols, replace_with_unified_symbol
+from automata.utility.utility import minimize_automata, get_equivalent_symbols, get_unified_symbol
 import math
 from automata.HDL.hdl_generator import test_compressor
 import logging
@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 automatas = atma.parse_anml_file(anml_path[AnmalZoo.Levenshtein])
 automatas.remove_ors()
-replace_with_unified_symbol(atm=automatas, bits_count=8, is_input_homogeneous=True)
+get_unified_symbol(atm=automatas, is_input_homogeneous=True, replace=True)
 automatas = automatas.get_connected_components_as_automatas()
 
 #automatas=pickle.load(open('Snort1-50.pkl', 'rb'))

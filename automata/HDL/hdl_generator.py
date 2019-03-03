@@ -219,8 +219,10 @@ class HDL_Gen(object):
         self._before_match_reg = before_match_reg
         self._after_match_reg = after_match_reg
         self._ste_type = ste_type
-        self._env = Environment(loader=FileSystemLoader('automata/HDL/Templates'), extensions=['jinja2.ext.do'])
-        self._total_input_len =  total_input_len
+        module_abs_dir = os.path.dirname(os.path.abspath(__file__))
+        self._env = Environment(loader=FileSystemLoader(os.path.join(module_abs_dir, 'Templates')),
+                                extensions=['jinja2.ext.do'])
+        self._total_input_len = total_input_len
         self._comp_id, self._stage_id = -1, -1 # tracking assign id for compressors
         self._atm_to_comp_id = {}  # key= atm_id, value=compressor_id
         self._comp_info = {}  # key=comp_id, value=compressor out_len
@@ -230,6 +232,7 @@ class HDL_Gen(object):
         self._Atm_Interface = namedtuple('Atm_Interface',['id', 'nodes', 'nodes_count', 'reports_count', 'edges_count',
                                                           'stride_value', 'use_compression'])
         self._Node_Interface = namedtuple('Node_Interface', ['id', 'report', 'sym_count'])
+        self._pending_automatas = [] # this list keeps all the automata that has not been assigned to a stage
 
 
     def _generate_single_automata(self, automata, inp_bit_len):
@@ -254,20 +257,24 @@ class HDL_Gen(object):
         with open(os.path.join(self._path, automata.id + '.v', ), 'w') as f:
             f.writelines(rendered_content)
 
-    def register_automata(self, atm, use_compression, byte_trans_map=None, translation_list=None):
+    def register_automata(self, atm, use_compression, byte_trans_map=None, translation_list=None, lut_bram_dic = {}):
         '''
         :param atm:
         :param use_compression:
         :param byte_trans_map:
         :param translation_list:
+        :param lut_bram_dic: a dictionary to specify put matching in LUT or BRAM. key: node, value: a tuple of 1,2...
+        1 means LUT, 2 means BRAM. if a node does not exist in this dictionary, LUT will be used for matching for all
+        dimensions by default
         :return:
         '''
-        if not use_compression:
+        if use_compression is False:
             self._generate_single_automata(automata=atm, inp_bit_len=self._total_input_len)
-        if use_compression:
+        else:
             single_map_len = HDL_Gen._get_sym_map_bit_len(byte_trans_map if not translation_list else translation_list[-1])
+            assert single_map_len == int(math.ceil(math.log(atm.max_val_dim + 1, 2)))
             inp_bit_len = single_map_len * atm.stride_value
-            self._generate_single_automata(atm, inp_bit_len=inp_bit_len)
+            self._generate_single_automata(automata=atm, inp_bit_len=inp_bit_len)
 
         assert atm.id not in self._atm_info
         atm_interface = self._Atm_Interface(id=atm.id, nodes=[], nodes_count=atm.nodes_count,
@@ -278,6 +285,7 @@ class HDL_Gen(object):
         for node in atm.nodes:
             atm_interface.nodes.append(self._Node_Interface(id=node.id, report=node.report,
                                                             sym_count=0 if node.id==FakeRoot.fake_root_id else len(node.symbols)))
+        self._pending_automatas.append(atm.id)
 
 
 
@@ -383,10 +391,21 @@ class HDL_Gen(object):
 
         return '\n'.join(str_list)
 
-    def register_stage(self, atms_id, single_out):
+    def finalize_stage(self, single_out):
+        '''
+        this function put all the pending autoamtas to one stage and register that stage
+        :param single_out:
+        :return:
+        '''
+        self._register_stage(atms_id=self._pending_automatas, single_out=single_out)
+        self._pending_automatas = []
+
+
+    def _register_stage(self, atms_id, single_out):
         '''
 
         :param atms_id: list of ids of automatas in the same stage
+        :param single_out: if true, the stage will have one report out put which is the or of all of the outputs
         :return: None
         '''
         self._stage_id += 1

@@ -6,27 +6,9 @@ import math
 import random
 from automata.elemnts.ste import PackedInput
 
-#logging.basicConfig(level=logging.DEBUG)
-
-def reza_test(inp_dic, atm):
-    eq_set = set()
-
-    cands = [16, 17, 18, 19, 20, 21, 26, 27, 28, 29, 30]
 
 
-    for key, val in inp_dic.iteritems():
-        if val in cands:
-            eq_set.add(key)
 
-
-    kh= None
-    for e in eq_set:
-        packed_pt  = PackedInput(e)
-        result = [node.symbols.can_accept(packed_pt) for node in atm.nodes if node.id!=0]
-        if kh == None:
-            kh = result
-        else:
-            assert kh == result
 
 random.seed=3
 
@@ -35,9 +17,8 @@ random.seed=3
 #SynthBring, Synthcorering
 under_process_atms = [AnmalZoo.RandomForest]
 exempts = {(AnmalZoo.Snort, 1411)}
-hom_between = False
-number_of_autoamtas = 200
-automata_per_stage = 50
+number_of_autoamtas = 10
+automata_per_stage = 5
 use_compression = False
 single_out=False
 before_match_reg=False
@@ -58,47 +39,37 @@ for uat in under_process_atms:
         automatas = automatas[:number_of_autoamtas]
 
     number_of_stages = math.ceil(len(automatas) / float(automata_per_stage))
-    for stride_val in range(3):
+    for bit_stride_val in [12]:
 
-        hdl_apth = hd_gen.get_hdl_folder_path(prefix=str(uat), number_of_atms=len(automatas), stride_value=stride_val,
+        hdl_apth = hd_gen.get_hdl_folder_path(prefix=str(uat), number_of_atms=len(automatas), stride_value=bit_stride_val,
                                               before_match_reg=before_match_reg, after_match_reg=after_match_reg,
                                               ste_type=ste_type, use_bram=use_bram, use_compression=use_compression,
                                               compression_depth=compression_depth)
 
         generator_ins = hd_gen.HDL_Gen(path=hdl_apth, before_match_reg=before_match_reg,
                                        after_match_reg=after_match_reg, ste_type=ste_type,
-                                       total_input_len=8*pow(2, stride_val))
+                                       total_input_len=bit_stride_val)
 
         strided_automatas, bit_size,  = [], []
         for atm_idx, atm in enumerate(automatas):
             if (uat, atm_idx) in exempts:
                 continue
 
-            print 'processing {0} stride{3} automata {1} from {2}'.format(uat, atm_idx, len(automatas), stride_val)
-            atm.remove_all_start_nodes()
+            atm = atma.automata_network.get_bit_automaton(atm=atm, original_bit_width=8)
+            atm = atma.automata_network.get_strided_automata2(atm=atm, stride_value=bit_stride_val, is_scalar=True,
+                                                              base_value=2)
 
-            bc_bits_len = 8
+            print 'processing {0} stride{3} automata {1} from {2}'.format(uat, atm_idx, len(automatas), bit_stride_val)
+
             if use_compression:
                 bc_sym_dict = get_equivalent_symbols([atm], replace=True)
-                bc_bits_len = int(math.ceil(math.log(max(bc_sym_dict.values()), 2)))
-
 
             translation_list = []
 
-            for s in range(stride_val):
-                atm = atm.get_single_stride_graph()
-                if use_compression and s < compression_depth:
-                    new_translation = get_equivalent_symbols([atm], replace=True)
-                    translation_list.append(new_translation)
-
-                if hom_between is True:
-                    atm.make_homogenous()
-
-            if not atm.is_homogeneous:
+            if atm.is_homogeneous is False:
                 atm.make_homogenous()
 
-            minimize_automata(atm, merge_reports=True, same_residuals_only=True, same_report_code=True,
-                              combine_symbols=True if hom_between is not True else False)
+            minimize_automata(atm)
 
             strided_automatas.append(atm.id)
 

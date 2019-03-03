@@ -2281,8 +2281,10 @@ def get_strided_automata2(atm ,stride_value, is_scalar, base_value = 0, add_resi
     :return: strided automata
     '''
 
+    if stride_value == 1:
+        return atm
+
     assert not atm.does_have_all_input(), "Automata should not have all-input nodes"
-    assert stride_value > 1, 'destination stride should be bigger than 1'
 
     if add_residual:
         report_nodes = list(atm.get_filtered_nodes(lambda n: n.report))
