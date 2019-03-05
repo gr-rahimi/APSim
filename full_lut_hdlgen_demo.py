@@ -35,9 +35,8 @@ random.seed=3
 #SynthBring, Synthcorering
 under_process_atms = [AnmalZoo.RandomForest]
 exempts = {(AnmalZoo.Snort, 1411)}
-hom_between = False
-number_of_autoamtas = 200
-automata_per_stage = 50
+number_of_autoamtas = 4
+automata_per_stage = 2
 use_compression = False
 single_out=False
 before_match_reg=False
@@ -58,7 +57,9 @@ for uat in under_process_atms:
         automatas = automatas[:number_of_autoamtas]
 
     number_of_stages = math.ceil(len(automatas) / float(automata_per_stage))
-    for stride_val in range(3):
+    atms_per_stage = int(math.ceil(len(automatas) / float(number_of_stages)))
+
+    for stride_val in range(1, 2):
 
         hdl_apth = hd_gen.get_hdl_folder_path(prefix=str(uat), number_of_atms=len(automatas), stride_value=stride_val,
                                               before_match_reg=before_match_reg, after_match_reg=after_match_reg,
@@ -75,7 +76,6 @@ for uat in under_process_atms:
                 continue
 
             print 'processing {0} stride{3} automata {1} from {2}'.format(uat, atm_idx, len(automatas), stride_val)
-            atm.remove_all_start_nodes()
 
             bc_bits_len = 8
             if use_compression:
@@ -91,27 +91,22 @@ for uat in under_process_atms:
                     new_translation = get_equivalent_symbols([atm], replace=True)
                     translation_list.append(new_translation)
 
-                if hom_between is True:
-                    atm.make_homogenous()
 
             if not atm.is_homogeneous:
                 atm.make_homogenous()
 
-            minimize_automata(atm, merge_reports=True, same_residuals_only=True, same_report_code=True,
-                              combine_symbols=True if hom_between is not True else False)
+            minimize_automata(atm)
 
             strided_automatas.append(atm.id)
 
+            lut_bram_dic = {n: (1, 2) for n in atm.nodes}
             generator_ins.register_automata(atm=atm, use_compression=use_compression, byte_trans_map=bc_sym_dict if use_compression else None,
-                                            translation_list=translation_list)
+                                            translation_list=translation_list, lut_bram_dic={})
             if use_compression:
                 generator_ins.register_compressor([atm.id], byte_trans_map=bc_sym_dict,
                                                   translation_list=translation_list)
 
-        atms_per_stage = int(math.ceil(len(strided_automatas) / float(number_of_stages)))
-
-        for st_idx in range(0, len(strided_automatas), atms_per_stage):
-            same_stage_atms_id = [atm_id for atm_id in strided_automatas[st_idx:st_idx+atms_per_stage]]
-            generator_ins.register_stage(same_stage_atms_id, single_out=False)
+            if (atm_idx + 1) % atms_per_stage == 0:
+                generator_ins.register_stage_pending(single_out=False)
 
         generator_ins.finilize()

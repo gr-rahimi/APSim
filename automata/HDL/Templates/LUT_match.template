@@ -1,8 +1,11 @@
-{%macro LUT_match(name, intervals, before_match_reg, after_match_reg, per_number_bit_size)%}
+{%macro LUT_match(name, intervals, before_match_reg, after_match_reg, per_number_bit_size, split, bram_lut_map)%}
 {#
 @param before_match_reg specifies if we have a FF before the input symbol
 @param after_match_reg specifies if we have a FF after the input symbol
 @param per_number_bit_size number of bits for comparison
+@param  split: True/False, if True, it will use similar to bram style matching evn though all dimensions will be matched
+on LUT
+@param bram_lut_map: it is a tuple for specifying the placement of matching
 #}
 
 module LUT_Match_{{name}} #(parameter integer width = 8)(
@@ -28,12 +31,25 @@ always @ (posedge clk)
 begin
     match <= match_internal;
 end
-{% else -%}
+{% else %}
 assign match = match_internal;
 {%- endif%}
 
+{% if not split -%}
 assign match_internal = ({% for  ivl in intervals %}({% set left, right = ivl.left, ivl.right %}{% for i in range(left|length) %}(input_capture[{{ loop.index * per_number_bit_size -1 }}:{{ loop.index * per_number_bit_size - per_number_bit_size }}] >= {{per_number_bit_size}}'d{{left[i]}}) &&(input_capture[{{ loop.index*per_number_bit_size -1}}:{{ loop.index * per_number_bit_size - per_number_bit_size }}] <= {{per_number_bit_size}}'d{{right [i]}}) &&{% endfor %} 1'b1) ||
      {% endfor %} 1'b0) ? 1'b1 : 1'b0;
+{% else %}
+wire[{{bram_lut_map|length - 1}}:0] splited_lut_wires;
+{% for bl in bram_lut_map -%}
+{% if bl==1 %}
+{% set outer_loop = loop %}
+assign splited_lut_wires[{{loop.index0}}] = ({% for ivl in intervals %} ({% set left, right = ivl.left, ivl.right %} (input_capture[{{ outer_loop.index * per_number_bit_size -1 }}:{{ outer_loop.index * per_number_bit_size - per_number_bit_size }}] >= {{per_number_bit_size}}'d{{left[outer_loop.index0]}}) &&(input_capture[{{ outer_loop.index*per_number_bit_size -1}}:{{ outer_loop.index * per_number_bit_size - per_number_bit_size }}] <= {{per_number_bit_size}}'d{{right [outer_loop.index0]}})) || {% endfor %} 1'b0) ? 1'b1 : 1'b0;
+{% else %}
+assign splited_lut_wires[{{loop.index0}}] = 1'b1;
+{% endif %}
+{%- endfor %}
+assign match_internal = & splited_lut_wires;
+{% endif %}
 
 endmodule
 {% endmacro%}

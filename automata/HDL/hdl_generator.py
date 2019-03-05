@@ -1,15 +1,13 @@
-from jinja2 import Environment, FileSystemLoader
-import networkx
 import shutil, os
-from automata.automata_network import Automatanetwork
-from automata.elemnts.element import FakeRoot
-import numpy as np
 from itertools import count, chain
 import math
+from os.path import expanduser
 from collections import namedtuple
-
-
-
+from jinja2 import Environment, FileSystemLoader
+import numpy as np
+import networkx
+from automata.automata_network import Automatanetwork
+from automata.elemnts.element import FakeRoot
 
 
 def _genrate_bram_hex_content_from_matrix(bram_matrix):
@@ -160,7 +158,11 @@ def get_hdl_folder_path(prefix, number_of_atms, stride_value, before_match_reg, 
                    ('_ste' + str(ste_type)) + ('_withbram' if use_bram else '_nobram') + \
                   ('with_compD' if use_compression else 'no_comp') + (str(compression_depth) if use_compression else '')
 
-    return os.path.join('/zf15/gr5yf/HDL',folder_name)
+    home = expanduser("~")
+    hdl_path = os.path.join(home, 'HDL')
+    if os.path.exists(hdl_path) is False:
+        os.mkdir(hdl_path)
+    return os.path.join(hdl_path, folder_name)
 
 
 def generate_full_lut(atms_list, single_out ,before_match_reg, after_match_reg, ste_type,
@@ -235,7 +237,7 @@ class HDL_Gen(object):
         self._pending_automatas = [] # this list keeps all the automata that has not been assigned to a stage
 
 
-    def _generate_single_automata(self, automata, inp_bit_len):
+    def _generate_single_automata(self, automata, inp_bit_len, lut_bram_dic):
         '''
         this function generates a single automata
         :param automata: input autoamata
@@ -251,13 +253,13 @@ class HDL_Gen(object):
         rendered_content = template.render(automata=automata,
                                            before_match_reg=self._before_match_reg,
                                            after_match_reg=self._after_match_reg,
-                                           bram_match_id_list=[],
-                                           bit_feed_size=inp_bit_len) # TODO change the name of bit_feed_size in template. it is confusing with other bit_feed_size which is non compressed len
+                                           bit_feed_size=inp_bit_len,
+                                           lut_bram_dic=lut_bram_dic) # TODO change the name of bit_feed_size in template. it is confusing with other bit_feed_size which is non compressed len
 
         with open(os.path.join(self._path, automata.id + '.v', ), 'w') as f:
             f.writelines(rendered_content)
 
-    def register_automata(self, atm, use_compression, byte_trans_map=None, translation_list=None, lut_bram_dic = {}):
+    def register_automata(self, atm, use_compression, byte_trans_map=None, translation_list=None, lut_bram_dic={}):
         '''
         :param atm:
         :param use_compression:
@@ -268,13 +270,21 @@ class HDL_Gen(object):
         dimensions by default
         :return:
         '''
+
+        def __check_dic_valid ():
+            for k, v in lut_bram_dic.iteritems():
+                assert len(v) == atm.stride_value
+                assert k.is_fake is True or k.is_symbolset_splitable()
+
+        __check_dic_valid() # check for validation of lutbram dic
+
         if use_compression is False:
-            self._generate_single_automata(automata=atm, inp_bit_len=self._total_input_len)
+            self._generate_single_automata(automata=atm, inp_bit_len=self._total_input_len, lut_bram_dic=lut_bram_dic)
         else:
             single_map_len = HDL_Gen._get_sym_map_bit_len(byte_trans_map if not translation_list else translation_list[-1])
             assert single_map_len == int(math.ceil(math.log(atm.max_val_dim + 1, 2)))
             inp_bit_len = single_map_len * atm.stride_value
-            self._generate_single_automata(automata=atm, inp_bit_len=inp_bit_len)
+            self._generate_single_automata(automata=atm, inp_bit_len=inp_bit_len, lut_bram_dic=lut_bram_dic)
 
         assert atm.id not in self._atm_info
         atm_interface = self._Atm_Interface(id=atm.id, nodes=[], nodes_count=atm.nodes_count,
@@ -285,7 +295,7 @@ class HDL_Gen(object):
         for node in atm.nodes:
             atm_interface.nodes.append(self._Node_Interface(id=node.id, report=node.report,
                                                             sym_count=0 if node.id==FakeRoot.fake_root_id else len(node.symbols)))
-        self._pending_automatas.append(atm.id)
+        self._pending_automatas.append((atm.id, lut_bram_dic))
 
 
 
@@ -391,13 +401,13 @@ class HDL_Gen(object):
 
         return '\n'.join(str_list)
 
-    def finalize_stage(self, single_out):
+    def register_stage_pending(self, single_out):
         '''
         this function put all the pending autoamtas to one stage and register that stage
         :param single_out:
         :return:
         '''
-        self._register_stage(atms_id=self._pending_automatas, single_out=single_out)
+        self._register_stage(atms_id=[atm_id for atm_id, _ in self._pending_automatas], single_out=single_out)
         self._pending_automatas = []
 
 
