@@ -68,9 +68,9 @@ for uat in under_process_atms:
 
         generator_ins = hd_gen.HDL_Gen(path=hdl_apth, before_match_reg=before_match_reg,
                                        after_match_reg=after_match_reg, ste_type=ste_type,
-                                       total_input_len=8*pow(2, stride_val))
+                                       total_input_len=hd_gen.HDL_Gen.get_bit_len(automatas[0].max_val_dim) *
+                                                       pow(2, stride_val))
 
-        strided_automatas, bit_size,  = [], []
         for atm_idx, atm in enumerate(automatas):
             if (uat, atm_idx) in exempts:
                 continue
@@ -82,7 +82,6 @@ for uat in under_process_atms:
                 bc_sym_dict = get_equivalent_symbols([atm], replace=True)
                 bc_bits_len = int(math.ceil(math.log(max(bc_sym_dict.values()), 2)))
 
-
             translation_list = []
 
             for s in range(stride_val):
@@ -91,17 +90,15 @@ for uat in under_process_atms:
                     new_translation = get_equivalent_symbols([atm], replace=True)
                     translation_list.append(new_translation)
 
-
-            if not atm.is_homogeneous:
+            if atm.is_homogeneous is False:
                 atm.make_homogenous()
 
             minimize_automata(atm)
 
-            strided_automatas.append(atm.id)
-
             lut_bram_dic = {n: (1, 2) for n in atm.nodes}
             generator_ins.register_automata(atm=atm, use_compression=use_compression, byte_trans_map=bc_sym_dict if use_compression else None,
                                             translation_list=translation_list, lut_bram_dic={})
+
             if use_compression:
                 generator_ins.register_compressor([atm.id], byte_trans_map=bc_sym_dict,
                                                   translation_list=translation_list)

@@ -209,12 +209,12 @@ def generate_full_lut(atms_list, single_out ,before_match_reg, after_match_reg, 
 
 
 class HDL_Gen(object):
-    def __init__(self, path, before_match_reg, after_match_reg, ste_type, total_input_len=8):
+    def __init__(self, path, before_match_reg, after_match_reg, ste_type, total_input_len):
         '''
         :param path: path to generate verilog files
         :param before_match_reg
         :param after_match_reg
-        :param one_input_len: it implies what is the original bit size. this will be used in flexamata
+        :param
         '''
         self._path = path
         self._clean_and_make_path()
@@ -344,9 +344,18 @@ class HDL_Gen(object):
         os.mkdir(self._path)
 
     @classmethod
+    def get_bit_len(cls, codes_max):
+        """
+        this fucntion returns the max value that needs
+        :param codes_max: the maximum value that will be feed in
+        :return: the number of bits needed
+        """
+        return int(math.ceil(math.log(codes_max + 1, 2)))
+
+    @classmethod
     def _get_sym_map_bit_len(cls, sym_dict):
         codes_max = max(sym_dict.values())
-        return int(math.ceil(math.log(codes_max + 1, 2))) # this one is for code 0 which will be assigned to
+        return cls.get_bit_len(codes_max)
 
     def _generate_compressors(self, original_width, byte_trans_map, byte_map_width, translation_list, idx, width_list,
                              initial_width, output_width):
@@ -401,6 +410,36 @@ class HDL_Gen(object):
 
         return '\n'.join(str_list)
 
+    def _generate_bram(self, atms_list):
+        '''
+        this function willl take care of generating brams.
+        :param atms_list: this is a list of automatas [(atm id, lut_bram_dic)...]
+        :return:
+        '''
+
+        if all(((len(bram_lut_dic) == 0 or all((bram_d != 2 for bram_d in bram_lut_dic.itervalues()))) for _, bram_lut_dic in atms_list)):
+            return # no bram is needed
+
+        stride_vals = [len(v) for _, bram_lut_dic in atms_list for v in bram_lut_dic.itervalues()]
+        assert len(set(stride_vals)) == 1 # all should have same stride value
+
+        stride_val = stride_vals[0]
+
+        per_dimm_count = [0] * stride_val
+
+        for _, bram_lut_dic in atms_list:
+            for d in bram_lut_dic.itervalues():
+                per_dimm_count[d] += 1
+
+                
+
+
+
+
+
+
+
+
     def register_stage_pending(self, single_out):
         '''
         this function put all the pending autoamtas to one stage and register that stage
@@ -408,6 +447,9 @@ class HDL_Gen(object):
         :return:
         '''
         self._register_stage(atms_id=[atm_id for atm_id, _ in self._pending_automatas], single_out=single_out)
+
+
+
         self._pending_automatas = []
 
 
