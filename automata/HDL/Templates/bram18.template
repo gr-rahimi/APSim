@@ -1,4 +1,4 @@
-{% macro single_bram_macro(stride_idx, contents) %}
+{% macro single_bram_macro36(stride_idx, contents) %}
 {#
 @param stride_idx : stride index form 0  to stride_value - 1
 #}

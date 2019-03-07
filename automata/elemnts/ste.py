@@ -505,6 +505,24 @@ class PackedIntervalSet(object):
         return
 
 
+    def points_on_dim(self, d, array_len):
+        '''
+        this function iterate over numbers in a specific dimnesion
+        :param d: the dimension iteratating will happen
+        :param array_len: length of the array that this vector will be places
+        :return: iterator
+        '''
+        assert d < self.dim, 'this access is out of range'
+        out_array = [0] * array_len
+
+        for ivl in self._interval_set:
+            left_d = ivl.left[d]
+            right_d = ivl.right[d]
+
+            out_array[left_d: right_d + 1] = [1] * (right_d + 1 - left_d)
+
+        return tuple(out_array)
+
     def clear(self):
         del self._interval_set[:]
 
