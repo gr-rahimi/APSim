@@ -1,6 +1,9 @@
-{% macro single_bram_macro36(stride_idx, contents) %}
+{% macro single_bram_macro18(ins_name, contents, after_match, width) %}
 {#
-@param stride_idx : stride index form 0  to stride_value - 1
+@param ins_name: name of the bram instance(it should be unique)
+@param contents: array of the contents. a list of lists of 0 and 1
+@param after_match: if true, a register will be added at the output
+@param width: width of the read port in bits
 #}
 
    // BRAM_SINGLE_MACRO: Single Port RAM
@@ -27,14 +30,14 @@
    /////////////////////////////////////////////////////////////////////
 
    BRAM_SINGLE_MACRO #(
-      .BRAM_SIZE("36Kb"), // Target BRAM, "18Kb" or "36Kb"
+      .BRAM_SIZE("18Kb"), // Target BRAM, "18Kb" or "36Kb"
       .DEVICE("7SERIES"), // Target Device: "7SERIES"
-      .DO_REG(0), // Optional output register (0 or 1)
-      .INIT(72'h000000000000000000), // Initial values on output port
+      .DO_REG({% if after_match%}1{% else %}0{% endif %}), // Optional output register (0 or 1)
+      .INIT({{width}}'b{% for _ in range(width) %}0{% endfor %}), // Initial values on output port
       .INIT_FILE ("NONE"),
-      .WRITE_WIDTH(72), // Valid values are 1-72 (37-72 only valid when BRAM_SIZE="36Kb")
-      .READ_WIDTH(72),  // Valid values are 1-72 (37-72 only valid when BRAM_SIZE="36Kb")
-      .SRVAL(72'h000000000000000000), // Set/Reset value for port output
+      .WRITE_WIDTH({{width}}), // Valid values are 1-72 (37-72 only valid when BRAM_SIZE="36Kb")
+      .READ_WIDTH({{width}}),  // Valid values are 1-72 (37-72 only valid when BRAM_SIZE="36Kb")
+      .SRVAL({{width}}'b{% for _ in range(width) %}0{% endfor %}), // Set/Reset value for port output
       .WRITE_MODE("NO_CHANGE"), // "WRITE_FIRST", "READ_FIRST", or "NO_CHANGE"
       .INIT_00(256'h{{contents[1 - 1] }}),
       .INIT_01(256'h{{contents[2 - 1] }}),
@@ -100,97 +103,20 @@
       .INIT_3D(256'h{{contents[62 - 1] }}),
       .INIT_3E(256'h{{contents[63 - 1] }}),
       .INIT_3F(256'h{{contents[64 - 1] }}),
-
-      // The next set of INIT_xx are valid when configured as 36Kb
-      .INIT_40(256'h{{contents[65 - 1] }}),
-      .INIT_41(256'h{{contents[66 - 1] }}),
-      .INIT_42(256'h{{contents[67 - 1] }}),
-      .INIT_43(256'h{{contents[68 - 1] }}),
-      .INIT_44(256'h{{contents[69 - 1] }}),
-      .INIT_45(256'h{{contents[70 - 1] }}),
-      .INIT_46(256'h{{contents[71 - 1] }}),
-      .INIT_47(256'h{{contents[72 - 1] }}),
-      .INIT_48(256'h{{contents[73 - 1] }}),
-      .INIT_49(256'h{{contents[74 - 1] }}),
-      .INIT_4A(256'h{{contents[75 - 1] }}),
-      .INIT_4B(256'h{{contents[76 - 1] }}),
-      .INIT_4C(256'h{{contents[77 - 1] }}),
-      .INIT_4D(256'h{{contents[78 - 1] }}),
-      .INIT_4E(256'h{{contents[79 - 1] }}),
-      .INIT_4F(256'h{{contents[80 - 1] }}),
-      .INIT_50(256'h{{contents[81 - 1] }}),
-      .INIT_51(256'h{{contents[82 - 1] }}),
-      .INIT_52(256'h{{contents[83 - 1] }}),
-      .INIT_53(256'h{{contents[84 - 1] }}),
-      .INIT_54(256'h{{contents[85 - 1] }}),
-      .INIT_55(256'h{{contents[86 - 1] }}),
-      .INIT_56(256'h{{contents[87 - 1] }}),
-      .INIT_57(256'h{{contents[88 - 1] }}),
-      .INIT_58(256'h{{contents[89 - 1] }}),
-      .INIT_59(256'h{{contents[90 - 1] }}),
-      .INIT_5A(256'h{{contents[91 - 1] }}),
-      .INIT_5B(256'h{{contents[92 - 1] }}),
-      .INIT_5C(256'h{{contents[93 - 1] }}),
-      .INIT_5D(256'h{{contents[94 - 1] }}),
-      .INIT_5E(256'h{{contents[95 - 1] }}),
-      .INIT_5F(256'h{{contents[96 - 1] }}),
-      .INIT_60(256'h{{contents[97 - 1] }}),
-      .INIT_61(256'h{{contents[98 - 1] }}),
-      .INIT_62(256'h{{contents[99 - 1] }}),
-      .INIT_63(256'h{{contents[100 - 1] }}),
-      .INIT_64(256'h{{contents[101 - 1] }}),
-      .INIT_65(256'h{{contents[102 - 1] }}),
-      .INIT_66(256'h{{contents[103 - 1] }}),
-      .INIT_67(256'h{{contents[104 - 1] }}),
-      .INIT_68(256'h{{contents[105 - 1] }}),
-      .INIT_69(256'h{{contents[106 - 1] }}),
-      .INIT_6A(256'h{{contents[107 - 1] }}),
-      .INIT_6B(256'h{{contents[108 - 1] }}),
-      .INIT_6C(256'h{{contents[109 - 1] }}),
-      .INIT_6D(256'h{{contents[110 - 1] }}),
-      .INIT_6E(256'h{{contents[111 - 1] }}),
-      .INIT_6F(256'h{{contents[112 - 1] }}),
-      .INIT_70(256'h{{contents[113 - 1] }}),
-      .INIT_71(256'h{{contents[114 - 1] }}),
-      .INIT_72(256'h{{contents[115 - 1] }}),
-      .INIT_73(256'h{{contents[116 - 1] }}),
-      .INIT_74(256'h{{contents[117 - 1] }}),
-      .INIT_75(256'h{{contents[118 - 1] }}),
-      .INIT_76(256'h{{contents[119 - 1] }}),
-      .INIT_77(256'h{{contents[120 - 1] }}),
-      .INIT_78(256'h{{contents[121 - 1] }}),
-      .INIT_79(256'h{{contents[122 - 1] }}),
-      .INIT_7A(256'h{{contents[123 - 1] }}),
-      .INIT_7B(256'h{{contents[124 - 1] }}),
-      .INIT_7C(256'h{{contents[125 - 1] }}),
-      .INIT_7D(256'h{{contents[126 - 1] }}),
-      .INIT_7E(256'h{{contents[127 - 1] }}),
-      .INIT_7F(256'h{{contents[128 - 1] }}),
-
       // The next set of INITP_xx are for the parity bits
-      .INITP_00(256'h{{contents[129 - 1] }}),
-      .INITP_01(256'h{{contents[130 - 1] }}),
-      .INITP_02(256'h{{contents[131 - 1] }}),
-      .INITP_03(256'h{{contents[132 - 1] }}),
-      .INITP_04(256'h{{contents[133 - 1] }}),
-      .INITP_05(256'h{{contents[134 - 1] }}),
-      .INITP_06(256'h{{contents[135 - 1] }}),
-      .INITP_07(256'h{{contents[136 - 1] }}),
-
-      // The next set of INIT_xx are valid when configured as 36Kb
-      .INITP_08(256'h{{contents[137 - 1] }}),
-      .INITP_09(256'h{{contents[138 - 1] }}),
-      .INITP_0A(256'h{{contents[139 - 1] }}),
-      .INITP_0B(256'h{{contents[140 - 1] }}),
-      .INITP_0C(256'h{{contents[141 - 1] }}),
-      .INITP_0D(256'h{{contents[142 - 1] }}),
-      .INITP_0E(256'h{{contents[143 - 1] }}),
-      .INITP_0F(256'h{{contents[144 - 1] }})
+      .INITP_00(256'h{{contents[65 - 1] }}),
+      .INITP_01(256'h{{contents[66 - 1] }}),
+      .INITP_02(256'h{{contents[67 - 1] }}),
+      .INITP_03(256'h{{contents[68 - 1] }}),
+      .INITP_04(256'h{{contents[69 - 1] }}),
+      .INITP_05(256'h{{contents[70 - 1] }}),
+      .INITP_06(256'h{{contents[71 - 1] }}),
+      .INITP_07(256'h{{contents[72 - 1] }}),
    ) BRAM_SINGLE_MACRO_stride{{stride_idx}} (
       .DO(bram_out_vector[{{stride_idx}}]),       // Output data, width defined by READ_WIDTH parameter
       .ADDR({1'b0, input_capture[{{(stride_idx + 1) * 8 - 1}}:{{stride_idx * 8}}]}),   // Input address, width defined by read/write port depth
       .CLK(clk),     // 1-bit input clock
-      .DI(72'h000000000000000000),       // Input data port, width defined by WRITE_WIDTH parameter
+      .DI({{width}}'b{% for _ in range(width) %}0{% endfor %}),       // Input data port, width defined by WRITE_WIDTH parameter
       .EN(1'b1),       // 1-bit input RAM enable
       .REGCE(1'b0), // 1-bit input output register enable
       .RST(1'b0),     // 1-bit input reset

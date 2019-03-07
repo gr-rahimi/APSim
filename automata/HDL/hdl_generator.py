@@ -414,8 +414,58 @@ class HDL_Gen(object):
         '''
         this function willl take care of generating brams.
         :param atms_list: this is a list of automatas [(atm id, lut_bram_dic)...]
-        :return:
+        :return: list of chanked brams [[(bram1content, [[(atm1,ste1),(atm1,ste5)],[(atm1, ste3)],....]),()], [(bram2content, [[(atm1,ste1),(atm1,ste5)],[(atm1, ste3)],....]),()]]
+                                                         -------column1---------
+                                                                                    --column2---
         '''
+
+        bram_len = 512
+        bram_width = 36
+        base_value = 16
+
+        def numpy_bram_tostring(bram_content, base_value):
+            '''
+            this function receives a numpy array with 0,1 and convert it to the form that xilinx bram macro likes to receive
+            :param bram_content: 
+            :param base_value: 
+            :return: 
+            '''
+
+            assert base_value == 16 or base_value == 8 or base_value == 4 or base_value == 2
+
+            def array_to_str(inp_array):
+                sum = 0
+                for i in inp_array:
+                    sum = sum * 2 + i
+
+                if sum < 10:
+                    return str(sum)
+                elif sum == 10:
+                    return 'A'
+                elif sum == 11:
+                    return 'B'
+                elif sum == 12:
+                    return 'C'
+                elif sum == 13:
+                    return 'D'
+                elif sum == 14:
+                    return 'E'
+                elif sum == 15:
+                    return 'F'
+
+            per_row_bits = 256
+            bits_count = int(math.log(base_value, 2))
+            result_list = []
+            flatten_arr = bram_content.flatten()
+
+            for row in np.split(flatten_arr, per_row_bits):
+                row_content = []
+                for chunk in np.split(row, bits_count):
+                    to_str = array_to_str(chunk)
+                    row_content.append(to_str)
+                result_list.append(row_content)
+
+            return result_list
 
         if all(((len(bram_lut_dic) == 0 or all((bram_d != 2 for bram_d in bram_lut_dic.itervalues()))) for _, bram_lut_dic in atms_list)):
             return # no bram is needed
@@ -425,20 +475,34 @@ class HDL_Gen(object):
 
         stride_val = stride_vals[0]
 
-        per_dimm_count = [0] * stride_val
+        brams_list = [{} for _ in range(stride_val)]
 
-        for _, bram_lut_dic in atms_list:
-            for d in bram_lut_dic.itervalues():
-                per_dimm_count[d] += 1
+        for atm_id, bram_lut_dic in brams_list:
+            for node, bram_lut_d in bram_lut_dic.iteritems():
+                for d_idx, d in enumerate(bram_lut_d):
+                    if d == 2:
+                        match_vector = node.symbols.points_on_dim(d_idx, bram_len)
+                        brams_list[d_idx][match_vector].setdefault([]).append((atm_id, node.id))
 
-                
+        chunked_bram_list = [[] for _ in range(stride_val)]
 
+        for d in range(stride_val):
+            bram_list = brams_list[d]
+            current_bram_content, current_bram_nodes = None, None
+            for v_idx, (mv, atmid_nodeid) in enumerate(bram_list.iteritems()):
+                if v_idx % bram_width == 0:
+                    if current_bram_content is not None:
+                        chunked_bram_list[d].append((numpy_bram_tostring(current_bram_content, base_value), current_bram_nodes))
+                    current_bram_content = np.zeros((bram_len, bram_width), dtype=np.int8)
+                    current_bram_nodes = []
 
+                current_bram_content[:, v_idx % bram_width] = mv
+                current_bram_nodes.append(atmid_nodeid)
 
+            if current_bram_nodes: # remaining nodes
+                chunked_bram_list[d].append((numpy_bram_tostring(np.flip(current_bram_content)), reversed(current_bram_nodes)))
 
-
-
-
+        return chunked_bram_list
 
     def register_stage_pending(self, single_out):
         '''
@@ -446,18 +510,19 @@ class HDL_Gen(object):
         :param single_out:
         :return:
         '''
-        self._register_stage(atms_id=[atm_id for atm_id, _ in self._pending_automatas], single_out=single_out)
-
-
+        brams_content = self._generate_bram(self._pending_automatas)
+        self._register_stage(atms_id=[atm_id for atm_id, _ in self._pending_automatas],
+                             single_out=single_out,
+                             brams_content=brams_content)
 
         self._pending_automatas = []
 
-
-    def _register_stage(self, atms_id, single_out):
+    def _register_stage(self, atms_id, single_out, brams_content):
         '''
 
         :param atms_id: list of ids of automatas in the same stage
         :param single_out: if true, the stage will have one report out put which is the or of all of the outputs
+        :param brams_content 
         :return: None
         '''
         self._stage_id += 1
