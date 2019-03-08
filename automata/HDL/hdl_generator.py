@@ -467,8 +467,17 @@ class HDL_Gen(object):
 
             return result_list
 
-        if all(((len(bram_lut_dic) == 0 or all((bram_d != 2 for bram_d in bram_lut_dic.itervalues()))) for _, bram_lut_dic in atms_list)):
-            return # no bram is needed
+        all_len = [len(bram_lut_dic) == 0 for _, bram_lut_dic in atms_list]
+        if all(all_len):
+            return None
+
+        all_type=[]
+        for _, bram_lut_dic in atms_list:
+            for t in bram_lut_dic.itervalues():
+                for d in t:
+                   all_type.append(d==1)
+        if all(all_type):
+            return None
 
         stride_vals = [len(v) for _, bram_lut_dic in atms_list for v in bram_lut_dic.itervalues()]
         assert len(set(stride_vals)) == 1 # all should have same stride value
