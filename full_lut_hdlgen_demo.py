@@ -97,7 +97,7 @@ for uat in under_process_atms:
 
             lut_bram_dic = {n: (1, 2) for n in atm.nodes}
             generator_ins.register_automata(atm=atm, use_compression=use_compression, byte_trans_map=bc_sym_dict if use_compression else None,
-                                            translation_list=translation_list, lut_bram_dic={})
+                                            translation_list=translation_list, lut_bram_dic=lut_bram_dic)
 
             if use_compression:
                 generator_ins.register_compressor([atm.id], byte_trans_map=bc_sym_dict,
