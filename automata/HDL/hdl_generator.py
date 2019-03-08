@@ -3,6 +3,7 @@ from itertools import count, chain
 import math
 from os.path import expanduser
 from collections import namedtuple
+import logging
 from jinja2 import Environment, FileSystemLoader
 import numpy as np
 import networkx
@@ -487,12 +488,15 @@ class HDL_Gen(object):
 
         brams_list = [{} for _ in range(stride_val)]
 
-        for atm_id, bram_lut_dic in brams_list:
+        for atm_id, bram_lut_dic in atms_list:
             for node, bram_lut_d in bram_lut_dic.iteritems():
+                if node.is_fake:
+                    logging.warning('fake root was found in bram/lut dictionary')
+                    continue
                 for d_idx, d in enumerate(bram_lut_d):
                     if d == 2:
                         match_vector = node.symbols.points_on_dim(d_idx, bram_len)
-                        brams_list[d_idx][match_vector].setdefault([]).append((atm_id, node.id))
+                        brams_list[d_idx].setdefault(match_vector, []).append((atm_id, node.id))
 
         chunked_bram_list = [[] for _ in range(stride_val)]
 
