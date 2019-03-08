@@ -1,5 +1,6 @@
 {% from 'Automata.template' import automata_macro %}
 {% import 'STE_base.template' as ste_base %}
+{% from 'bram18.template' import single_bram_macro18 %}
 
 {#
 @param automatas: List of automatas to be processed
@@ -12,6 +13,9 @@ list of tuples(atm.id, node.id) to track the assigned
 @param bit_feed_size: number of bits being feed in each cycle
 @param id_to_comp_dict t: a dictionary from compressor ids to their output len. This is the total bit counts
 @param comp_dict: a dictionary to translate from automata ids to compressor ids
+@param bram_content: list of bram contents
+@param pending_atms
+@param after_match
 #}
 
 /*
@@ -58,27 +62,19 @@ assign single_out = {{report_list|join(' | ')}};
 
 {%endif%}
 
-{% for bram in bram_list %}
-{% for atm, node in bram %}
-wire {{atm.id}}_w_match_{{node.id}};
-{%- endfor %}
-bram_module_{{loop.index0}} bram_module_{{loop.index0}}_ins (
-    .clk(clk),
-    .symbols(symbols),
-    .match({ {% for atm, node in bram%}{% if loop.index0 > 0 %}, {% endif %} {{atm.id}}_w_match_{{node.id}}
-    {% endfor %} })
-                                  );
-{% endfor %}
-
 
 {%for atm in  automatas%}
 Automata_{{atm.id}} automata_{{atm.id}} (.clk(clk),
                      .run(run),
                      .reset(reset),
                      .symbols({%if not atm.use_compression %}top_symbols {% else %}from_comp_{{comp_dict[atm.id]}}{% endif %})
-                     {%- for node_id in bram_match_id_list[loop.index0]%}
-                     , .{{atm.id}}_w_match_{{node_id}}({{atm.id}}_w_match_{{node_id}})
-                     {%- endfor %}
+                     {% for node, placement in pending_atms[loop.index0][1].iteritems() -%}
+                        {% for d in placement -%}
+                            {% if d == 2 %}
+                            ,{{atm.id}}_n{{node.id}}_d{{loop.index0}}_bram
+                            {% endif %}
+                        {%- endfor %}
+                     {%- endfor -%}
                      {%- for node in atm.nodes if node.report %}
                       , .{{atm.id}}_w_out_{{node.id}}({{atm.id}}_w_out_{{node.id}})
                      {%- endfor %}
@@ -98,6 +94,15 @@ Symbol_Compressor_Pipeline_{{comp_dict[atm.id]}} sym_comp_{{comp_dict[atm.id]}}(
                             );
 {% do unique_compressors.append(comp_dict[atm.id]) %}
 {% endif %}
+{% endfor %}
+
+
+{% for d_bram in bram_contents %}
+{% set d_loop = loop %}
+{% for bram, nodes in d_bram %}
+wire [35:0] from_bram_d{{d_loop.index0}}_index{{loop.index0}}
+{{single_bram_macro18('bram_d' + d_loop.index0|string  + 'index'+loop.index0|string, bram, after_match, nodes|length)}}
+{% endfor %}
 {% endfor %}
 
 endmodule

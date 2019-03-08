@@ -295,6 +295,7 @@ class HDL_Gen(object):
         for node in atm.nodes:
             atm_interface.nodes.append(self._Node_Interface(id=node.id, report=node.report,
                                                             sym_count=0 if node.id==FakeRoot.fake_root_id else len(node.symbols)))
+
         self._pending_automatas.append((atm.id, lut_bram_dic))
 
 
@@ -519,19 +520,23 @@ class HDL_Gen(object):
         :param single_out:
         :return:
         '''
-        brams_content = self._generate_bram(self._pending_automatas)
+        brams_contents = self._generate_bram(self._pending_automatas)
         self._register_stage(atms_id=[atm_id for atm_id, _ in self._pending_automatas],
                              single_out=single_out,
-                             brams_content=brams_content)
+                             brams_contents=brams_contents)
+
+
+
 
         self._pending_automatas = []
 
-    def _register_stage(self, atms_id, single_out, brams_content):
+    def _register_stage(self, atms_id, single_out, brams_contents):
         '''
 
         :param atms_id: list of ids of automatas in the same stage
         :param single_out: if true, the stage will have one report out put which is the or of all of the outputs
-        :param brams_content 
+        :param brams_content
+        :param pending_automatas
         :return: None
         '''
         self._stage_id += 1
@@ -544,7 +549,9 @@ class HDL_Gen(object):
                                            stage_index=self._stage_id,
                                            bit_feed_size=self._total_input_len,
                                            id_to_comp_dict={self._atm_to_comp_id[atm_id]:self._comp_info[self._atm_to_comp_id[atm_id]] for atm_id in atms_id if atm_id in self._atm_to_comp_id},
-                                           comp_dict={atm_id:self._atm_to_comp_id[atm_id] for atm_id in atms_id if atm_id in self._atm_to_comp_id})
+                                           comp_dict={atm_id:self._atm_to_comp_id[atm_id] for atm_id in atms_id if atm_id in self._atm_to_comp_id},
+                                           brams_contents=brams_contents, pending_atms=self._pending_automatas,
+                                           after_match=self._after_match_reg)
         with open(os.path.join(self._path, 'stage{}.v'.format(self._stage_id)), 'w') as f:
             f.writelines(rendered_content)
 
