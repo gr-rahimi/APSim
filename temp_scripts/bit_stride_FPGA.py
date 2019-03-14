@@ -15,10 +15,10 @@ random.seed=3
 #Snort, EntityResolution, ClamAV, Hamming, Dotstart, Custom, Bro217, Levenstein, Bril,
 # Randomfor, Dotstar03, ExactMath,Dotstar06, Fermi, PowerEN, Protomata, Dotstart09, Ranges1, SPM, Ranges 05
 #SynthBring, Synthcorering
-under_process_atms = [AnmalZoo.RandomForest]
+under_process_atms = [AnmalZoo.Hamming]
 exempts = {(AnmalZoo.Snort, 1411)}
-number_of_autoamtas = 10
-automata_per_stage = 5
+number_of_autoamtas = 200
+automata_per_stage = 50
 use_compression = False
 single_out=False
 before_match_reg=False
@@ -38,8 +38,11 @@ for uat in under_process_atms:
         #automatas = random.sample(automatas, number_of_autoamtas)
         automatas = automatas[:number_of_autoamtas]
 
+
     number_of_stages = math.ceil(len(automatas) / float(automata_per_stage))
-    for bit_stride_val in [12]:
+    atms_per_stage = int(math.ceil(len(automatas) / float(number_of_stages)))
+
+    for bit_stride_val in [1, 2, 4, 8, 12, 16]:
 
         hdl_apth = hd_gen.get_hdl_folder_path(prefix=str(uat), number_of_atms=len(automatas), stride_value=bit_stride_val,
                                               before_match_reg=before_match_reg, after_match_reg=after_match_reg,
@@ -55,7 +58,7 @@ for uat in under_process_atms:
             if (uat, atm_idx) in exempts:
                 continue
 
-            atm = atma.automata_network.get_bit_automaton(atm=atm, original_bit_width=8)
+            atm = atma.automata_network.get_bit_automaton(atm=atm, original_bit_width=hd_gen.HDL_Gen.get_bit_len(atm.max_val_dim))
             atm = atma.automata_network.get_strided_automata2(atm=atm, stride_value=bit_stride_val, is_scalar=True,
                                                               base_value=2)
 
@@ -79,10 +82,8 @@ for uat in under_process_atms:
                 generator_ins.register_compressor([atm.id], byte_trans_map=bc_sym_dict,
                                                   translation_list=translation_list)
 
-        atms_per_stage = int(math.ceil(len(strided_automatas) / float(number_of_stages)))
+            if (atm_idx + 1) % atms_per_stage == 0:
+                generator_ins.register_stage_pending(single_out=single_out)
 
-        for st_idx in range(0, len(strided_automatas), atms_per_stage):
-            same_stage_atms_id = [atm_id for atm_id in strided_automatas[st_idx:st_idx+atms_per_stage]]
-            generator_ins.register_stage(same_stage_atms_id, single_out=False)
-
+        generator_ins.register_stage_pending(single_out=single_out)
         generator_ins.finilize()

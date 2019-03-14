@@ -232,8 +232,8 @@ class HDL_Gen(object):
         self._atm_info = {}  # this dictionary keeps the required information in tempalates for individual automatas
         self._stage_info = {} # keeps information about automatas in the same stage. key= stage_idx, value= list of atm_ids
          # this is a 2D list for keeping autoamatas that reide in the same stage
-        self._Atm_Interface = namedtuple('Atm_Interface',['id', 'nodes', 'nodes_count', 'reports_count', 'edges_count',
-                                                          'stride_value', 'use_compression'])
+        self._Atm_Interface = namedtuple('Atm_Interface', ['id', 'nodes', 'nodes_count', 'reports_count', 'edges_count',
+                                                          'stride_value', 'use_compression', 'max_val_dim'])
         self._Node_Interface = namedtuple('Node_Interface', ['id', 'report', 'sym_count'])
         self._pending_automatas = [] # this list keeps all the automata that has not been assigned to a stage
 
@@ -291,13 +291,13 @@ class HDL_Gen(object):
         atm_interface = self._Atm_Interface(id=atm.id, nodes=[], nodes_count=atm.nodes_count,
                                             reports_count=sum(1 for _ in atm.get_filtered_nodes(lambda ste: ste.report)),
                                             edges_count=atm.edges_count, stride_value=atm.stride_value,
-                                            use_compression=use_compression)
+                                            use_compression=use_compression, max_val_dim=atm.max_val_dim)
         self._atm_info[atm.id] = atm_interface
         for node in atm.nodes:
             atm_interface.nodes.append(self._Node_Interface(id=node.id, report=node.report,
                                                             sym_count=0 if node.id==FakeRoot.fake_root_id else len(node.symbols)))
 
-        self._pending_automatas.append((atm.id, lut_bram_dic))
+        self._pending_automatas.append((atm_interface, lut_bram_dic))
 
 
 
@@ -421,9 +421,7 @@ class HDL_Gen(object):
                                                                                     --column2---
         '''
 
-        bram_len = 512
-        bram_width = 36
-        base_value = 16
+
 
         def numpy_bram_tostring(bram_content, base_value):
             '''
@@ -460,9 +458,9 @@ class HDL_Gen(object):
             result_list = []
             flatten_arr = bram_content.flatten()
 
-            for row in np.split(flatten_arr, per_row_bits):
+            for row in np.split(flatten_arr, flatten_arr.size / per_row_bits):
                 row_content = []
-                for chunk in np.split(row, bits_count):
+                for chunk in np.split(row, row.size / bits_count):
                     to_str = array_to_str(chunk)
                     row_content.append(to_str)
                 result_list.append(row_content)
@@ -471,24 +469,37 @@ class HDL_Gen(object):
 
         all_len = [len(bram_lut_dic) == 0 for _, bram_lut_dic in atms_list]
         if all(all_len):
-            return None
+            return []
 
-        all_type=[]
+        all_type = []
         for _, bram_lut_dic in atms_list:
             for t in bram_lut_dic.itervalues():
                 for d in t:
-                   all_type.append(d==1)
+                    all_type.append(d == 1)
+
         if all(all_type):
-            return None
+            return []
 
         stride_vals = [len(v) for _, bram_lut_dic in atms_list for v in bram_lut_dic.itervalues()]
+
         assert len(set(stride_vals)) == 1 # all should have same stride value
 
-        stride_val = stride_vals[0]
+        stride_val = atms_list[0][0].stride_value
+
+        assert stride_val == stride_vals[0]
+
+        valid_bram_lens = [(512, 36), (1024, 18), (2048, 9)]
+
+        assert atms_list[0].max_val_dim < 8192
+        for bram_len, bram_width in valid_bram_lens:
+            if bram_len > atms_list[0].max_val_dim:
+                break
+
+        base_value = 16
 
         brams_list = [{} for _ in range(stride_val)]
 
-        for atm_id, bram_lut_dic in atms_list:
+        for atm, bram_lut_dic in atms_list:
             for node, bram_lut_d in bram_lut_dic.iteritems():
                 if node.is_fake:
                     logging.warning('fake root was found in bram/lut dictionary')
@@ -496,7 +507,7 @@ class HDL_Gen(object):
                 for d_idx, d in enumerate(bram_lut_d):
                     if d == 2:
                         match_vector = node.symbols.points_on_dim(d_idx, bram_len)
-                        brams_list[d_idx].setdefault(match_vector, []).append((atm_id, node.id))
+                        brams_list[d_idx].setdefault(match_vector, []).append((atm, node.id))
 
         chunked_bram_list = [[] for _ in range(stride_val)]
 
@@ -506,7 +517,7 @@ class HDL_Gen(object):
             for v_idx, (mv, atmid_nodeid) in enumerate(bram_list.iteritems()):
                 if v_idx % bram_width == 0:
                     if current_bram_content is not None:
-                        chunked_bram_list[d].append((numpy_bram_tostring(current_bram_content, base_value), current_bram_nodes))
+                        chunked_bram_list[d].append((numpy_bram_tostring(current_bram_content, base_value=base_value), current_bram_nodes))
                     current_bram_content = np.zeros((bram_len, bram_width), dtype=np.int8)
                     current_bram_nodes = []
 
@@ -514,7 +525,8 @@ class HDL_Gen(object):
                 current_bram_nodes.append(atmid_nodeid)
 
             if current_bram_nodes: # remaining nodes
-                chunked_bram_list[d].append((numpy_bram_tostring(np.flip(current_bram_content)), reversed(current_bram_nodes)))
+                current_bram_nodes.reverse()
+                chunked_bram_list[d].append((numpy_bram_tostring(current_bram_content[:, ::-1], base_value=base_value), current_bram_nodes))
 
         return chunked_bram_list
 
@@ -524,13 +536,13 @@ class HDL_Gen(object):
         :param single_out:
         :return:
         '''
+        if not self._pending_automatas:
+            return
+
         brams_contents = self._generate_bram(self._pending_automatas)
-        self._register_stage(atms_id=[atm_id for atm_id, _ in self._pending_automatas],
+        self._register_stage(atms_id=[atm.id for atm, _ in self._pending_automatas],
                              single_out=single_out,
                              brams_contents=brams_contents)
-
-
-
 
         self._pending_automatas = []
 
@@ -559,7 +571,9 @@ class HDL_Gen(object):
         with open(os.path.join(self._path, 'stage{}.v'.format(self._stage_id)), 'w') as f:
             f.writelines(rendered_content)
 
+
     def finilize(self):
+
         atms_list = [[self._atm_info[atm_id] for atm_id in atms_id]for atms_id in self._stage_info.values()]
 
         template = self._env.get_template('Top_Module.template')

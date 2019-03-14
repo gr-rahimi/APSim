@@ -82,7 +82,7 @@ my_Automata=my_Automata.get_single_stride_graph()
 
 my_Automata.make_homogenous()
 minimize_automata(my_Automata)
-#my_Automata.fix_split_all()
+my_Automata.fix_split_all()
 
 my_Automata.draw_graph('s2.svg')
 

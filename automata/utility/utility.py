@@ -498,7 +498,7 @@ def get_equivalent_symbols(atms_list, replace=True, use_random_assignment=False,
                     new_set.add(new_map[ch])
                 new_set = set([new_map[ch] for ch in old_set])
 
-            opt_dic[sym_set] = new_set
+                opt_dic[sym_set] = new_set
 
     if replace:
         _replace_equivalent_symbols(symbol_dictionary_list=optimal_dics, atms_list=atms_list, max_val=len(new_map) + (-1 if need_extra_code is False else 0))

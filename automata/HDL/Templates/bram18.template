@@ -4,6 +4,8 @@
 @param contents: array of the contents. a list of lists of 0 and 1
 @param after_match: if true, a register will be added at the output
 @param width: width of the read port in bits
+@param out_name
+@param input_name
 #}
 
    // BRAM_SINGLE_MACRO: Single Port RAM
@@ -113,8 +115,8 @@
       .INITP_06(256'h{{contents[71 - 1] }}),
       .INITP_07(256'h{{contents[72 - 1] }}),
    ) BRAM_SINGLE_MACRO_stride{{stride_idx}} (
-      .DO(bram_out_vector[{{stride_idx}}]),       // Output data, width defined by READ_WIDTH parameter
-      .ADDR({1'b0, input_capture[{{(stride_idx + 1) * 8 - 1}}:{{stride_idx * 8}}]}),   // Input address, width defined by read/write port depth
+      .DO({{out_name}}),       // Output data, width defined by READ_WIDTH parameter
+      .ADDR(input_name),   // Input address, width defined by read/write port depth
       .CLK(clk),     // 1-bit input clock
       .DI({{width}}'b{% for _ in range(width) %}0{% endfor %}),       // Input data port, width defined by WRITE_WIDTH parameter
       .EN(1'b1),       // 1-bit input RAM enable
@@ -122,7 +124,6 @@
       .RST(1'b0),     // 1-bit input reset
       .WE(1'b0)        // Input write enable, width defined by write port depth
    );
-
 
    // End of BRAM_SINGLE_MACRO_inst instantiation
 {% endmacro %}

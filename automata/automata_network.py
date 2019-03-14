@@ -82,17 +82,17 @@ class Automatanetwork(object):
     def max_val_dim(self, max_val):
         self._max_val = max_val
 
-    @property
-    def bit_len(self):
-        return self._bit_len
-
-    @bit_len.setter
-    def bit_len(self, bit_len):
-        self._bit_len = bit_len
-
-    @property
-    def total_bitlen(self):
-        return  self._bit_len * self._stride_value
+    # @property
+    # def bit_len(self):
+    #     return self._bit_len
+    #
+    # @bit_len.setter
+    # def bit_len(self, bit_len):
+    #     self._bit_len = bit_len
+    #
+    # @property
+    # def total_bitlen(self):
+    #     return  self._bit_len * self._stride_value
 
     @property
     def id(self):
@@ -222,7 +222,7 @@ class Automatanetwork(object):
                 continue
             intervals_sum += len(node.symbols)
 
-        return intervals_sum / self.nodes_count
+        return intervals_sum / self.nodes_count if self.nodes_count is not 0 else 'inf'
 
     def add_edge(self, src, dest, **kwargs):
         # if self.is_homogeneous:
@@ -529,7 +529,7 @@ class Automatanetwork(object):
         if self.fake_root in preds:
             preds.remove(self.fake_root) # fake root will be added automatically
 
-
+        new_nodes = []# we keep a list of generated nodes to handle the self loop in the original state
         for new_sym in new_syms_list:
             new_node = S_T_E(start_type=node.start_type,
                              is_report=node.report,
@@ -539,6 +539,7 @@ class Automatanetwork(object):
                              adjacent_S_T_E_s=None,
                              report_residual=node.report_residual,
                              report_code=node.report_code)
+            new_nodes.append(new_node)
 
             self.add_element(new_node)
             if self_loop:
@@ -549,6 +550,10 @@ class Automatanetwork(object):
 
             for neighb in neighbs:
                 self.add_edge(new_node, neighb)
+
+        if self_loop:
+            for src, dst in itertools.permutations(new_nodes, 2):
+                self.add_edge(src, dst)
 
         self.delete_node(node)  # delete node from graph
 
@@ -978,13 +983,18 @@ class Automatanetwork(object):
         ec = self.edges_count
         str_list.append("Number of nodes = {}".format(nc))
         str_list.append("Number of edges = {}".format(ec))
-        str_list.append("Average edge per node = {}".format(float(nc)/ec))
+        if ec is not 0:
+            str_list.append("Average edge per node = {}".format(float(nc)/ec))
+        else:
+            str_list.append("Average edge per node is undefined")
+            logging.warning('an automaton detected with zero number of edges')
         str_list.append("Number of start nodes = {}".format(self.number_of_start_nodes))
         str_list.append("Number of report nodes = {}".format(self.number_of_report_nodes))
         str_list.append("does have all_input = {}".format(self.does_have_all_input()))
         str_list.append("does have special element = {}".format(self.does_have_special_elements()))
         str_list.append("is Homogenous = {}".format(self.is_homogeneous))
         str_list.append("stride value = {}".format(self.stride_value))
+
         if self.is_homogeneous:
             str_list.append("average number of intervals per STE = {}".format(self.get_average_intervals()))
         if print_detailed_final_states:
@@ -2271,7 +2281,7 @@ def get_bit_automaton(atm, original_bit_width):
     bit_automata.prone_all_symbol_sets()
     return bit_automata
 
-def get_strided_automata2(atm ,stride_value, is_scalar, base_value = 0, add_residual=False):
+def get_strided_automata2(atm ,stride_value, is_scalar, base_value = 0, add_residual=True):
     '''
 
     :param atm: to be strided automata
