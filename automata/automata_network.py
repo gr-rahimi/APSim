@@ -456,17 +456,11 @@ class Automatanetwork(object):
             start_type = edge[2]['start_type']
 
             if start_type == StartType.non_start:
-                in_dic_sym_set=src_dict_non_start.setdefault(edge[0], PackedIntervalSet([]))
-                for l in symbol_set:
-                    in_dic_sym_set.add_interval(l)
+                src_dict_non_start.setdefault(edge[0], PackedIntervalSet(symbol_set))
             elif start_type == StartType.start_of_data:
-                in_dic_sym_set = src_dict_start_of_data.setdefault(edge[0], PackedIntervalSet([]))
-                for l in symbol_set:
-                    in_dic_sym_set.add_interval(l)
+                src_dict_start_of_data.setdefault(edge[0], PackedIntervalSet(symbol_set))
             elif start_type == StartType.all_input:
-                in_dic_sym_set = src_dict_all_start.setdefault(edge[0], PackedIntervalSet([]))
-                for l in symbol_set:
-                    in_dic_sym_set.add_interval(l)
+                src_dict_all_start.setdefault(edge[0], PackedIntervalSet(symbol_set))
             else:
                 assert False  # It should not happen
 
@@ -569,7 +563,7 @@ class Automatanetwork(object):
             if node.symbols.is_splittable() is False:
                 self.fix_split_node(node)
 
-    def make_homogenous(self, plus_src = False):
+    def make_homogenous(self, plus_src=False):
         """
         :param plus_src: if this parameter is True, the autoamaton will be homogeneous based on source and symbol sets.
         otherwise, it only be homogeneous based on symbol set
@@ -615,6 +609,11 @@ class Automatanetwork(object):
     @is_homogeneous.setter
     def is_homogeneous(self, is_homo):
         self._is_homogeneous = is_homo
+
+    def set_all_symbols_mutation(self, mutation_value):
+        for node in self.nodes:
+            if node.is_fake is False:
+                node.symbols.mutable = mutation_value
 
     def darw_graph_on_ax(self, draw_edge_label, ax, pos = None, color = None):
         if pos == None:
@@ -929,6 +928,7 @@ class Automatanetwork(object):
         for neighb, on_edge_char_set in connectivity_dic.iteritems():
             create_new_node = False
             if curr_node != neighb:
+                on_edge_char_set.mutable = False
                 if plus_src is True or on_edge_char_set not in new_node_dic:
                     create_new_node = True
                     new_node = S_T_E(start_type=start_type, is_report=curr_node.report, is_marked=True,
@@ -948,7 +948,7 @@ class Automatanetwork(object):
 
                 for edge in out_edges:
                     if edge[1] != edge[0]:
-                        self.add_edge(new_node, edge[1], symbol_set=edge[2][Automatanetwork.symbol_data_key], start_type = edge[2]['start_type'])
+                        self.add_edge(new_node, edge[1], symbol_set=edge[2][Automatanetwork.symbol_data_key], start_type=edge[2]['start_type'])
                     else:
                         continue # not necessary for self loops
             else:

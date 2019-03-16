@@ -255,6 +255,8 @@ class PackedIntervalSet(object):
     def __init__(self, packed_interval_set):
         self._set_interval_set(packed_interval_set)
 
+        self.__mutable = True
+
     def _set_interval_set(self, packed_interval_set):
         self._interval_set = SortedSet(packed_interval_set)
 
@@ -274,7 +276,10 @@ class PackedIntervalSet(object):
         return True
 
     def __hash__(self):
-        return hash(self._interval_set[0].left)
+        if self.__mutable:
+            raise RuntimeError()
+        else:
+            return hash(self._interval_set[0].left)
 
     def __eq__(self, other):
         if len(self._interval_set)!= len(other._interval_set):
@@ -350,12 +355,22 @@ class PackedIntervalSet(object):
             return self._interval_set[0].dim
 
     def add_interval(self, interval):
-        #import bisect
-        assert isinstance(interval, PackedInterval), "argument should be an instance of PackedInterval"
-        #bisect.insort(self._interval_set, interval)
-        self._interval_set.add(interval)
-        return
+        if self.__mutable:
+            #import bisect
+            assert isinstance(interval, PackedInterval), "argument should be an instance of PackedInterval"
+            #bisect.insort(self._interval_set, interval)
+            self._interval_set.add(interval)
+            return
+        else:
+            raise RuntimeError()
 
+    @property
+    def mutable(self):
+        return self.__mutable
+
+    @mutable.setter
+    def mutable(self, mutable_val):
+        self.__mutable = mutable_val
 
     def is_symbolset_a_subset(self, other_symbol_set):
         """
@@ -387,6 +402,7 @@ class PackedIntervalSet(object):
 
     @classmethod
     def combine(cls, left_set, right_set):
+
         #TODO I think it is better to not use add_interval.
         #  Can we say that this new intervals are independent?
 
@@ -407,7 +423,7 @@ class PackedIntervalSet(object):
         return PackedIntervalSet(new_packed_list)
 
     def clone(self):
-        return PackedIntervalSet([interval for interval in self._interval_set])
+        return PackedIntervalSet(self._interval_set)
 
     def can_accept(self, input_pt):
         assert isinstance(input_pt, PackedInput)
@@ -432,6 +448,9 @@ class PackedIntervalSet(object):
             return "*" + to_return_str + "*"
 
     def merge(self):
+        if self.__mutable is False:
+            raise RuntimeError()
+
         if self.dim > 1:
             return
         new_sym_set = []
@@ -456,6 +475,10 @@ class PackedIntervalSet(object):
         :return:
             None
         """
+
+        if self.__mutable is False:
+            raise RuntimeError()
+
         if self._interval_set:
 
             to_be_deleted = [] # keeps inexes of items that are going to be deleted
@@ -524,6 +547,9 @@ class PackedIntervalSet(object):
         return tuple(out_array)
 
     def clear(self):
+        if self.__mutable is False:
+            raise RuntimeError()
+
         del self._interval_set[:]
 
 

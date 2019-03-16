@@ -15,7 +15,7 @@ random.seed=3
 #Snort, EntityResolution, ClamAV, Hamming, Dotstart, Custom, Bro217, Levenstein, Bril,
 # Randomfor, Dotstar03, ExactMath,Dotstar06, Fermi, PowerEN, Protomata, Dotstart09, Ranges1, SPM, Ranges 05
 #SynthBring, Synthcorering
-under_process_atms = [AnmalZoo.Hamming]
+under_process_atms = [AnmalZoo.Hamming, AnmalZoo.Protomata, AnmalZoo.EntityResolution, AnmalZoo.Brill, AnmalZoo.SPM]
 exempts = {(AnmalZoo.Snort, 1411)}
 number_of_autoamtas = 200
 automata_per_stage = 50

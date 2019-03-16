@@ -77,11 +77,12 @@ my_Automata.add_edge(ste11, ste8)
 my_Automata.draw_graph('t.svg')
 
 my_Automata=my_Automata.get_single_stride_graph()
-
+my_Automata.make_homogenous(plus_src=True)
+my_Automata.draw_graph('t2.svg')
 my_Automata=my_Automata.get_single_stride_graph()
 
 my_Automata.make_homogenous()
-minimize_automata(my_Automata)
+minimize_automata(my_Automata, combine_equal_syms_only=True)
 my_Automata.fix_split_all()
 
 my_Automata.draw_graph('s2.svg')

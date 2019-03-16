@@ -80,6 +80,9 @@ def minimize_automata(automata,
 
     original_node_count = automata.nodes_count
 
+
+    automata.set_all_symbols_mutation(mutation_value=True)
+
     automata.prone_all_symbol_sets()
 
     while True:
