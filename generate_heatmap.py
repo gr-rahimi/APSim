@@ -7,18 +7,19 @@ import numpy as np
 from automata.utility import utility
 
 
-number_of_automatas = 1
+number_of_automatas = 50
 draw_individually = False
 max_stride = 3
-switch_size = 256
-diagonal_routing = utility.generate_diagonal_route(switch_size, 10)
+switch_size = 128
+routing_template = None
 
-for anml in [AnmalZoo.PowerEN]:
+for anml in [
+             AnmalZoo.Dotstar06, AnmalZoo.Dotstar06, AnmalZoo.Dotstar09,
+             AnmalZoo.Fermi, AnmalZoo.PowerEN, AnmalZoo.Protomata,
+             AnmalZoo.RandomForest, AnmalZoo.Ranges1, AnmalZoo.Ranges05,
+             AnmalZoo.Snort, AnmalZoo.Synthetic_BlockRings, AnmalZoo.TCP]:
 
-    if anml in [AnmalZoo.ClamAV, AnmalZoo.Synthetic_CoreRings]:
-        continue
-
-
+    anml = AnmalZoo.SPM
 
     if not os.path.exists("Results/"+str(anml)):
         os.makedirs("Results/"+str(anml)) #make directory if it does not exist
@@ -32,12 +33,12 @@ for anml in [AnmalZoo.PowerEN]:
     acc_switch_map = np.zeros((switch_size, switch_size)) # accumulative switch map
     ccs = automata.get_connected_components_as_automatas()
 
-    for stride in range(max_stride + 1): # one more for the original automata
+    for stride in range(max_stride, max_stride + 1): # one more for the original automata
 
         print "starting stride ", stride
         for cc_idx, cc in enumerate(ccs[:number_of_automatas]):
             print "processing {} , id {}".format(anml, cc_idx)
-
+            print cc.get_summary("original")
 
             for _ in range(stride):
                 cc = cc.get_single_stride_graph()
@@ -50,13 +51,20 @@ for anml in [AnmalZoo.PowerEN]:
 
             print cc.get_summary()
 
-            bfs_cost, bfs_label_dictionary = cc.bfs_rout(diagonal_routing)
+            bfs_cost, bfs_label_dictionary = cc.bfs_rout(routing_template)
 
             switch_map = cc.get_connectivity_matrix(node_dictionary=bfs_label_dictionary)
 
-            acc_switch_map += switch_map
+            acc_mat_size, _ = acc_switch_map.shape
+            new_mat_size, _ = switch_map.shape
 
-        heat_map = acc_switch_map / number_of_automatas
+            if new_mat_size > acc_mat_size:
+                switch_map[:acc_mat_size, :acc_mat_size] += acc_switch_map
+                acc_switch_map = switch_map
+            else:
+                acc_switch_map[:new_mat_size, :new_mat_size] += switch_map
+
+        heat_map = acc_switch_map / 1
 
         utility.draw_matrix(file_to_save="Results/" + str(anml) + "/heat_mapS"+str(stride)+".png", matrix=heat_map,
                             boundries=[i / 256 for i in range(257)], dpi=500)

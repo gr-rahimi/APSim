@@ -362,7 +362,12 @@ class PackedIntervalSet(object):
             self._interval_set.add(interval)
             return
         else:
-            raise RuntimeError()
+            if interval.left < self._interval_set[0].left:
+                raise RuntimeError()
+            else:
+                assert isinstance(interval, PackedInterval), "argument should be an instance of PackedInterval"
+                # bisect.insort(self._interval_set, interval)
+                self._interval_set.add(interval)
 
     @property
     def mutable(self):

@@ -737,13 +737,13 @@ class Automatanetwork(object):
 
         return  out_dic
 
-    def get_connectivity_matrix(self, node_dictionary = None):
+    def get_connectivity_matrix(self, node_dictionary=None):
         if not node_dictionary:
             node_dictionary = self._generate_standard_index_dictionary()
 
         nodes_count = self.nodes_count
-        assert nodes_count <= 256, "it only works for small automatas"
-        nodes_count = 256
+        #assert nodes_count <= 256, "it only works for small automatas"
+        #nodes_count = 256
         switch_map = np.zeros((nodes_count, nodes_count))
 
         for node in node_dictionary:
@@ -808,11 +808,14 @@ class Automatanetwork(object):
         cost = 0
         for current_node in node_dictionary:
             for neighb in self._my_graph.neighbors(current_node):
-                if not routing_template[node_dictionary[current_node]][node_dictionary[neighb]]:
-                    cost += 1
+                try:
+                    if not routing_template[node_dictionary[current_node]][node_dictionary[neighb]]:
+                        cost += 1
+                except:
+                    print "HI"
         return cost
 
-    def bfs_rout(self,routing_template):
+    def bfs_rout(self, routing_template):
         '''
 
         :param routing_template: a matrix of zeros and ones. A one means that there is a switch at that particular
@@ -820,8 +823,10 @@ class Automatanetwork(object):
         :return:
         '''
         node_dictionary = self.get_BFS_label_dictionary()
-        assert not self.fake_root in node_dictionary
-        cost = self.get_routing_cost(routing_template, node_dictionary)
+        cost = -1
+        if routing_template is not None:
+            assert not self.fake_root in node_dictionary
+            cost = self.get_routing_cost(routing_template, node_dictionary)
         return cost, node_dictionary
 
     #TODO this function has not been checked for the new version
@@ -994,6 +999,8 @@ class Automatanetwork(object):
         str_list.append("does have special element = {}".format(self.does_have_special_elements()))
         str_list.append("is Homogenous = {}".format(self.is_homogeneous))
         str_list.append("stride value = {}".format(self.stride_value))
+        str_list.append("Max Fan-in = {}".format(self.max_STE_in_degree()))
+        str_list.append("Max Fan-out = {}".format(self.max_STE_out_degree()))
 
         if self.is_homogeneous:
             str_list.append("average number of intervals per STE = {}".format(self.get_average_intervals()))
