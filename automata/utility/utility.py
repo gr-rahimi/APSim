@@ -1,15 +1,19 @@
-from matplotlib import colors
+import logging
 import math
+import random
+import operator
+from itertools import product
+from matplotlib import colors
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
-from mpl_toolkits.mplot3d import Axes3D
+#from mpl_toolkits.mplot3d import Axes3D
 import networkx as nx
 import igraph
+from deap import algorithms, base, creator, tools
 from automata.elemnts import ElementsType
 from automata.elemnts.element import FakeRoot
 from automata.elemnts.ste import PackedInput, PackedInterval, PackedIntervalSet
-import logging
 
 
 def draw_matrix(file_to_save, matrix, boundries, **kwargs):
@@ -27,16 +31,17 @@ def draw_matrix(file_to_save, matrix, boundries, **kwargs):
     plt.savefig(file_to_save,**kwargs)
     plt.close()
 
+
 def draw_matrix_on_ax(ax, matrix, boundries):
     color_boundries = boundries[::-1]
-    colors_map = np.array(color_boundries, ndmin= 2).transpose()
-    colors_map = colors_map.repeat(3, axis = 1) # make RGB gray scale
+    colors_map = np.array(color_boundries, ndmin=2).transpose()
+    colors_map = colors_map.repeat(3, axis=1) # make RGB gray scale
     cmap = colors.ListedColormap(colors_map)
     norm = colors.BoundaryNorm(boundries, cmap.N)
     ax.imshow(matrix, cmap=cmap, norm=norm)
     ax.grid(which='major', axis='both', linestyle='-', color='k', linewidth=0)
-    ax.set_xticks(range(0, len(matrix), 15))
-    ax.set_yticks(range(0, len(matrix[0]), 15))
+    ax.set_xticks(range(0, len(matrix), 64))
+    ax.set_yticks(range(0, len(matrix[0]), 64))
     ax.invert_yaxis()
 
 
@@ -652,3 +657,202 @@ def get_unified_symbol(atm, is_input_homogeneous, replace):
         _replace_equivalent_symbols(symbol_dictionary_list=[sym_dict], atms_list=[atm], max_val=max(pt_dic.itervalues()))
 
     return alphabet_list
+
+
+def pact_interconnect(base_size=256, combines_count=4, image_name=None):
+    '''
+
+    :param base_size:basic block size
+    :param combines_count: combination_count
+    :param image_name: if a string, it will save the switch image to that name
+    :return:
+    '''
+
+    out_ports = [(192, 255), (256, 287), (480, 511), (512, 543), (736, 767), (768, 831)]
+    in_ports = [(192, 255), (256, 287), (480, 511), (512, 543), (736, 767), (768, 831)]
+
+    assert base_size % combines_count == 0
+    perbase_i_con = (base_size / combines_count) / 2
+
+    total_count = base_size * combines_count
+
+    template = np.zeros((total_count, total_count), dtype=np.int8)
+
+    for i in range(combines_count):
+        base_start = i * base_size
+        template[base_start:base_start + base_size, base_start:base_start + base_size] = 1
+
+
+    for in_port, out_port in product(in_ports, out_ports):
+        in_start, in_end = in_port
+        out_start, out_end = out_port
+
+        template[in_start:in_end + 1, out_start:out_end + 1] =1
+
+
+
+
+    if image_name:
+        draw_matrix(file_to_save=image_name, matrix=template,
+                    boundries=[float(i) / 256 for i in range(257)], dpi=100)
+
+    return template
+
+def ga_routing(atms_list, routing_template, available_rows, draw_file=None):
+    '''
+
+    :param atms_list: list of automatons that need to be placed
+    :param routing_template: the template as a 2d matrix. when there is a 1, we have a switch there
+    :param available_rows: list of integers which represents the available rows
+    :return: list of dictionaies. Each dictionary belongs to one of atms in the order they were recived.
+    '''
+
+    total_nodes = sum(map(lambda atm:atm.nodes_count, atms_list))
+    assert total_nodes <= len(available_rows)
+
+    node_start_index = 0
+    node_dic = {}
+    nodes_list = [None] * total_nodes
+    for atm in atms_list:
+        local_node_dic = atm.get_BFS_label_dictionary(start_from_root=True, set_nodes_idx=True, start_index=node_start_index)
+        node_start_index += atm.nodes_count
+
+        for node, index in local_node_dic.iteritems():
+            node_dic[(atm, node)] = index
+
+            nodes_list[index] = (atm, node)
+
+    assert None not in nodes_list
+
+    toolbox = base.Toolbox()
+    creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
+    creator.create("Individual", list, fitness=creator.FitnessMin)
+    def interval_sampler(numbers, mean_interval, q_size):
+        def get_next_interval_size():
+            while True:
+                number = np.random.poisson(mean_interval)
+                yield number
+
+        intervals = []
+        current_start = 0
+
+        for ivl_size in get_next_interval_size():
+            intervals.append(numbers[current_start:current_start + ivl_size])
+            current_start += ivl_size
+            if current_start >= len(numbers):
+                break
+
+        #sample = random.sample(intervals, len(intervals))
+        sample = []
+        q = intervals[:q_size]
+        for ivl in intervals[q_size:]:
+            sample_index = random.randrange(q_size)
+            sample.append(q[sample_index])
+            del q[sample_index]
+            q.append(ivl)
+
+        sample.extend(random.sample(q, len(q)))
+
+        out_sample = [num for ivl in sample for num in ivl]
+        return out_sample
+
+    toolbox.register("indices", interval_sampler, available_rows, 16, 3)
+    toolbox.register("individual", tools.initIterate, creator.Individual,
+                     toolbox.indices)
+    toolbox.register("population", tools.initRepeat, list,
+                     toolbox.individual)
+
+    toolbox.register("mate", tools.cxOrdered)
+
+    def mutlocal_shuffle(individual, indpb, move):
+        size = len(individual)
+        for i in xrange(size):
+            if random.random() < indpb:
+                swap_indx = random.randint(max(0, i - move), min(size - 1, i + move))
+                individual[i], individual[swap_indx] = \
+                    individual[swap_indx], individual[i]
+        return individual,
+
+    toolbox.register("mutate", mutlocal_shuffle, indpb=0.05, move=3)
+
+    def evaluation(individual):
+        cost = 0
+
+        for node_idx, node_assignee in enumerate(individual):
+            if node_idx >= total_nodes:
+                break
+            current_atm, current_node = nodes_list[node_idx]
+            for neighb in current_atm.get_neighbors(current_node):
+                neighb_idx = node_dic[(current_atm, neighb)]
+                neighb_assignee = individual[neighb_idx]
+                if routing_template[node_assignee, neighb_assignee] != 1:
+                    cost += 1
+
+        return cost,
+
+    toolbox.register("evaluate", evaluation)
+    toolbox.register("select", tools.selTournament, tournsize=50)
+
+    fit_stats = tools.Statistics(key=operator.attrgetter("fitness.values"))
+    fit_stats.register('mean', np.mean)
+    fit_stats.register('min', np.min)
+
+    pop_size = 1024
+    pop = toolbox.population(n=pop_size)
+
+    pop.insert(0, creator.Individual(range(len(available_rows))))  # adding bfs solution as an initial guess
+
+    result, log = algorithms.eaSimple(pop, toolbox,
+                                      cxpb=0.5, mutpb=0.1,
+                                      ngen=100, verbose=False,
+                                      stats=fit_stats)
+
+    best_individual = tools.selBest(result, k=1)[0]
+    print('Fitness of the best individual: ', evaluation(best_individual)[0])
+
+    if draw_file:
+        plt.figure()
+        color_boundries = [i/256.0 for i in range(256)]
+        gray_switch_map = routing_template * 0.5
+        colors_map = np.array(list(reversed(color_boundries)), ndmin=2).transpose()
+        colors_map = colors_map.repeat(3, axis=1)  # make RGB gray scale
+        cmap = colors.ListedColormap(colors_map)
+        norm = colors.BoundaryNorm(color_boundries, cmap.N)
+        plt.imshow(gray_switch_map, cmap=cmap, norm=norm)
+        plt.gca().invert_yaxis()
+
+        x_points, y_points = [], []
+        for atm, node in nodes_list:
+            src_idx = node_dic[(atm, node)]
+            for neighb in atm.get_neighbors(node):
+                dst_idx = node_dic[(atm, neighb)]
+                x_points.append(src_idx)
+                y_points.append(dst_idx)
+        plt.scatter(x_points, y_points, c='r', s=1, alpha=0.3)
+
+        x_points, y_points = [], []
+        for atm, node in nodes_list:
+            src_idx = node_dic[(atm, node)]
+            for neighb in atm.get_neighbors(node):
+                dst_idx = node_dic[(atm, neighb)]
+                x_points.append(best_individual[src_idx])
+                y_points.append(best_individual[dst_idx])
+
+        plt.scatter(x_points, y_points, c='b', s=1, alpha=0.3)
+
+
+
+
+        plt.savefig(draw_file, dpi=500)
+        plt.close()
+
+
+    plt.figure(figsize=(11, 4))
+    plots = plt.plot(log.select('min'), 'c-', log.select('mean'), 'b-')
+    plt.legend(plots, ('Minimum fitness', 'Mean fitness'), frameon=True)
+    plt.ylabel('Fitness')
+    plt.xlabel('Iterations')
+    plt.show()
+
+
+    return None

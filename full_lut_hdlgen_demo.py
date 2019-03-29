@@ -33,10 +33,16 @@ random.seed=3
 #Snort, EntityResolution, ClamAV, Hamming, Dotstart, Custom, Bro217, Levenstein, Bril,
 # Randomfor, Dotstar03, ExactMath,Dotstar06, Fermi, PowerEN, Protomata, Dotstart09, Ranges1, SPM, Ranges 05
 #SynthBring, Synthcorering
-under_process_atms = [AnmalZoo.RandomForest]
+# AnmalZoo.Dotstar, AnmalZoo.EntityResolution, AnmalZoo.Fermi,
+#                       AnmalZoo.Hamming, AnmalZoo.Levenshtein, AnmalZoo.PowerEN, AnmalZoo.Protomata,
+#                       AnmalZoo.RandomForest, AnmalZoo.Snort, AnmalZoo.SPM, AnmalZoo.Synthetic_BlockRings,
+#                       AnmalZoo.Dotstar03, AnmalZoo.Dotstar06, AnmalZoo.Dotstar09, AnmalZoo.Ranges05, AnmalZoo.Ranges1,
+#                       AnmalZoo.ExactMath, AnmalZoo.Bro217, AnmalZoo.TCP,
+
+under_process_atms = [AnmalZoo.ClamAV, AnmalZoo.Synthetic_CoreRings, AnmalZoo.Brill]
 exempts = {(AnmalZoo.Snort, 1411)}
-number_of_autoamtas = 4
-automata_per_stage = 2
+number_of_autoamtas = 200
+automata_per_stage = 50
 use_compression = False
 single_out=False
 before_match_reg=False
@@ -50,7 +56,6 @@ for uat in under_process_atms:
     automatas = atma.parse_anml_file(anml_path[uat])
     automatas.remove_ors()
     automatas = automatas.get_connected_components_as_automatas()
-    #automatas=pickle.load(open('Snort1-10.pkl', 'rb'))
 
     if len(automatas) > number_of_autoamtas:
         #automatas = random.sample(automatas, number_of_autoamtas)
@@ -59,7 +64,7 @@ for uat in under_process_atms:
     number_of_stages = math.ceil(len(automatas) / float(automata_per_stage))
     atms_per_stage = int(math.ceil(len(automatas) / float(number_of_stages)))
 
-    for stride_val in range(1, 2):
+    for stride_val in range(3, 4):
 
         hdl_apth = hd_gen.get_hdl_folder_path(prefix=str(uat), number_of_atms=len(automatas), stride_value=stride_val,
                                               before_match_reg=before_match_reg, after_match_reg=after_match_reg,
@@ -95,9 +100,8 @@ for uat in under_process_atms:
 
             minimize_automata(atm)
 
-            lut_bram_dic = {n: (1, 2) for n in atm.nodes}
-            generator_ins.register_automata(atm=atm, use_compression=use_compression, byte_trans_map=bc_sym_dict if use_compression else None,
-                                            translation_list=translation_list, lut_bram_dic=lut_bram_dic)
+            #lut_bram_dic = {n: (1, 2) for n in atm.nodes}
+            generator_ins.register_automata(atm=atm, use_compression=use_compression)
 
             if use_compression:
                 generator_ins.register_compressor([atm.id], byte_trans_map=bc_sym_dict,
