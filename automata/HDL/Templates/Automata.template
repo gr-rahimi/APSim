@@ -45,7 +45,8 @@ assign start_of_data = ~reset;
 {%for node in automata.nodes  if not node.id == 0 %}
 {%- if not node.report -%}
 wire {{automata.id}}_w_out_{{node.id}};
-{%- endif -%}
+{% endif -%}
+
 wire {{automata.id}}_lut_match_{{node.id}};
 wire {{automata.id}}_w_match_{{node.id}};
 

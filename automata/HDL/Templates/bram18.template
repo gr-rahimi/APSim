@@ -1,4 +1,4 @@
-{% macro single_bram_macro18(ins_name, contents, after_match, width) %}
+{% macro single_bram_macro18(ins_name, contents, after_match, width, out_name, input_name) %}
 {#
 @param ins_name: name of the bram instance(it should be unique)
 @param contents: array of the contents. a list of lists of 0 and 1
@@ -113,10 +113,10 @@
       .INITP_04(256'h{{contents[69 - 1] }}),
       .INITP_05(256'h{{contents[70 - 1] }}),
       .INITP_06(256'h{{contents[71 - 1] }}),
-      .INITP_07(256'h{{contents[72 - 1] }}),
-   ) BRAM_SINGLE_MACRO_stride{{stride_idx}} (
+      .INITP_07(256'h{{contents[72 - 1] }})
+   ) {{ins_name}} (
       .DO({{out_name}}),       // Output data, width defined by READ_WIDTH parameter
-      .ADDR(input_name),   // Input address, width defined by read/write port depth
+      .ADDR({{input_name}}),   // Input address, width defined by read/write port depth
       .CLK(clk),     // 1-bit input clock
       .DI({{width}}'b{% for _ in range(width) %}0{% endfor %}),       // Input data port, width defined by WRITE_WIDTH parameter
       .EN(1'b1),       // 1-bit input RAM enable

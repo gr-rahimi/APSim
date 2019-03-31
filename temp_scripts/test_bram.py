@@ -11,10 +11,13 @@ from automata.elemnts.ste import PackedInput
 
 random.seed=3
 
-under_process_atms = [AnmalZoo.Levenshtein]
+under_process_atms = [
+                      AnmalZoo.Synthetic_BlockRings, AnmalZoo.Synthetic_CoreRings, AnmalZoo.Fermi, AnmalZoo.Snort,
+                      AnmalZoo.SPM, AnmalZoo.TCP
+                      ]
 exempts = {(AnmalZoo.Snort, 1411)}
-number_of_autoamtas = 10
-automata_per_stage = 5
+number_of_autoamtas = 200
+automata_per_stage = 50
 
 
 single_out=False
@@ -37,7 +40,7 @@ for uat in under_process_atms:
     number_of_stages = math.ceil(len(automatas) / float(automata_per_stage))
     atms_per_stage = int(math.ceil(len(automatas) / float(number_of_stages)))
 
-    for stride_val in range(1, 2):
+    for stride_val in range(3):
 
         hdl_apth = hd_gen.get_hdl_folder_path(prefix="bramtest" + str(uat), number_of_atms=len(automatas),
                                               stride_value=stride_val, before_match_reg=before_match_reg,
@@ -46,7 +49,7 @@ for uat in under_process_atms:
 
         generator_ins = hd_gen.HDL_Gen(path=hdl_apth, before_match_reg=before_match_reg,
                                        after_match_reg=after_match_reg, ste_type=ste_type,
-                                       total_input_len=automatas[0].total_bits_len)
+                                       total_input_len=automatas[0].total_bits_len * pow(2, stride_val), bram_shape=(512, 36))
 
         for atm_idx, atm in enumerate(automatas):
             if (uat, atm_idx) in exempts:
@@ -66,12 +69,9 @@ for uat in under_process_atms:
 
             atm.fix_split_all()
 
-            #lut_bram_dic = {n: (1, 2) for n in atm.nodes}
-            generator_ins.register_automata(atm=atm, use_compression=use_compression)
+            lut_bram_dic = {n: tuple((2 for _ in range(pow(2, stride_val)))) for n in atm.nodes if n.is_fake is False}
+            generator_ins.register_automata(atm=atm, use_compression=False, lut_bram_dic=lut_bram_dic)
 
-            if use_compression:
-                generator_ins.register_compressor([atm.id], byte_trans_map=bc_sym_dict,
-                                                  translation_list=translation_list)
 
             if (atm_idx + 1) % atms_per_stage == 0:
                 generator_ins.register_stage_pending(single_out=False)

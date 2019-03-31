@@ -19,3 +19,5 @@ read_xdc -mode out_of_context ./clk_constrain.xdc
 report_timing_summary -file ./timing_summary.txt
 
 report_utilization -hierarchical  -file ./utilization.txt
+
+report_power -file ./power_summary.txt

@@ -6,9 +6,6 @@
 @param automatas: List of automatas to be processed
 @param summary_str: summary string to be paste on top of the file
 @param single_out: True/False if True, the circuit willl have only one input which is the OR of all the outputs
-@param bram_list: a 2d list . the first dimension is the list of brams and in each list, there are
-list of tuples(atm.id, node.id) to track the assigned
-@param bram_match_id_list: this is a list of nodes that the matching will be in a block ram
 @stage_index
 @param bit_feed_size: number of bits being feed in each cycle
 @param id_to_comp_dict t: a dictionary from compressor ids to their output len. This is the total bit counts
@@ -72,7 +69,7 @@ Automata_{{atm.id}} automata_{{atm.id}} (.clk(clk),
                         {% for d in placement -%}
                             {% if d == 2 %}
                             ,.{{atm.id}}_n{{node.id}}_d{{loop.index0}}_bram({{atm.id}}_n{{node.id}}_d{{loop.index0}}_bram)
-                            {% endif %}
+                            {%- endif %}
                         {%- endfor %}
                      {%- endfor -%}
                      {%- for node in atm.nodes if node.report %}
@@ -98,13 +95,26 @@ Symbol_Compressor_Pipeline_{{comp_dict[atm.id]}} sym_comp_{{comp_dict[atm.id]}}(
 
 
 
+{% set per_dim_bit = bit_feed_size // automatas[0].stride_value %}
 {% for d_bram in brams_contents %}
 {% set d_loop = loop %}
 {% for bram, nodes in d_bram %}
-wire [35:0] from_bram_d{{d_loop.index0}}_index{{loop.index0}}
-{{single_bram_macro18('bram_d' + d_loop.index0|string  + 'index'+loop.index0|string, bram, after_match, nodes|length, 'from_bram_d'+ d_loop.index0|string + '_index' + loop.index0|string, )}}
+{% set i_loop = loop %}
+wire [35:0] from_bram_d{{d_loop.index0}}_index{{loop.index0}};
+{{single_bram_macro18('bram_d' + d_loop.index0|string  + 'index'+loop.index0|string, bram, after_match,
+nodes|length, 'from_bram_d'+ d_loop.index0|string + '_index' + loop.index0|string, 'top_symbols['+ (d_loop.index * per_dim_bit - 1)|string + ':' + (d_loop.index * per_dim_bit-8)|string+']')}}
+
+{%- for atm_node_tuple in nodes -%}
+{% set n_loop = loop %}
+{%- for atm, node_id in atm_node_tuple -%}
+
+assign {{atm.id}}_n{{node_id}}_d{{d_loop.index0}}_bram = from_bram_d{{d_loop.index0}}_index{{i_loop.index0}}[{{n_loop.index0}}];
+{% endfor -%}
+{%- endfor -%}
 {% endfor %}
 {% endfor %}
+
+
 
 endmodule
 

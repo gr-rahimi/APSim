@@ -210,13 +210,15 @@ def generate_full_lut(atms_list, single_out ,before_match_reg, after_match_reg, 
 
 
 class HDL_Gen(object):
-    def __init__(self, path, before_match_reg, after_match_reg, ste_type, total_input_len):
+    def __init__(self, path, before_match_reg, after_match_reg, ste_type, total_input_len, bram_shape=None):
         '''
         :param path: path to generate verilog files
         :param before_match_reg
         :param after_match_reg
+        :param bram_shape: (width, col) representing the size of bram to be used
         :param
         '''
+
         self._path = path
         self._clean_and_make_path()
         self._before_match_reg = before_match_reg
@@ -234,8 +236,9 @@ class HDL_Gen(object):
          # this is a 2D list for keeping autoamatas that reide in the same stage
         self._Atm_Interface = namedtuple('Atm_Interface', ['id', 'nodes', 'nodes_count', 'reports_count', 'edges_count',
                                                           'stride_value', 'use_compression', 'max_val_dim'])
-        self._Node_Interface = namedtuple('Node_Interface', ['id', 'report', 'sym_count'])
-        self._pending_automatas = [] # this list keeps all the automata that has not been assigned to a stage
+        self._Node_Interface = namedtuple('Node_Interface', ['id', 'report', 'sym_count', 'symbols'])
+        self._pending_automatas = [] # this list keeps all the automata that has not been assigned to a stage [(atm_interface, lut_bram_dic),....]
+        self._bram_shape = bram_shape
 
 
     def _generate_single_automata(self, automata, inp_bit_len, lut_bram_dic):
@@ -272,10 +275,14 @@ class HDL_Gen(object):
         :return:
         '''
 
-        def __check_dic_valid ():
+        assert atm.fake_root not in lut_bram_dic
+
+        def __check_dic_valid():
             for k, v in lut_bram_dic.iteritems():
                 assert len(v) == atm.stride_value
-                assert k.is_fake is True or k.is_symbolset_splitable()
+                assert k.is_fake is True or (2 not in v or k.is_symbolset_splitable())
+                if 2 in v:
+                    assert use_compression is False
 
         __check_dic_valid() # check for validation of lutbram dic
 
@@ -295,7 +302,8 @@ class HDL_Gen(object):
         self._atm_info[atm.id] = atm_interface
         for node in atm.nodes:
             atm_interface.nodes.append(self._Node_Interface(id=node.id, report=node.report,
-                                                            sym_count=0 if node.id==FakeRoot.fake_root_id else len(node.symbols)))
+                                                            sym_count=0 if node.id==FakeRoot.fake_root_id else len(node.symbols),
+                                                            symbols=node.symbols if (node in lut_bram_dic and 2 in lut_bram_dic[node]) else None))
 
         self._pending_automatas.append((atm_interface, lut_bram_dic))
 
@@ -416,7 +424,7 @@ class HDL_Gen(object):
         '''
         this function willl take care of generating brams.
         :param atms_list: this is a list of automatas [(atm id, lut_bram_dic)...]
-        :return: list of chanked brams [[(bram1content, [[(atm1,ste1),(atm1,ste5)],[(atm1, ste3)],....]),()], [(bram2content, [[(atm1,ste1),(atm1,ste5)],[(atm1, ste3)],....]),()]]
+        :return: list of chanked brams [[(bram1content, [[(atm1,ste1.id),(atm1,ste5.id)],[(atm1, ste3.id)],....]),()], [(bram2content, [[(atm1,ste1.id),(atm1,ste5.id)],[(atm1, ste3.id)],....]),()]]
                                                          -------column1---------
                                                                                     --column2---
         '''
@@ -463,7 +471,8 @@ class HDL_Gen(object):
                 for chunk in np.split(row, row.size / bits_count):
                     to_str = array_to_str(chunk)
                     row_content.append(to_str)
-                result_list.append(row_content)
+
+                result_list.append("".join(row_content))
 
             return result_list
 
@@ -474,8 +483,7 @@ class HDL_Gen(object):
         all_type = []
         for _, bram_lut_dic in atms_list:
             for t in bram_lut_dic.itervalues():
-                for d in t:
-                    all_type.append(d == 1)
+                all_type.append(2 not in t)
 
         if all(all_type):
             return []
@@ -487,26 +495,16 @@ class HDL_Gen(object):
         stride_val = atms_list[0][0].stride_value
 
         assert stride_val == stride_vals[0]
-
-        valid_bram_lens = [(512, 36), (1024, 18), (2048, 9)]
-
-        assert atms_list[0].max_val_dim < 8192
-        for bram_len, bram_width in valid_bram_lens:
-            if bram_len > atms_list[0].max_val_dim:
-                break
-
-        base_value = 16
+        assert self._bram_shape
+        assert self._total_input_len / stride_val <= math.log(self._bram_shape[0], 2)
 
         brams_list = [{} for _ in range(stride_val)]
 
         for atm, bram_lut_dic in atms_list:
             for node, bram_lut_d in bram_lut_dic.iteritems():
-                if node.is_fake:
-                    logging.warning('fake root was found in bram/lut dictionary')
-                    continue
                 for d_idx, d in enumerate(bram_lut_d):
                     if d == 2:
-                        match_vector = node.symbols.points_on_dim(d_idx, bram_len)
+                        match_vector = node.symbols.points_on_dim(d_idx, self._bram_shape[0])
                         brams_list[d_idx].setdefault(match_vector, []).append((atm, node.id))
 
         chunked_bram_list = [[] for _ in range(stride_val)]
@@ -514,19 +512,19 @@ class HDL_Gen(object):
         for d in range(stride_val):
             bram_list = brams_list[d]
             current_bram_content, current_bram_nodes = None, None
-            for v_idx, (mv, atmid_nodeid) in enumerate(bram_list.iteritems()):
-                if v_idx % bram_width == 0:
+            for v_idx, (mv, atmid_nodeid_tuple) in enumerate(bram_list.iteritems()):
+                if v_idx % self._bram_shape[1] == 0:
                     if current_bram_content is not None:
-                        chunked_bram_list[d].append((numpy_bram_tostring(current_bram_content, base_value=base_value), current_bram_nodes))
-                    current_bram_content = np.zeros((bram_len, bram_width), dtype=np.int8)
+                        chunked_bram_list[d].append((numpy_bram_tostring(current_bram_content, base_value=16), current_bram_nodes))
+                    current_bram_content = np.zeros(self._bram_shape, dtype=np.int8)
                     current_bram_nodes = []
 
-                current_bram_content[:, v_idx % bram_width] = mv
-                current_bram_nodes.append(atmid_nodeid)
+                current_bram_content[:, v_idx % self._bram_shape[1]] = mv
+                current_bram_nodes.append(atmid_nodeid_tuple)
 
-            if current_bram_nodes: # remaining nodes
+            if current_bram_nodes:  # remaining nodes
                 current_bram_nodes.reverse()
-                chunked_bram_list[d].append((numpy_bram_tostring(current_bram_content[:, ::-1], base_value=base_value), current_bram_nodes))
+                chunked_bram_list[d].append((numpy_bram_tostring(current_bram_content[:, ::-1], base_value=16), current_bram_nodes))
 
         return chunked_bram_list
 
@@ -560,8 +558,7 @@ class HDL_Gen(object):
         template = self._env.get_template('Automata_Stage.template')
         rendered_content = template.render(automatas=[self._atm_info[temp_atm_id] for temp_atm_id in atms_id],
                                            summary_str=self._get_stage_summary(self._atm_info.values()),
-                                           single_out=single_out, bram_list=[],
-                                           bram_match_id_list=[[] for _ in atms_id],
+                                           single_out=single_out,
                                            stage_index=self._stage_id,
                                            bit_feed_size=self._total_input_len,
                                            id_to_comp_dict={self._atm_to_comp_id[atm_id]:self._comp_info[self._atm_to_comp_id[atm_id]] for atm_id in atms_id if atm_id in self._atm_to_comp_id},
