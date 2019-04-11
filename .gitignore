@@ -10,3 +10,5 @@
 *.csv
 *.xlsx
 .DS_Store
+*.gz
+*.tar

@@ -253,12 +253,19 @@ class PackedInterval(object):
 
 class PackedIntervalSet(object):
     def __init__(self, packed_interval_set):
+        self.__mutable = True
         self._set_interval_set(packed_interval_set)
 
-        self.__mutable = True
-
     def _set_interval_set(self, packed_interval_set):
-        self._interval_set = SortedSet(packed_interval_set)
+        if self.mutable:
+            self._interval_set = SortedSet(packed_interval_set)
+        else:
+            new_sorted_set = SortedSet(packed_interval_set)
+            if new_sorted_set[0].left < self._interval_set[0].left:
+                raise RuntimeError()
+            else:
+                self._interval_set = new_sorted_set
+
 
     def __iter__(self):
         return self._interval_set.__iter__()
@@ -465,7 +472,7 @@ class PackedIntervalSet(object):
         curr_right = self._interval_set[0].right[0]
 
         for ivl in self._interval_set[1:]:
-            if ivl.left[0] - 1 <=curr_right :
+            if ivl.left[0] - 1 <= curr_right:
                 curr_right = ivl.right[0]
             else:
                 new_sym_set.append(PackedInterval(PackedInput((curr_left,)), PackedInput((curr_right,))))

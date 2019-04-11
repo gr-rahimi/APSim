@@ -6,10 +6,10 @@ import csv
 #Snort, EntityResolution, ClamAV, Hamming, Dotstart, Custom, Bro217, Levenstein, Bril,
 # Randomfor, Dotstar03, ExactMath,Dotstar06, Fermi, PowerEN, Protomata, Dotstart09, Ranges1, SPM, Ranges 05
 #SynthBring, Synthcorering
-under_process_atms = [AnmalZoo.Hamming]
+under_process_atms = [AnmalZoo.Levenshtein]
 exempts = {(AnmalZoo.Snort, 1411)}
-hom_between = True # make homogeneous between strides if True
-plus_src=True
+hom_between = False # make homogeneous between strides if True
+plus_src=hom_between
 
 for uat in under_process_atms:
 
@@ -20,11 +20,11 @@ for uat in under_process_atms:
     filed_names = ['number_of_states', 'number_of_edges', 'max_fan_in', 'max_fan_out',
                    'max_symbol_len', 'min_symbol_len', 'total_sym']
 
-    for stride_val in range(3):
+    for stride_val in range(1, 2):
         with open(str(uat)+'_'+str(stride_val)+'.csv', 'w') as csv_file:
             csv_writer = csv.writer(csv_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
             csv_writer.writerow(filed_names)
-            for atm_idx, atm in enumerate(automatas[2:3]):
+            for atm_idx, atm in enumerate(automatas[:1]):
                 if (uat, atm_idx) in exempts:
                     continue
                 print 'processing {0} stride{3} automata {1} from {2}'.format(uat, atm_idx, len(automatas), stride_val)
@@ -36,11 +36,14 @@ for uat in under_process_atms:
                         atm.make_homogenous(plus_src=plus_src)
 
                 if not atm.is_homogeneous:
-                    atm.make_homogenous()
-                minimize_automata(atm, merge_reports=True, same_residuals_only=True, same_report_code=True,
-                                  combine_equal_syms_only=True)
+                    atm.make_homogenous(plus_src=plus_src)
+                minimize_automata(atm, combine_equal_syms_only=hom_between)
+
+                if hom_between is False:
+                    atm.fix_split_all()
 
                 atm.draw_graph(str(uat) + '_'+str(stride_val)+str(plus_src)+'.svg')
+                exit(0)
 
                 for n in atm.nodes:
                     if n.is_fake:

@@ -23,8 +23,10 @@ def get_splitted_sym_sets(symset, max_val):
     with open('/tmp/rezasim_espresso{}.txt'.format(os.getpid()), 'w') as f:
         f.writelines(template_rendered)
 
+    logging.debug("Spresso started...")
     espresso_out = subprocess.check_output('/zf15/gr5yf/Git/espresso-logic/bin/espresso /tmp/rezasim_espresso{}.txt'.format(os.getpid()),
                                            shell=True)
+    logging.debug("Spresso Done!")
 
     p_pattern = re.compile(r'\s\.p (\d+)')
     p_matches = p_pattern.findall(espresso_out)

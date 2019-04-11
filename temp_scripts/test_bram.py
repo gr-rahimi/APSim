@@ -1,3 +1,4 @@
+import logging
 import automata as atma
 from automata.AnmalZoo.anml_zoo import anml_path, AnmalZoo
 from automata.utility.utility import minimize_automata, get_equivalent_symbols
@@ -6,16 +7,18 @@ import math
 import random
 from automata.elemnts.ste import PackedInput
 
-#logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG)
 
 
 random.seed=3
 
 under_process_atms = [
-                      AnmalZoo.Synthetic_BlockRings, AnmalZoo.Synthetic_CoreRings, AnmalZoo.Fermi, AnmalZoo.Snort,
-                      AnmalZoo.SPM, AnmalZoo.TCP
+                      AnmalZoo.TCP, AnmalZoo.Dotstar, AnmalZoo.Dotstar03, AnmalZoo.Dotstar06,AnmalZoo.Dotstar09,
+                      AnmalZoo.EntityResolution, AnmalZoo.Ranges05, AnmalZoo.Ranges1, AnmalZoo.Protomata, AnmalZoo.Brill,
+                      AnmalZoo.Snort, AnmalZoo.SPM
+
                       ]
-exempts = {(AnmalZoo.Snort, 1411)}
+exempts = {}
 number_of_autoamtas = 200
 automata_per_stage = 50
 
@@ -35,12 +38,12 @@ for uat in under_process_atms:
 
     if len(automatas) > number_of_autoamtas:
         #automatas = random.sample(automatas, number_of_autoamtas)
-        automatas = automatas[:number_of_autoamtas]
+        automatas = automatas[3:number_of_autoamtas]
 
     number_of_stages = math.ceil(len(automatas) / float(automata_per_stage))
     atms_per_stage = int(math.ceil(len(automatas) / float(number_of_stages)))
 
-    for stride_val in range(3):
+    for stride_val in range(3, 4):
 
         hdl_apth = hd_gen.get_hdl_folder_path(prefix="bramtest" + str(uat), number_of_atms=len(automatas),
                                               stride_value=stride_val, before_match_reg=before_match_reg,

@@ -80,6 +80,7 @@ def minimize_automata(automata,
                       merge_reports=True, same_residuals_only=True,
                       same_report_code=True, left_merge=True, right_merge=True,
                       combine_symbols=True, combine_equal_syms_only=False, add_all_input=True):
+    logging.debug("minimization started...")
     assert automata.is_homogeneous, 'minimization only works for homogeneous representation'
 
 
@@ -92,29 +93,39 @@ def minimize_automata(automata,
 
     while True:
         current_node_cont = automata.nodes_count
-        logging.debug("minimization, current count {}".format(current_node_cont))
+        logging.debug("minimization iteration ..., current count {}".format(current_node_cont))
         if merge_reports:
-            logging.debug("start report merge")
+            logging.debug("start report merge...")
             automata.combine_finals_with_same_symbol_set(same_residuals_only=same_residuals_only,
                                                           same_report_code=same_report_code)
+            logging.debug("start report merge done!")
         if left_merge:
-            logging.debug("start left merge")
-            automata.left_merge(merge_reports , same_residuals_only , same_report_code )
+            logging.debug("start left merge...")
+            automata.left_merge(merge_reports, same_residuals_only , same_report_code )
+            logging.debug("start left merge done!")
         if right_merge:
             logging.debug("start right merge")
             automata.right_merge(merge_reports, same_residuals_only, same_report_code)
+            logging.debug("start right merge done!")
         if combine_symbols:
-            logging.debug("combine symbol set")
+            logging.debug("combine symbol set...")
             automata.combine_symbol_sets(merge_reports, same_residuals_only, same_report_code, combine_equal_syms_only)
+            logging.debug("combine symbol set done!")
         if add_all_input:
+            logging.debug("add all start...")
             automata.add_all_start_node()
+            logging.debug("add all start done!")
+
         new_node_count = automata.nodes_count
+
+        logging.debug("minimization iteration done, new node count {}".format(new_node_count))
         assert new_node_count <= current_node_cont, "it should always be smaller"
         if new_node_count == current_node_cont:
             break
-    final_node_count = automata.nodes_count
 
-    #print "saved %d nodes"%(original_node_count- final_node_count,)
+    logging.debug("minimization done!")
+
+
 
 
 def generate_squared_routing(size, basic_block_WH, overlap):

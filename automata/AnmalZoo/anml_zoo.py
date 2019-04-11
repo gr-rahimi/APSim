@@ -51,7 +51,7 @@ anml_path[AnmalZoo.ExactMath] = os.path.join(_base_address, "ExactMath/anml/exac
 anml_path[AnmalZoo.Ranges1] = os.path.join(_base_address, "Ranges1/anml/ranges1.anml")
 anml_path[AnmalZoo.Ranges05] = os.path.join(_base_address, "Ranges05/anml/ranges05.anml")
 anml_path[AnmalZoo.TCP] = os.path.join(_base_address, "TCP/anml/tcp.anml")
-anml_path[AnmalZoo.Custom] = os.path.join(_base_address, "Custom/anml/custom.anml")
+anml_path[AnmalZoo.Custom] = os.path.join(_base_address, "Custom/anml/POST.anml")
 
 input_path = {}
 input_path[AnmalZoo.Brill] = os.path.join(_base_address, "Brill/inputs/brill_1MB.input")

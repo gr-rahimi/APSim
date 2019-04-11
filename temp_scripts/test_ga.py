@@ -14,13 +14,7 @@ draw_individually = False
 max_stride = 2
 
 for anml in [
-             AnmalZoo.SPM,
-             AnmalZoo.Bro217, AnmalZoo.ExactMath, AnmalZoo.Dotstar03,
-             AnmalZoo.Dotstar06, AnmalZoo.Dotstar09,
-             AnmalZoo.Fermi, AnmalZoo.PowerEN, AnmalZoo.Protomata,
-             AnmalZoo.RandomForest, AnmalZoo.Ranges1, AnmalZoo.Ranges05,
-             AnmalZoo.Snort, AnmalZoo.Synthetic_BlockRings, AnmalZoo.TCP,
-             AnmalZoo.SPM]:
+             AnmalZoo.Snort]:
 
 
 

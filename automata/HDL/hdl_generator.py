@@ -542,7 +542,11 @@ class HDL_Gen(object):
                              single_out=single_out,
                              brams_contents=brams_contents)
 
+        for atm, _ in self._pending_automatas:
+            for node in atm.nodes:
+                del node.symbols
         self._pending_automatas = []
+
 
     def _register_stage(self, atms_id, single_out, brams_contents):
         '''

@@ -52,6 +52,7 @@ class Automatanetwork(object):
 
 
     def get_new_id(self):
+        #TODO should not be provate
         self.last_assigned_id += 1
         assert not self.last_assigned_id in self._my_graph.nodes
         return self.last_assigned_id
@@ -554,17 +555,74 @@ class Automatanetwork(object):
 
         self.delete_node(node)  # delete node from graph
 
+
+    def make_parentbased_homogeneous(self):
+        assert self.is_homogeneous, "automta should be homogeneous"
+        self.set_all_symbols_mutation(False)
+
+        nodes_list = list(self.nodes)
+
+        for node in nodes_list:
+            if node.is_fake:
+                continue
+
+            pred_sym_dic = {}
+            for p in list(self.get_predecessors(node)):
+                if p.is_fake:
+                    continue
+
+                if p is node:  # I am not sure if this is ok!
+                    continue
+
+                if not pred_sym_dic:
+                    pred_sym_dic[p.symbols] = node
+                    continue
+                elif p.symbols in pred_sym_dic:
+                    replacing_node = pred_sym_dic[p.symbols]
+                    if replacing_node is not node:
+                        self.delete_edge(p, node)
+                        self.add_edge(p, replacing_node)
+                else:
+                    new_node = S_T_E(start_type=node.start_type,
+                                     is_report=node.report,
+                                     is_marked=True,
+                                     id=self.get_new_id(),
+                                     symbol_set=node.symbols.clone(),
+                                     adjacent_S_T_E_s=None,
+                                     report_residual=node.report_residual,
+                                     report_code=node.report_code)
+                    new_node.symbols.mutable = False
+                    pred_sym_dic[node.symbols] = new_node
+
+                    self.add_element(new_node)
+
+                    if self.does_STE_has_self_loop(node):
+                        self.add_edge(new_node, new_node)  # self loop
+
+                    self.add_edge(p, new_node)
+                    self.delete_edge(p, node)
+                    for n in list(self.get_neighbors(node)):
+                        if n is node:
+                            continue
+
+                        self.add_edge(new_node, n)
+
     def fix_split_all(self):
         '''
         this function fixed any state that it is not splittable
         :return:
         '''
+        logging.debug("starting splitting all nodes with Spresso...")
         assert self.is_homogeneous
         for node in list(self.nodes):
+            logging.debug("checking node {} for splitability".format(node.id))
             if node.is_fake:
                 continue
             if node.symbols.is_splittable() is False:
+                logging.debug("starting splitting node {} with Spresso...".format(node.id))
                 self.fix_split_node(node)
+                logging.debug("splitting node {} with Spresso done".format(node.id))
+        logging.debug("starting splitting all nodes with Spresso done!")
 
     def make_homogenous(self, plus_src=False):
         """
@@ -625,10 +683,10 @@ class Automatanetwork(object):
         if not color:
             color = [node.get_color() for node in self.nodes]
 
-        nx.draw(self._my_graph, pos, node_size = 100, width=0.5 , arrowsize=6, node_color=color, ax =ax)
+        nx.draw(self._my_graph, pos, node_size=100, width=0.5 , arrowsize=6, node_color=color, ax=ax)
 
         if draw_edge_label: # draw with edge lable
-            nx.draw_networkx_edge_labels(self._my_graph, pos, node_size = 20, width = 2, arrowsize = 2,
+            nx.draw_networkx_edge_labels(self._my_graph, pos, node_size=20, width=2, arrowsize=2,
                                          node_color= color, font_size= 1 , ax =ax)
 
 
@@ -1269,7 +1327,6 @@ class Automatanetwork(object):
         this function looks for star nodes that ttry to simulate all start node and remove them
         :return: None
         '''
-
         assert self.is_homogeneous, 'this function only works for homogeneous automatons'
         star_nodes = [] # keeps a list of nodes that can be removed
 
@@ -1290,6 +1347,7 @@ class Automatanetwork(object):
                     sn_neighbor.start_type = StartType.all_input
                     self.add_edge(self.fake_root, sn_neighbor)
                 self.delete_node(sn)
+
 
 
     def remove_all_start_nodes(self):
@@ -1493,9 +1551,8 @@ class Automatanetwork(object):
     #                     self.delete_node(start_node)
     #                     self.add
 
-
     def combine_symbol_sets(self, merge_reports=False, same_residuals_only=False,
-                            same_report_code=False, combine_equal_syms_only = False):
+                            same_report_code=False, combine_equal_syms_only=False):
         total_nodes, processed_nodes = self.nodes_count, 0
         assert self.is_homogeneous, "Automata should be in homogeneous"
         """
@@ -1529,6 +1586,10 @@ class Automatanetwork(object):
                             first_neighb_node.symbols.prone() # it is not necessary
                             first_neighb_node.symbols.merge()
                         elif combine_equal_syms_only is False:
+                            if self.does_STE_has_self_loop(sec_neighb_node) is True and \
+                               self.does_STE_has_self_loop(first_neighb_node) is False:
+                                sec_neighb_node, first_neighb_node = first_neighb_node, sec_neighb_node
+
                             for interval in sec_neighb_node.symbols:
                                 first_neighb_node.symbols.add_interval(interval)
                             first_neighb_node.symbols.prone()
@@ -1603,14 +1664,33 @@ class Automatanetwork(object):
                     return False
 
             if same_report_code:
-                if fst_ste.report_code!=sec_ste.report_code:
+                if fst_ste.report_code != sec_ste.report_code:
                     return False
 
-        if self.does_STE_has_self_loop(fst_ste) != self.does_STE_has_self_loop(sec_ste):
-            return False
+        #if self.does_STE_has_self_loop(fst_ste) != self.does_STE_has_self_loop(sec_ste):
+        #    return False
 
-        if self.does_STE_has_self_loop(fst_ste) and fst_ste.symbols != sec_ste.symbols:
-            return False
+        if self.does_STE_has_self_loop(fst_ste) != self.does_STE_has_self_loop(sec_ste):
+            if self.does_STE_has_self_loop(fst_ste) is True:
+                big_sym_set, small_sym_set = fst_ste.symbols, sec_ste.symbols
+            else:
+                big_sym_set, small_sym_set = sec_ste.symbols, fst_ste.symbols
+
+            b_ss_to_s = small_sym_set.is_symbolset_a_subset(big_sym_set)
+            s_ss_to_b = big_sym_set.is_symbolset_a_subset(small_sym_set)
+            is_equal = b_ss_to_s and s_ss_to_b
+
+            if is_equal is False and s_ss_to_b is False:
+                return False
+
+        elif self.does_STE_has_self_loop(fst_ste) and self.does_STE_has_self_loop(sec_ste):
+            f_ss_to_s = sec_ste.symbols.is_symbolset_a_subset(fst_ste.symbols)
+            s_ss_to_f = fst_ste.symbols.is_symbolset_a_subset(sec_ste.symbols)
+            if f_ss_to_s is False and s_ss_to_f is False:
+                f_neighbors = set(self.get_neighbors(fst_ste))
+                s_neighbors = set(self.get_neighbors(sec_ste))
+                if f_neighbors != s_neighbors:
+                    return False
 
         fst_ste_neighbors = set(self._my_graph.neighbors(fst_ste)) - {fst_ste}
 
