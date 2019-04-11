@@ -57,11 +57,11 @@ begin
         out_sym <= {{width_list[loop.index]}}'d0;
 #}
 
-    casex ({top_sym, bot_sym})
-    {% set ns=namespace(code_zero_found=False) %}
+    casex ({% raw %}{{% endraw %}top_sym, bot_sym {% raw %}}{% endraw %})
+    {% set ns=namespace(code_zero_found=false) %}
     {% for key, value in c.iteritems() -%}
     {%- if value == 0 -%}
-        {%- set ns.code_zero_found = True -%}
+        {%- set ns.code_zero_found = true -%}
     {%- endif -%}
     {% raw %} { {% endraw %} {{width_list[outloop.index0]}}'d{{key[0]}}, {{width_list[outloop.index0]}}'d{{key[1]}} {% raw %}}{% endraw %}: out_sym <= {{width_list[outloop.index]}}'d{{value}};
     {% endfor %}
@@ -86,7 +86,7 @@ module Symbol_Compressor_Pipeline_{{idx}} (input wire clk,
 {% for w in width_list %}
 {% set outerloop = loop %}
 {% for c in range(ns.modules_count) %}
-{% if c%2 == 0%}
+{% if c%2 == 0 %}
 wire [ {{w-1}} : 0] from_w{{outerloop.index0}}_to_c{{loop.index0//2}}_top;
 {% else %}
 wire [ {{w-1}} : 0] from_w{{outerloop.index0}}_to_c{{loop.index0//2}}_bot;
@@ -96,7 +96,7 @@ wire [ {{w-1}} : 0] from_w{{outerloop.index0}}_to_c{{loop.index0//2}}_bot;
 {% endfor %}
 {% endif %}
 
-{% for bc in range(original_width // 8)%}
+{% for bc in range(original_width // 8) %}
 Byte_Compressor_{{idx}} byte_compressor_{{bc}}(
                                         .clk(clk),
                                         .inp_sym(symbol[{{bc*8 + 7}}:{{bc*8}}]),
@@ -112,8 +112,8 @@ assign from_w0_to_c{{loop.index0}}_top = byte_com_to_reduce[{{start_index + widt
 assign from_w0_to_c{{loop.index0}}_bot = byte_com_to_reduce[{{start_index + 2*width_list[0]-1}}:{{start_index+width_list[0]}}];
 {% endfor %}
 
-{% for end_index in range(0, output_width, width_list[-1])%}
-{% if loop.index0 == 0%}
+{% for end_index in range(0, output_width, width_list[-1]) %}
+{% if loop.index0 == 0 %}
 assign compressed_out[{{end_index + width_list[-1] -1}}:{{end_index}}] = from_w{{width_list|length - 1}}_to_c{{loop.index0//2}}_top;
 {% else %}
 assign compressed_out[{{end_index + width_list[-1] -1}}:{{end_index}}] = from_w{{width_list|length - 1}}_to_c{{loop.index0//2}}_bot;
@@ -132,7 +132,7 @@ Symbol_Compressor_{{idx}}_{{w}} sym_compressor{{idx}}_{{w}}_{{c}}(
 {% set ns.modules_count = ns.modules_count // 2 %}
 {% endfor %}
 
-{%else%}
+{% else %}
 assign compressed_out = byte_com_to_reduce;
 {% endif %}
 

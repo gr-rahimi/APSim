@@ -391,7 +391,9 @@ def _replace_equivalent_symbols(symbol_dictionary_list, atms_list, max_val):
 
             new_symbol_set = PackedIntervalSet([])
 
+            sym_set.mutable = False
             ivls = get_interval(list(sym_dic[sym_set]))
+            sym_set.mutable = True
 
             for l, r in ivls:
                 left_pt = PackedInput((l,))
@@ -425,6 +427,7 @@ def get_equivalent_symbols(atms_list, replace=True, use_random_assignment=False,
     symbol_map = {}
     size = 0
     for atm in atms_list:
+        atm.set_all_symbols_mutation(mutation_value=True)
         node_edge_iter = atm.nodes if atm.is_homogeneous else atm.get_edges()
         for ne in node_edge_iter:
             if atm.is_homogeneous and ne.type == ElementsType.FAKE_ROOT:
@@ -457,6 +460,8 @@ def get_equivalent_symbols(atms_list, replace=True, use_random_assignment=False,
             if atm.is_homogeneous and ne.type == ElementsType.FAKE_ROOT:
                 continue
             sym_set = ne.symbols if atm.is_homogeneous else ne[2]['symbol_set']
+            sym_set = sym_set.clone()
+            sym_set.mutable = False
             for pt in sym_set.points:
                 orig_label = symbol_map[pt]
                 if orig_label not in assigned_dic:
@@ -552,12 +557,6 @@ def get_interval(inp_list):
     result.append((new_start, prev_val))
 
     return result
-
-
-
-
-
-
 
 
 def get_binary_val(val , bits_count, left_first = True):

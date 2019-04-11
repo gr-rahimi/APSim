@@ -557,6 +557,11 @@ class Automatanetwork(object):
 
 
     def make_parentbased_homogeneous(self):
+        '''
+        this function makes the current homogeneous in a way that also parents of a node have the same sym set.
+        other wise, will split node with same symbols but each will have one parent
+        :return:
+        '''
         assert self.is_homogeneous, "automta should be homogeneous"
         self.set_all_symbols_mutation(False)
 
