@@ -539,7 +539,6 @@ class PackedIntervalSet(object):
 
         return
 
-
     def points_on_dim(self, d, array_len):
         '''
         this function iterate over numbers in a specific dimnesion

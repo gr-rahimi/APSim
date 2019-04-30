@@ -34,7 +34,7 @@ for uat in under_process_atms:
 
     for stride_val in range(1):
 
-        hdl_apth = hd_gen.get_hdl_folder_path(prefix="comptest" + str(uat), number_of_atms=len(automatas), stride_value=stride_val,
+        hdl_apth = hd_gen.get_hdl_folder_path(prefix="comptestrandom" + str(uat), number_of_atms=len(automatas), stride_value=stride_val,
                                               before_match_reg=before_match_reg, after_match_reg=after_match_reg,
                                               ste_type=ste_type, use_bram=use_bram, use_compression=use_compression,
                                               compression_depth=compression_depth)
@@ -69,7 +69,8 @@ for uat in under_process_atms:
             minimize_automata(atm)
 
             #lut_bram_dic = {n: (1, 2) for n in atm.nodes}
-            generator_ins.register_automata(atm=atm, use_compression=use_compression, byte_trans_map=bc_sym_dict)
+            generator_ins.register_automata(atm=atm, use_compression=use_compression,
+                                            byte_trans_map=bc_sym_dict if use_compression else None)
 
             if use_compression:
                 generator_ins.register_compressor([atm.id], byte_trans_map=bc_sym_dict,

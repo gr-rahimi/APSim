@@ -542,9 +542,9 @@ class HDL_Gen(object):
                              single_out=single_out,
                              brams_contents=brams_contents)
 
-        for atm, _ in self._pending_automatas:
-            for node in atm.nodes:
-                del node.symbols
+        # for atm, _ in self._pending_automatas:
+        #     for node in atm.nodes:
+        #         node.symbols = None
         self._pending_automatas = []
 
 

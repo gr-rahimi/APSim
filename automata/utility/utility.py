@@ -10,10 +10,12 @@ import matplotlib
 #from mpl_toolkits.mplot3d import Axes3D
 import networkx as nx
 import igraph
+from sortedcollections import SortedList
 from deap import algorithms, base, creator, tools
 from automata.elemnts import ElementsType
 from automata.elemnts.element import FakeRoot
 from automata.elemnts.ste import PackedInput, PackedInterval, PackedIntervalSet
+
 
 
 def draw_matrix(file_to_save, matrix, boundries, **kwargs):
@@ -79,7 +81,23 @@ def generate_semi_diagonal_route(basic_block_size, one_dir_copy):
 def minimize_automata(automata,
                       merge_reports=True, same_residuals_only=True,
                       same_report_code=True, left_merge=True, right_merge=True,
-                      combine_symbols=True, combine_equal_syms_only=False, add_all_input=True):
+                      combine_symbols=True, combine_equal_syms_only=False, add_all_input=True, remove_dead_states=True):
+    '''
+    this function minimizes a single automaton.
+    :param automata: the input automata
+    :param merge_reports: if True, will merge report states
+    :param same_residuals_only: if True, merge reports that have the same residual value
+    :param same_report_code: if True, merge reports that have same report code
+    :param left_merge: if True, prefix merging will be applied
+    :param right_merge: if True, suffix merging will be applied
+    :param combine_symbols: if True, states that canbe merged by combining symbols will be applied
+    :param combine_equal_syms_only: if True, if the combine_symbols was True, then only states with same symbols can be
+    merged
+    :param add_all_input: if True, qualified start of data states will be converted to the all input state
+    :param remove_dead_states: if True, all the state that do not have any input edge will be removed (a self loop is
+    not considred as an input edge)
+    :return: None
+    '''
     logging.debug("minimization started...")
     assert automata.is_homogeneous, 'minimization only works for homogeneous representation'
 
@@ -115,6 +133,10 @@ def minimize_automata(automata,
             logging.debug("add all start...")
             automata.add_all_start_node()
             logging.debug("add all start done!")
+        if remove_dead_states:
+            logging.debug("removing dead states...")
+            automata.remove_dead_states()
+            logging.debug("removing dead states are done!")
 
         new_node_count = automata.nodes_count
 
@@ -421,10 +443,13 @@ def get_equivalent_symbols(atms_list, replace=True, use_random_assignment=False,
     :param is_input_homogeneous: if True it means all the input is in the same set as symbols
     :return: list of sets of equivalent symbols in the same set
     '''
+
+    lut_aware = False
+
     assert atms_list
     assert all((atm.stride_value == atms_list[0].stride_value and atm.max_val_dim == atms_list[0].max_val_dim for atm in atms_list))
 
-    symbol_map = {}
+    symbol_map = {} # key : pt value : int
     size = 0
     for atm in atms_list:
         atm.set_all_symbols_mutation(mutation_value=True)
@@ -443,9 +468,15 @@ def get_equivalent_symbols(atms_list, replace=True, use_random_assignment=False,
                 symbol_map[pt] = buffer[current_map]
 
     # optimal range assignment
-    optimal_dics = [] # keep tracks of compressed labels for each ste
-    assigned_dic = {} # keeps the last assignment in order
-    new_dic = {}
+    optimal_dics = []
+    '''keep tracks of compressed labels for each ste list of dictionaries {key:SymbolSet, value:set(int, int, ....)}
+       each entry in the list belongs to one automata 
+    '''
+    assigned_dic = {}
+    ''' keeps the last assignment in order key : int , value: int. We use this dictionary to track the assignment of new 
+        codes to the older assignment
+    '''
+    new_dic = {}  # key : pt, value : int
 
     assert pow(atms_list[0].max_val_dim + 1, atms_list[0].stride_value) >= len(symbol_map), 'This conndition should be satisfied'
     need_extra_code = is_input_homogeneous is False and pow(atms_list[0].max_val_dim + 1, atms_list[0].stride_value) > len(symbol_map) # check if the automatas cover all the input cases
@@ -484,6 +515,9 @@ def get_equivalent_symbols(atms_list, replace=True, use_random_assignment=False,
 
     if use_random_assignment is False:
         new_map = {}
+        last_assigneed_code = -1 if need_extra_code is False else 0
+        # codes_count = len(new_dic) + 1 if need_extra_code is True else len(new_dic)
+
         while sym_graph.nodes:
             min_degree, min_node = None, None
             for n in sym_graph.nodes:
@@ -492,7 +526,9 @@ def get_equivalent_symbols(atms_list, replace=True, use_random_assignment=False,
                 elif sym_graph.degree(n) < min_degree:
                     min_degree, min_node = sym_graph.degree(n), n
 
-            new_map[min_node] = len(new_map) + (1 if need_extra_code else 0)
+
+            new_map[min_node] = last_assigneed_code + 1
+            last_assigneed_code += 1
 
             current_node = min_node
 
@@ -509,7 +545,8 @@ def get_equivalent_symbols(atms_list, replace=True, use_random_assignment=False,
                 sym_graph.remove_node(current_node)
                 current_node = best_node
                 if best_node is not None:
-                    new_map[best_node] = len(new_map) + (1 if need_extra_code else 0)
+                    new_map[best_node] = last_assigneed_code + 1
+                    last_assigneed_code += 1
 
             if current_node is not None:
                 sym_graph.remove_node(current_node)
@@ -517,18 +554,14 @@ def get_equivalent_symbols(atms_list, replace=True, use_random_assignment=False,
         for opt_dic in optimal_dics:
             for sym_set in opt_dic:
                 old_set = opt_dic[sym_set]
-                new_set=set()
-                for ch in old_set:
-                    new_set.add(new_map[ch])
                 new_set = set([new_map[ch] for ch in old_set])
-
                 opt_dic[sym_set] = new_set
 
     if replace:
-        _replace_equivalent_symbols(symbol_dictionary_list=optimal_dics, atms_list=atms_list, max_val=len(new_map) + (-1 if need_extra_code is False else 0))
+        _replace_equivalent_symbols(symbol_dictionary_list=optimal_dics, atms_list=atms_list, max_val=len(new_dic) + (-1 if need_extra_code is False else 0))
 
     if use_random_assignment is False:
-        return {pt:new_map[pt_map] for pt, pt_map in new_dic.iteritems()}
+        return {pt: new_map[pt_map] for pt, pt_map in new_dic.iteritems()}
     else:
         return new_dic
 

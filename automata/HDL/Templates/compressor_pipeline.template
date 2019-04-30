@@ -61,7 +61,7 @@ begin
     {% set ns=namespace(code_zero_found=false) %}
     {% for key, value in c.iteritems() -%}
     {%- if value == 0 -%}
-        {%- set ns.code_zero_found = true -%}
+        {% set ns.code_zero_found = true %}
     {%- endif -%}
     {% raw %} { {% endraw %} {{width_list[outloop.index0]}}'d{{key[0]}}, {{width_list[outloop.index0]}}'d{{key[1]}} {% raw %}}{% endraw %}: out_sym <= {{width_list[outloop.index]}}'d{{value}};
     {% endfor %}

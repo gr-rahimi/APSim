@@ -15,7 +15,7 @@ import math
 import numpy as np
 from automata.utility import utility
 from networkx.drawing.nx_agraph import write_dot
-from automata.Espresso.espresso import get_splitted_sym_sets
+from automata.Espresso.espresso import Espresso
 import logging
 
 
@@ -278,10 +278,6 @@ class Automatanetwork(object):
                 self._my_graph.add_edge(src, dest, **kwargs)
                 self._has_modified = True
 
-
-
-
-
     def get_single_stride_graph(self):
         """
         This function make a new graph with single stride
@@ -436,14 +432,15 @@ class Automatanetwork(object):
         self._my_graph.remove_edge(src, dst)
 
 
-    def _make_homogeneous_STE(self, current_ste, delete_original_ste, plus_src):
+    def _make_homogeneous_STE(self, current_ste, delete_original_ste, plus_src, use_espresso):
         """
 
         :param current_ste: the STE that needs to be homogeneos
         :param delete_original_ste: if true, it will delete the original STE
         :param plus_src: if this parameter is True, the autoamtaon will be homogeneous based on source and symbol sets.
         otherwise, it only be homogeneous based on symbol set
-        :return:
+        :param use_espresso: if True, Espresso will be used for making homogeneous
+        :return: list of new nodes that has been created to replace this new node
         """
 
         src_dict_non_start = {}
@@ -470,19 +467,22 @@ class Automatanetwork(object):
 
         new_nodes = []
         new_all_input_nodes = self._make_homogenous_node(curr_node=current_ste, connectivity_dic=src_dict_all_start,
-                                                         start_type=StartType.all_input, plus_src=plus_src)
+                                                         start_type=StartType.all_input, plus_src=plus_src,
+                                                         use_espresso=use_espresso, prev_new_nodes=new_nodes)
         new_nodes.extend(new_all_input_nodes)
 
         new_start_of_data_nodes = self._make_homogenous_node(curr_node=current_ste,
                                                              connectivity_dic=src_dict_start_of_data,
-                                                             start_type=StartType.start_of_data, plus_src=plus_src)
+                                                             start_type=StartType.start_of_data, plus_src=plus_src,
+                                                             use_espresso=use_espresso, prev_new_nodes=new_nodes)
         new_nodes.extend(new_start_of_data_nodes)
 
         new_non_start_nodes = self._make_homogenous_node(curr_node=current_ste, connectivity_dic=src_dict_non_start,
-                                                         start_type=StartType.non_start, plus_src=plus_src)
+                                                         start_type=StartType.non_start, plus_src=plus_src,
+                                                         use_espresso=use_espresso, prev_new_nodes=new_nodes)
         new_nodes.extend(new_non_start_nodes)
 
-        if self.does_STE_has_self_loop(current_ste):  # handling self loop nodes
+        if self.does_STE_has_self_loop(current_ste) and use_espresso is False:  # handling self loop nodes
             self_loop_on_edge_char_set = src_dict_non_start[current_ste]
 
             self_loop_handler = S_T_E(start_type=StartType.non_start, is_report=current_ste.report,
@@ -503,8 +503,11 @@ class Automatanetwork(object):
                 if edge[0] != edge[1]:  # self loop node
                     self.add_edge(self_loop_handler, edge[1], symbol_set=edge[2][Automatanetwork.symbol_data_key],
                                 start_type=edge[2]['start_type'])
+
         if delete_original_ste:
             self.delete_node(current_ste)
+
+        return new_nodes if 'self_loop_handler' not in locals() else new_nodes + [self_loop_handler]
 
     def fix_split_node(self, node):
         '''
@@ -514,7 +517,7 @@ class Automatanetwork(object):
         '''
         assert node.symbols.is_splittable() is False, 'this node does not need to be splitted'
         assert self.is_homogeneous
-        new_sym_count, new_syms_list = get_splitted_sym_sets(node.symbols, self.max_val_dim)
+        new_sym_count, new_syms_list = Espresso.get_splitted_sym_sets(node.symbols, self.max_val_dim)
         self_loop = self.does_STE_has_self_loop(node)
 
         preds = set(self.get_predecessors(node))
@@ -562,6 +565,7 @@ class Automatanetwork(object):
         other wise, will split node with same symbols but each will have one parent
         :return:
         '''
+        logging.debug("make parentbased homogen started...")
         assert self.is_homogeneous, "automta should be homogeneous"
         self.set_all_symbols_mutation(False)
 
@@ -611,6 +615,7 @@ class Automatanetwork(object):
                             continue
 
                         self.add_edge(new_node, n)
+        logging.debug("make parentbased homogen finished!")
 
     def fix_split_all(self):
         '''
@@ -629,17 +634,19 @@ class Automatanetwork(object):
                 logging.debug("splitting node {} with Spresso done".format(node.id))
         logging.debug("starting splitting all nodes with Spresso done!")
 
-    def make_homogenous(self, plus_src=False):
+    def make_homogenous(self, plus_src=False, use_espresso=True):
         """
         :param plus_src: if this parameter is True, the autoamaton will be homogeneous based on source and symbol sets.
         otherwise, it only be homogeneous based on symbol set
-        :return:
+        :param use_espresso: if True, Espresso will be used as the main method
+        :return: a dictionary keys: old node, value: list of nodes to replace
         """
         self.unmark_all_nodes()
         dq = deque()
         #self.fake_root.marked = True
         #dq.appendleft(self.fake_root)
         total_nodes, processed_nodes = self.nodes_count, 0
+        return_dic = {}
 
         report_nodes = self.get_filtered_nodes(lambda node:node.report)
         for r_node in report_nodes:
@@ -658,15 +665,17 @@ class Automatanetwork(object):
                     pred.marked = True
                     dq.appendleft(pred)
 
-            self._make_homogeneous_STE(current_ste=current_ste, delete_original_ste=True, plus_src=plus_src)
+            return_dic[current_ste] = self._make_homogeneous_STE(current_ste=current_ste, delete_original_ste=True,
+                                                       plus_src=plus_src, use_espresso=use_espresso)
 
         self.is_homogeneous = True
-
 
         nodes_list = list(self.nodes)
         for node in nodes_list:
             if not node.marked and node.type!=ElementsType.FAKE_ROOT:
                 self.delete_node(node)
+
+        return return_dic
 
     @property
     def is_homogeneous(self):
@@ -894,7 +903,8 @@ class Automatanetwork(object):
             cost = self.get_routing_cost(routing_template, node_dictionary)
         return cost, node_dictionary
 
-    def _make_homogenous_node(self, curr_node, connectivity_dic, start_type, plus_src):
+    def _make_homogenous_node(self, curr_node, connectivity_dic, start_type, plus_src, use_espresso,
+                              prev_new_nodes):
         '''
 
         :param curr_node:
@@ -902,43 +912,102 @@ class Automatanetwork(object):
         :param start_type:
         :param plus_src: if this parameter is True, the autoamtaon will be homogeneous based on source and symbol sets.
         otherwise, it only be homogeneous based on symbol set
+        :param use_espresso if True, Espresso will be used
+        :param prev_new_nodes: list of all the new nodes that has been created
         :return:
         '''
 
-        new_nodes = []
-        new_node_dic={}
+        if use_espresso is False:
+            new_nodes = []
+            new_node_dic={}
 
-        for neighb, on_edge_char_set in connectivity_dic.iteritems():
-            create_new_node = False
-            if curr_node != neighb:
-                on_edge_char_set.mutable = False
-                if plus_src is True or on_edge_char_set not in new_node_dic:
-                    create_new_node = True
-                    new_node = S_T_E(start_type=start_type, is_report=curr_node.report, is_marked=True,
-                                     id=self.get_new_id(),
-                                     symbol_set=on_edge_char_set,
-                                     adjacent_S_T_E_s=None,
-                                     report_residual=curr_node.report_residual,
-                                     report_code=curr_node.report_code)
-                    new_node_dic[on_edge_char_set] = new_node
-                else:
-                    new_node = new_node_dic[on_edge_char_set]
-                if create_new_node:
-                    self.add_element(new_node, connect_to_fake_root=False) # it will not be coonected to fake_root since the graph is not homogeneous at the moment
-                    new_nodes.append(new_node)
-                self.add_edge(neighb, new_node, symbol_set=new_node.symbols, start_type=new_node.start_type)
-                out_edges = self._my_graph.out_edges(curr_node, data=True, keys=False)
-
-                for edge in out_edges:
-                    if edge[1] != edge[0]:
-                        self.add_edge(new_node, edge[1], symbol_set=edge[2][Automatanetwork.symbol_data_key], start_type=edge[2]['start_type'])
+            for pred, on_edge_char_set in connectivity_dic.iteritems():
+                create_new_node = False
+                if curr_node != pred:
+                    on_edge_char_set.mutable = False
+                    if plus_src is True or on_edge_char_set not in new_node_dic:
+                        create_new_node = True
+                        new_node = S_T_E(start_type=start_type, is_report=curr_node.report, is_marked=True,
+                                         id=self.get_new_id(),
+                                         symbol_set=on_edge_char_set,
+                                         adjacent_S_T_E_s=None,
+                                         report_residual=curr_node.report_residual,
+                                         report_code=curr_node.report_code)
+                        new_node_dic[on_edge_char_set] = new_node
                     else:
-                        continue # not necessary for self loops
-            else:
-                assert start_type == StartType.non_start, "self loops should be in non start category"
-                continue # self-loops node will be processed later
-        return new_nodes
+                        new_node = new_node_dic[on_edge_char_set]
+                    if create_new_node:
+                        self.add_element(new_node, connect_to_fake_root=False) # it will not be coonected to fake_root since the graph is not homogeneous at the moment
+                        new_nodes.append(new_node)
+                    self.add_edge(pred, new_node, symbol_set=new_node.symbols, start_type=new_node.start_type)
+                    out_edges = self._my_graph.out_edges(curr_node, data=True, keys=False)
 
+                    for edge in out_edges:
+                        if edge[1] != edge[0]:
+                            self.add_edge(new_node, edge[1], symbol_set=edge[2][Automatanetwork.symbol_data_key], start_type=edge[2]['start_type'])
+                        else:
+                            continue # not necessary for self loops
+                else:
+                    assert start_type == StartType.non_start, "self loops should be in non start category"
+                    continue # self-loops node will be processed later
+            return new_nodes
+
+        else:  # use espresso
+            responce_dic = {}
+            '''
+            this dictionary keep track of the points needs to be activated key : pt, value = list
+            of integers map to neighbors
+            '''
+
+            pred_list = []  # list of neighbors to be used after receiving the espresso results
+            format_str = "{{0:{{fill}}{0}b}}".format(self.max_val_dim.bit_length())
+            logging.debug("format string to generate the dictionary values {}".format(format_str))
+            preds_count = len(connectivity_dic)
+
+            for pred_idx, (pred, on_edge_char_set) in enumerate(connectivity_dic.iteritems()):
+                pred_list.append(pred)
+                for pt in on_edge_char_set.points:
+                    str_pt = tuple((format_str.format(d_val, fill='0') for d_val in pt))
+                    responce_dic.setdefault(str_pt, ['0'] * preds_count)[pred_idx] = '1'
+
+            new_sym_list = Espresso.make_ste_homogeneous(self.stride_value, self.max_val_dim, responce_dic)
+            new_nodes = []
+            self_loop_list = []  # this list keep track of all the nodes that will participate in the self loop node
+
+            for sym_set, out_func in new_sym_list:
+                new_node = S_T_E(start_type=start_type, is_report=curr_node.report, is_marked=True,
+                                 id=self.get_new_id(),
+                                 symbol_set=sym_set,
+                                 adjacent_S_T_E_s=None,
+                                 report_residual=curr_node.report_residual,
+                                 report_code=curr_node.report_code)
+                self.add_element(new_node, connect_to_fake_root=False)
+                new_nodes.append(new_node)
+
+                for c_idx, c in enumerate(out_func):
+                    if c == '1':
+                        if pred_list[c_idx] is curr_node:  # self loop
+                            assert start_type == StartType.non_start
+                            self_loop_list.append(new_node)
+                        else:
+                            self.add_edge(pred_list[c_idx], new_node, symbol_set=sym_set,
+                                          start_type=start_type)
+
+            out_edges = self.get_out_edges(curr_node, data=True, keys=False)
+
+            for src, dst, data in out_edges:
+                if dst is curr_node:
+                    continue
+                for new_node in new_nodes:
+                    self.add_edge(new_node, dst, symbol_set=data[Automatanetwork.symbol_data_key],
+                                  start_type=data['start_type'])
+
+            for self_looph_src in itertools.chain(new_nodes, prev_new_nodes):
+                for self_looph_dst in self_loop_list:
+                    self.add_edge(self_looph_src, self_looph_dst, symbol_set=self_looph_dst.symbols,
+                                  start_type=self_looph_dst.start_type)
+
+            return new_nodes
 
     def does_have_self_loop(self):
         """
@@ -1352,6 +1421,19 @@ class Automatanetwork(object):
                     sn_neighbor.start_type = StartType.all_input
                     self.add_edge(self.fake_root, sn_neighbor)
                 self.delete_node(sn)
+
+    def remove_dead_states(self):
+        '''
+        this function removes all dead states. States with no incoming edges.
+        :return: None
+        '''
+        for node in list(self.nodes):
+            if node.is_fake:
+                continue
+
+            if not set(self.get_predecessors(node)) - set([node]):
+                self.delete_node(node)
+
 
 
 

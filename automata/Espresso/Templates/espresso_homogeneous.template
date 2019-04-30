@@ -1,0 +1,29 @@
+{#
+@param stride_value : stride value 1, 2, 4, ...
+@param bits_per_dim : number of bits per dimension. It is usually 8
+@param output_functions_count: an integer represents the number of functions that needs to be implemented. This is
+usually equals to the number of neighbors of STE (includeing the self ste if it has a self-loop)
+@param input_function : a dictionary to be implementes key: a tuple with len stride_value and  each item in tuple
+is a strings of 0/1 with length of bits_per_dim. value: a string of 0/1 with length equals to output_functions_count
+of the neighbor in homogeneous case
+#}
+
+{% set total_input_bits = stride_value * bits_per_dim %}
+.i {{total_input_bits}}
+.o {{output_functions_count}}
+
+.ilb {% for i in range(total_input_bits) %} inp_d{{i}}{% endfor %}
+
+.ob {% for i in range(output_functions_count) %} out_d{{i}}{% endfor %}
+
+{% for i in range(stride_value) %}
+.symbolic {% for j in range(bits_per_dim) %} inp_d{{i * bits_per_dim + j}}{% endfor %} ;
+;
+{% endfor %}
+
+.p {{input_function|length}}
+
+{% for k, v in input_function.iteritems() %}
+{% for d_s in k %}{{d_s}}{% endfor %} {% for b in v %}{{b}}{% endfor %}
+{%- endfor %}
+.e
