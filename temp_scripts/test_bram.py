@@ -52,7 +52,7 @@ for uat in under_process_atms:
 
         generator_ins = hd_gen.HDL_Gen(path=hdl_apth, before_match_reg=before_match_reg,
                                        after_match_reg=after_match_reg, ste_type=ste_type,
-                                       total_input_len=automatas[0].total_bits_len * pow(2, stride_val), bram_shape=(512, 36))
+                                       total_input_len=automatas[0].max_val_dim_bits_len * pow(2, stride_val), bram_shape=(512, 36))
 
         for atm_idx, atm in enumerate(automatas):
             if (uat, atm_idx) in exempts:

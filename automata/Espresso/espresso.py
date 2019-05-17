@@ -3,8 +3,10 @@ import re
 import logging
 from itertools import product
 import os
+import threading
 from jinja2 import Environment, FileSystemLoader
 from automata.elemnts.ste import PackedIntervalSet, PackedInterval, PackedInput
+
 
 
 class Espresso(object):
@@ -25,16 +27,16 @@ class Espresso(object):
         :return:
         '''
 
-
+        tid = threading.current_thread().ident
         template_rendered = cls._split_sym_template.render(symset=symset, max_val=max_val)
 
-        with open('/tmp/rezasim_espresso{}split.txt'.format(os.getpid()), 'w') as f:
+        with open('/tmp/rezasim_espresso{}split.txt'.format(tid), 'w') as f:
             f.writelines(template_rendered)
 
         logging.debug("Spresso split started...")
         try:
             espresso_out = subprocess.check_output('/zf15/gr5yf/Git/espresso-logic/bin/espresso /tmp/rezasim_espresso{}split.txt'
-                                               .format(os.getpid()),
+                                               .format(tid),
                                                shell=True)
         except subprocess.CalledProcessError as e:
             logging.error(e.output)
@@ -75,6 +77,8 @@ class Espresso(object):
         if not inp_function:
             return {}
 
+        tid = threading.current_thread().ident
+
         output_functions_count = 0
         for v in inp_function.itervalues():
             output_functions_count = len(v)
@@ -83,13 +87,13 @@ class Espresso(object):
                                                      output_functions_count=output_functions_count,
                                                      input_function=inp_function)
 
-        with open('/tmp/rezasim_espresso{}homo.txt'.format(os.getpid()), 'w') as f:
+        with open('/tmp/rezasim_espresso{}homo.txt'.format(tid), 'w') as f:
             f.writelines(template_rendered)
 
         logging.debug("Spresso homo started...")
         try:
             espresso_out = subprocess.check_output('/zf15/gr5yf/Git/espresso-logic/bin/espresso /tmp/rezasim_espresso{}homo.txt'
-                                               .format(os.getpid()),
+                                               .format(tid),
                                                shell=True)
         except subprocess.CalledProcessError as e:
             logging.error(e.output)

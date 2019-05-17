@@ -50,6 +50,8 @@ class Automatanetwork(object):
         for node in self.nodes:
             node.mark_index = -1
 
+    def __repr__(self):
+        return self.id
 
     def get_new_id(self):
         #TODO should not be provate
@@ -83,8 +85,13 @@ class Automatanetwork(object):
         self._max_val = max_val
 
     @property
+    def max_val_dim_bits_len(self):
+        return self.max_val_dim.bit_length()
+
+
+    @property
     def total_bits_len(self):
-        return int(math.ceil(math.log(self.max_val_dim + 1, 2)))
+        return self.max_val_dim_bits_len * self.stride_value
 
     # @property
     # def bit_len(self):
@@ -634,7 +641,7 @@ class Automatanetwork(object):
                 logging.debug("splitting node {} with Spresso done".format(node.id))
         logging.debug("starting splitting all nodes with Spresso done!")
 
-    def make_homogenous(self, plus_src=False, use_espresso=True):
+    def make_homogenous(self, plus_src=False, use_espresso=False):
         """
         :param plus_src: if this parameter is True, the autoamaton will be homogeneous based on source and symbol sets.
         otherwise, it only be homogeneous based on symbol set
