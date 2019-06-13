@@ -15,7 +15,7 @@ out_dir = '../Results/Stat/'
 
 def process_single_ds(uat):
 
-#uat = AnmalZoo.Ranges05
+    #uat = AnmalZoo.Ranges05
 
     return_result = {}
     result_dir = out_dir + str(uat)
@@ -25,7 +25,7 @@ def process_single_ds(uat):
     exempts = {(AnmalZoo.Snort, 1411)}
 
     max_target_stride = 2
-    uat_count = 2
+    uat_count = 200
 
     automatas = atma.parse_anml_file(anml_path[uat])
     automatas.remove_ors()
@@ -72,7 +72,7 @@ def process_single_ds(uat):
                     if atm.is_homogeneous is False:
                         atm.make_homogenous()
 
-                    minimize_automata(atm, combine_equal_syms_only=is_Bram)
+                    minimize_automata(atm)
 
                     if is_Bram is True and hom_between is False:
                         atm.fix_split_all()
@@ -104,22 +104,34 @@ def process_single_ds(uat):
                     csv_writer.writerow([n_s, n_e, m_f_i, m_f_o, mx_s_l, mn_s_l, t_s])
 
             n_states /= uat_count
+            n_edges /= uat_count
+            max_fan_in /= uat_count
+            max_fan_out /= uat_count
+            max_sym_len /= uat_count
+            min_sym_len /= uat_count
+            total_sym /= uat_count
 
-            return_result[(is_Bram, stride_val)] = (n_states / uat_count,
-                                                    n_edges / uat_count,
-                                                    max_fan_in / uat_count,
-                                                    max_fan_out / uat_count,
-                                                    max_sym_len / uat_count,
-                                                    min_sym_len / uat_count,
-                                                    total_sym / uat_count)
+            return_result[(is_Bram, stride_val)] = (n_states,
+                                                    n_edges,
+                                                    max_fan_in,
+                                                    max_fan_out,
+                                                    max_sym_len,
+                                                    min_sym_len,
+                                                    total_sym)
 
-            with open(out_dir + 'summary.txt') as f:
+            with open(out_dir + 'summary.txt', 'a+') as f:
                 fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                to_w_ln = str(uat) + "L" + str(uat_count) + "S" + str(stride_val) + "BRam" + str(is_Bram) + ', '
-                to_w_ln += "number of states = " + str()
-
-
-                fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_UN)
+                to_w_lns =[]
+                to_w_lns.append(str(uat) + "L" + str(uat_count) + "S" + str(stride_val) + "BRam" + str(is_Bram) + "\n")
+                to_w_lns.append("    average number of states = " + str(n_states) + "\n")
+                to_w_lns.append("    average number of edges = " + str(n_edges) + "\n")
+                to_w_lns.append("    average max fan-in = " + str(max_fan_in) + "\n")
+                to_w_lns.append("    average max fan-out = " + str(max_fan_out) + "\n")
+                to_w_lns.append("    average max sym-len = " + str(max_sym_len) + "\n")
+                to_w_lns.append("    average min sym-len = " + str(min_sym_len) + "\n")
+                to_w_lns.append("    average total_sym-len = " + str(total_sym) + "\n")
+                f.writelines(to_w_lns)
+                fcntl.flock(f, fcntl.LOCK_UN)
 
     return uat, return_result
 
@@ -127,7 +139,20 @@ def process_single_ds(uat):
 
 if __name__ == '__main__':
 
-    ds = [AnmalZoo.RandomForest, AnmalZoo.Ranges1]
+    #os.remove(out_dir + 'summary.txt')
+
+    old_ds = [AnmalZoo.Snort,
+          AnmalZoo.RandomForest,
+          AnmalZoo.Ranges1,
+          AnmalZoo.PowerEN,
+          AnmalZoo.Protomata,
+          AnmalZoo.Dotstar03,
+          AnmalZoo.ExactMath,
+          AnmalZoo.SPM,
+          AnmalZoo.Custom]
+
+    ds = [a for a in AnmalZoo if a not in old_ds]
+
     thread_count = 8
 
     t_pool = ThreadPool(thread_count)
