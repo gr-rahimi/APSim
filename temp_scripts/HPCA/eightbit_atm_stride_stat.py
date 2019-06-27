@@ -11,7 +11,7 @@ import fcntl
 #logging.basicConfig(level=logging.DEBUG)
 
 
-out_dir = '../Results/Stat/'
+out_dir = '../../Results/Stat/'
 
 def process_single_ds(uat):
 

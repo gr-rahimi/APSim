@@ -11,7 +11,7 @@ import fcntl
 #logging.basicConfig(level=logging.DEBUG)
 
 
-out_dir = '../Results/BV_Stat/'
+out_dir = '../../Results/BV_Stat/'
 
 def process_single_ds(uat):
 
@@ -36,8 +36,6 @@ def process_single_ds(uat):
 
     automatas = automatas[:uat_count]
     uat_count = len(automatas)
-
-
 
     filed_names = ['number_of_states', 'number_of_edges', 'max_fan_in', 'max_fan_out',
                    'max_symbol_len', 'min_symbol_len', 'total_sym']
