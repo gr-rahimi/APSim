@@ -1044,12 +1044,17 @@ def automata_run_stat(atm, file_path, cycle_detail, bytes_per_dim, translation_d
     :return:
     """
 
-    total_reports, reports_per_cycle, total_active_states = "total reports count", "reports per cycle",\
-                                                            "total active states count"
+    # total_reports, reports_per_cycle, total_active_states, actives_per_cycle = "total reports count",\
+    #                                                                            "reports per cycle",\
+    #                                                                            "total active states count",\
+    #                                                                             "actives per cycle"
+
+    from automata.utility import total_reports, total_active_states, reports_per_cycle, actives_per_cycle
     results = {}
     results[total_reports] = 0
     results[total_active_states] = 0
     results[reports_per_cycle] = []
+    results[actives_per_cycle] = []
 
     inp_dis = InputDistributer(is_file=True, file_path=file_path, max_stride_size=atm.stride_value,
                                single_input_size=bytes_per_dim, translation_dic=translation_dic)
@@ -1064,6 +1069,7 @@ def automata_run_stat(atm, file_path, cycle_detail, bytes_per_dim, translation_d
             results[total_active_states] += len(temp_active_states)
             if cycle_detail:
                 results[reports_per_cycle].append([r.id for r in temp_active_states if r.report])
+                results[actives_per_cycle].append([r.id for r in temp_active_states])
 
     except StopIteration:
         return results

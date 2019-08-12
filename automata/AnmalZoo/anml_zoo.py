@@ -1,7 +1,7 @@
 from enum import Enum
 import os.path
 
-_base_address = "/zf15/gr5yf/Git/ANMLZoo"
+_base_address = "/Users/gholamrezarahimi/Git/ANMLZoo"
 
 class AnmalZoo(Enum):
     Brill = 0
@@ -54,28 +54,28 @@ anml_path[AnmalZoo.TCP] = os.path.join(_base_address, "TCP/anml/tcp.anml")
 anml_path[AnmalZoo.Custom] = os.path.join(_base_address, "Custom/anml/POST.anml")
 
 input_path = {}
-input_path[AnmalZoo.Brill] = os.path.join(_base_address, "Brill/inputs/brill_1MB.input")
-input_path[AnmalZoo.ClamAV] = os.path.join(_base_address, "ClamAV/inputs/vasim_1MB.input")
-input_path[AnmalZoo.Dotstar] = os.path.join(_base_address, "Dotstar/inputs/backdoor_1MB.input")
-input_path[AnmalZoo.EntityResolution] = os.path.join(_base_address, "EntityResolution/inputs/1000_1MB.input")
-input_path[AnmalZoo.Fermi] = os.path.join(_base_address, "Fermi/inputs/rp_input_1MB.input")
-input_path[AnmalZoo.Hamming] = os.path.join(_base_address, "Hamming/inputs/hamming_1MB.input")
-input_path[AnmalZoo.Levenshtein] = os.path.join(_base_address, "Levenshtein/inputs/DNA_1MB.input")
-input_path[AnmalZoo.PowerEN] = os.path.join(_base_address, "PowerEN/inputs/poweren_1MB.input")
-input_path[AnmalZoo.Protomata] = os.path.join(_base_address, "Protomata/inputs/uniprot_fasta_1MB.input")
-input_path[AnmalZoo.RandomForest] = os.path.join(_base_address, "RandomForest/inputs/mnist_1MB.input")
-input_path[AnmalZoo.SPM] = os.path.join(_base_address, "SPM/inputs/SPM_1MB.input")
-input_path[AnmalZoo.Snort] = os.path.join(_base_address, "Snort/inputs/snort_1MB.input")
+input_path[AnmalZoo.Brill] = os.path.join(_base_address, "Brill/inputs/brill_10MB.input")
+input_path[AnmalZoo.ClamAV] = os.path.join(_base_address, "ClamAV/inputs/vasim_10MB.input")
+input_path[AnmalZoo.Dotstar] = os.path.join(_base_address, "Dotstar/inputs/backdoor_10MB.input")
+input_path[AnmalZoo.EntityResolution] = os.path.join(_base_address, "EntityResolution/inputs/1000_10MB.input")
+input_path[AnmalZoo.Fermi] = os.path.join(_base_address, "Fermi/inputs/rp_input_10MB.input")
+input_path[AnmalZoo.Hamming] = os.path.join(_base_address, "Hamming/inputs/hamming_10MB.input")
+input_path[AnmalZoo.Levenshtein] = os.path.join(_base_address, "Levenshtein/inputs/DNA_10MB.input")
+input_path[AnmalZoo.PowerEN] = os.path.join(_base_address, "PowerEN/inputs/poweren_10MB.input")
+input_path[AnmalZoo.Protomata] = os.path.join(_base_address, "Protomata/inputs/uniprot_fasta_10MB.input")
+input_path[AnmalZoo.RandomForest] = os.path.join(_base_address, "RandomForest/inputs/mnist_10MB.input")
+input_path[AnmalZoo.SPM] = os.path.join(_base_address, "SPM/inputs/SPM_10MB.input")
+input_path[AnmalZoo.Snort] = os.path.join(_base_address, "Snort/inputs/snort_10MB.input")
 #input_path[AnmalZoo.Snort] = os.path.join(_base_address, "Snort/inputs/syn_input2.bin")
-input_path[AnmalZoo.Synthetic_BlockRings] = os.path.join(_base_address, "Synthetic/inputs/1MB.input")
-input_path[AnmalZoo.Synthetic_CoreRings] = os.path.join(_base_address, "Synthetic/inputs/1MB.input")
-input_path[AnmalZoo.Bro217] = os.path.join(_base_address, "Bro217/inputs/bro217_depth_s0_p0.75.trace.input")
-input_path[AnmalZoo.Dotstar03] = os.path.join(_base_address, "Dotstar03/inputs/dotstar0.3_depth_s0_p0.75.trace.input")
-input_path[AnmalZoo.Dotstar06] = os.path.join(_base_address, "Dotstar06/inputs/dotstar0.6_depth_s0_p0.75.trace.input")
-input_path[AnmalZoo.Dotstar09] = os.path.join(_base_address, "Dotstar09/inputs/dotstar0.9_depth_s0_p0.75.trace.input")
-input_path[AnmalZoo.ExactMath] = os.path.join(_base_address, "ExactMath/inputs/exact-math_depth_s0_p0.75.trace.input")
-input_path[AnmalZoo.Ranges1] = os.path.join(_base_address, "Ranges1/inputs/ranges1_depth_s0_p0.75.trace.input")
-input_path[AnmalZoo.Ranges05] = os.path.join(_base_address, "Ranges05/inputs/ranges05_depth_s0_p0.75.trace.input")
+input_path[AnmalZoo.Synthetic_BlockRings] = os.path.join(_base_address, "Synthetic/inputs/10MB.input")
+input_path[AnmalZoo.Synthetic_CoreRings] = os.path.join(_base_address, "Synthetic/inputs/10MB.input")
+input_path[AnmalZoo.Bro217] = os.path.join(_base_address, "Bro217/inputs/bro217_10MB_depth_s0_p0.75.trace.input")
+input_path[AnmalZoo.Dotstar03] = os.path.join(_base_address, "Dotstar03/inputs/Dotstar03_10MB_depth_s0_p0.75.trace.input")
+input_path[AnmalZoo.Dotstar06] = os.path.join(_base_address, "Dotstar06/inputs/Dotstar06_10MB_depth_s0_p0.75.trace.input")
+input_path[AnmalZoo.Dotstar09] = os.path.join(_base_address, "Dotstar09/inputs/Dotstar09_10MB_depth_s0_p0.75.trace.input")
+input_path[AnmalZoo.ExactMath] = os.path.join(_base_address, "ExactMath/inputs/ExactMath_10MB_depth_s0_p0.75.trace.input")
+input_path[AnmalZoo.Ranges1] = os.path.join(_base_address, "Ranges1/inputs/Ranges1_10MB_depth_s0_p0.75.trace.input")
+input_path[AnmalZoo.Ranges05] = os.path.join(_base_address, "Ranges05/inputs/Ranges05_10MB_depth_s0_p0.75.trace.input")
 input_path[AnmalZoo.TCP] = os.path.join(_base_address, "TCP/inputs/tcp_depth_s0_p0.75.trace.input")
 input_path[AnmalZoo.Custom] = os.path.join(_base_address, "Custom/inputs/input.inp")
 

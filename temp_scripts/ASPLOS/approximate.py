@@ -1,37 +1,47 @@
 import automata as atma
 from automata.AnmalZoo.anml_zoo import anml_path, AnmalZoo, input_path
 from automata.utility.utility import minimize_automata, get_approximate_automata, automata_run_stat
-import csv
+from automata.utility import total_reports, reports_per_cycle, total_active_states, actives_per_cycle
+from multiprocessing.dummy import Pool as ThreadPool
 
-ds = [a for a in AnmalZoo]
-ds = [AnmalZoo.Snort]
+uat_count = 100
 approximate_ratio = 16
 
-
-
-for uat in ds:
+def process_single_ds(uat):
     automatas = atma.parse_anml_file(anml_path[uat])
+    approximate_final, real_final = [], []  # these lists keep number of reports for each CC
+    real_states, appr_states = 0, 0  # these integers count number of states
     translation_dic = {x: x / approximate_ratio for x in range(automatas.max_val_dim + 1)}
 
     automatas.remove_ors()
     automatas = automatas.get_connected_components_as_automatas()
 
-    for atm in automatas:
-        print atm.get_summary(logo="before approximation")
-        run_result = automata_run_stat(atm=atm, file_path=input_path[uat], cycle_detail=True, bytes_per_dim=1)
-        print "\n results for real automata:", run_result
+    for atm in automatas[:uat_count]:
+        real_states+= atm.nodes_count
+        run_result = automata_run_stat(atm=atm, file_path=input_path[uat], cycle_detail=False, bytes_per_dim=1)
+        real_final.append(run_result[total_reports])
 
         atm.set_all_symbols_mutation(False)
         appr_automata = get_approximate_automata(atm=atm, translation_dic=translation_dic,
                                                 max_val_dim=atm.max_val_dim / approximate_ratio)
         minimize_automata(automata=appr_automata)
-        print appr_automata.get_summary(logo="after approximation")
-        appr_run_result = automata_run_stat(atm=appr_automata, file_path=input_path[uat], cycle_detail=True, bytes_per_dim=1,
+        appr_states += appr_automata.nodes_count
+        appr_run_result = automata_run_stat(atm=appr_automata, file_path=input_path[uat], cycle_detail=False, bytes_per_dim=1,
                                        translation_dic=translation_dic)
-        print "\n results for approximate automata:", appr_run_result
+        approximate_final.append(appr_run_result[total_reports])
 
-        exit(0)
+    with open(str(uat) + '.txt', "w") as f:
+        print >>f, "real reports: " + str(sum(real_final))
+        print >>f, "approximate reports: " + str(sum(approximate_final))
+        print >>f, "real nodes count: " + str(real_states)
+        print >>f, "approximate nodes count" + str(appr_states)
 
+if __name__ == '__main__':
 
+    ds = [a for a in AnmalZoo]
+    thread_count = 8
 
-
+    t_pool = ThreadPool(thread_count)
+    results = t_pool.map(process_single_ds, ds)
+    t_pool.close()
+    t_pool.join()
