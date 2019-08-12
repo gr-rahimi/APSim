@@ -1,4 +1,5 @@
 from __future__ import division
+from copy import deepcopy
 from .elemnts.ste import S_T_E, PackedIntervalSet, PackedInput, get_Symbol_type, PackedInterval
 from .elemnts.element import StartType, FakeRoot
 from .elemnts.or_elemnt import OrElement
@@ -215,6 +216,9 @@ class Automatanetwork(object):
     def edges_count(self):
         return self._my_graph.number_of_edges() - self.number_of_start_nodes
 
+    def clone(self):
+        return deepcopy(self)
+
     def get_neighbors(self, node):
         return self._my_graph.neighbors(node)
 
@@ -227,13 +231,17 @@ class Automatanetwork(object):
 
     def get_average_intervals(self):
 
-        intervals_sum = 0
-        for node in self.nodes:
-            if node.start_type == StartType.fake_root:
-                continue
-            intervals_sum += len(node.symbols)
+        if self.is_homogeneous:
+            intervals_sum = 0
+            for node in self.nodes:
+                if node.start_type == StartType.fake_root:
+                    continue
+                intervals_sum += len(node.symbols)
 
-        return intervals_sum / self.nodes_count if self.nodes_count is not 0 else 'inf'
+            return intervals_sum / self.nodes_count if self.nodes_count is not 0 else 'inf'
+        else:
+            pass  # TODO fix later
+
 
     def add_edge(self, src, dest, **kwargs):
         # if self.is_homogeneous:
@@ -313,7 +321,6 @@ class Automatanetwork(object):
             logging.debug("striding queue len= {}".format(len(dq)))
 
             current_ste = dq.pop()
-
 
             for l1_neighb_idx, l1_neigh in enumerate(self._my_graph.neighbors(current_ste)):
                 if l1_neigh.report:
@@ -522,7 +529,9 @@ class Automatanetwork(object):
         :param node: the node that needs to be splitted
         :return:
         '''
-        assert node.symbols.is_splittable() is False, 'this node does not need to be splitted'
+        if node.symbols.is_splittable():
+            return
+
         assert self.is_homogeneous
         new_sym_count, new_syms_list = Espresso.get_splitted_sym_sets(node.symbols, self.max_val_dim)
         self_loop = self.does_STE_has_self_loop(node)
@@ -635,10 +644,10 @@ class Automatanetwork(object):
             logging.debug("checking node {} for splitability".format(node.id))
             if node.is_fake:
                 continue
-            if node.symbols.is_splittable() is False:
-                logging.debug("starting splitting node {} with Spresso...".format(node.id))
-                self.fix_split_node(node)
-                logging.debug("splitting node {} with Spresso done".format(node.id))
+
+            logging.debug("starting splitting node {} with Spresso...".format(node.id))
+            self.fix_split_node(node)
+            logging.debug("splitting node {} with Spresso done".format(node.id))
         logging.debug("starting splitting all nodes with Spresso done!")
 
     def make_homogenous(self, plus_src=False, use_espresso=False):
@@ -1055,6 +1064,7 @@ class Automatanetwork(object):
         str_list.append("stride value = {}".format(self.stride_value))
         str_list.append("Max Fan-in = {}".format(self.max_STE_in_degree()))
         str_list.append("Max Fan-out = {}".format(self.max_STE_out_degree()))
+        str_list.append("Max value in dim = {}".format(self.max_val_dim))
 
         if self.is_homogeneous:
             str_list.append("average number of intervals per STE = {}".format(self.get_average_intervals()))
@@ -2185,52 +2195,19 @@ def compare_real_approximate(file_path, automata):
     return false_actives, false_reports_exact, false_reports_each_cycle, true_total_reports
 
 
-def compare_input(only_report, check_residuals, is_file, file_path, *automatas):
-    gens = []
-    result = [() for i in range(len(automatas))]
-    max_stride = max([sv.stride_value for sv in automatas])
-    from utility import InputDistributer
-    inp_dis = InputDistributer(is_file=is_file, file_path=file_path, max_stride_size=max_stride,single_input_size=1)
 
-    for a in automatas:
-        assert max_stride % a.stride_value == 0
-        g = a.feed_input(input_stream=inp_dis.get_stream(a.stride_value), offset=0, jump=a.stride_value)
-        gens.append(g)
-
-    try:
-        if is_file:
-            file_size = os.path.getsize(file_path)
-        else:
-            file_size = 1000
-
-        for _ in tqdm(itertools.count(), total=math.ceil(file_size/max_stride), unit='symbol'):
-            for idx_g, (g, automata) in enumerate(zip(gens, automatas)):
-
-                total_report_residual_details = []
-                is_report = False
-                for _ in range(int(max_stride / automata.stride_value)):
-                    temp_active_states, temp_is_report, report_residual_details = next(g)
-                    total_report_residual_details.extend(report_residual_details)
-                    is_report = is_report or temp_is_report
-
-                result[idx_g] =(temp_active_states, is_report, total_report_residual_details)
-                print temp_active_states
-
-            for active_state, report_state, total_report_residual_details in result[1:]:
-                assert report_state==result[0][1] # check report states
-                if check_residuals:
-                    assert total_report_residual_details == result[0][2]
-                if not only_report:
-                    assert active_state == result[0][0] # check current states
-
-    except StopIteration:
-        print "They are equal"
 
 
 
 def get_bit_automaton(atm, original_bit_width):
     assert original_bit_width > 1, 'this automata is already bitwise'
     assert atm.stride_value == 1, 'input automata should not be strided'
+    assert atm.is_homogeneous
+
+    does_have_all_input = atm.does_have_all_input()
+    if does_have_all_input:
+        atm.remove_all_start_nodes()
+
 
     bit_automata = Automatanetwork(id=atm.id + 'bitwise', is_homogenous=False, stride=1, max_val=1)
     atm.unmark_all_nodes()
@@ -2251,7 +2228,7 @@ def get_bit_automaton(atm, original_bit_width):
 
         for _, neighb, data in out_edges:
             if neighb.marked is not True:
-                neighb.marked=True
+                neighb.marked = True
                 new_id = bit_automata.get_new_id()
                 new_node = S_T_E(start_type=StartType.unknown, is_report=neighb.report,
                                  is_marked=False, id=new_id, symbol_set=None,
@@ -2302,11 +2279,11 @@ def get_bit_automaton(atm, original_bit_width):
 
                 left_node = bit_node_src
 
-                left_idx = 0 # in case the next for foes
-                for left_idx, b in zip(range(1 , right_idx), binary_value):
+                left_idx = 0  # in case the next for foes
+                for left_idx, b in zip(range(1, right_idx), binary_value):
                     found = False
                     bit_pt = PackedInput((b,))
-                    for _, neighb, data in bit_automata.get_out_edges(left_node, data = True, keys=False):
+                    for _, neighb, data in bit_automata.get_out_edges(left_node, data=True, keys=False):
 
                         if left_node == bit_node_src:
                             my_key = (bit_node_src, bit_node_dst, b, start_type)
@@ -2343,7 +2320,7 @@ def get_bit_automaton(atm, original_bit_width):
                     new_pack_interval = PackedInterval(PackedInput((b, )), PackedInput((b,)))
                     new_sym_set = PackedIntervalSet([new_pack_interval])
                     bit_automata.add_edge(left_node, new_node, symbol_set=new_sym_set,
-                                          start_type= start_type if left_node.type == ElementsType.FAKE_ROOT
+                                          start_type=start_type if left_node.type == ElementsType.FAKE_ROOT
                                           else StartType.non_start)
 
                     if left_node == bit_node_src:
@@ -2442,7 +2419,6 @@ def get_strided_automata2(atm ,stride_value, is_scalar, base_value = 0, add_resi
             dp[(node, s_val)] = value
             return
         else:
-
             for reduced_s in range(s_val, 1, -1):
                 if (node, reduced_s) in dp:
                     value = {}
@@ -2478,7 +2454,7 @@ def get_strided_automata2(atm ,stride_value, is_scalar, base_value = 0, add_resi
     while dq:
         processed_nodes += 1
         logging.debug('Processing bitwise strider: {} from {}'.format(processed_nodes, total_nodes))
-        curr_node = dq.pop(0)
+        curr_node = dq.pop(-1)
         if curr_node.type == ElementsType.FAKE_ROOT:
             for _, neighb, data in atm.get_out_edges(curr_node, data=True, keys=False):
                 strider(neighb, stride_value - 1)

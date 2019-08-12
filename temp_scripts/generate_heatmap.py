@@ -9,17 +9,12 @@ from automata.utility import utility
 
 number_of_automatas = 50
 draw_individually = False
-max_stride = 3
+max_stride = 0
 switch_size = 128
 routing_template = None
 
 for anml in [
-             AnmalZoo.Bro217, AnmalZoo.ExactMath, AnmalZoo.Dotstar03,
-             AnmalZoo.Dotstar06, AnmalZoo.Dotstar09,
-             AnmalZoo.Fermi, AnmalZoo.PowerEN, AnmalZoo.Protomata,
-             AnmalZoo.RandomForest, AnmalZoo.Ranges1, AnmalZoo.Ranges05,
-             AnmalZoo.Snort, AnmalZoo.Synthetic_BlockRings, AnmalZoo.TCP,
-             AnmalZoo.SPM]:
+             AnmalZoo.TCP, AnmalZoo.ClamAV]:
 
     if not os.path.exists("Results/"+str(anml)):
         os.makedirs("Results/"+str(anml)) #make directory if it does not exist
@@ -38,7 +33,7 @@ for anml in [
         acc_switch_map = np.zeros((switch_size, switch_size))
 
         print "starting stride ", stride
-        for cc_idx, cc in enumerate(ccs[:number_of_automatas]):
+        for cc_idx, cc in enumerate(ccs[:]):
             print "processing {} , id {}".format(anml, cc_idx)
             print cc.get_summary(logo="original")
 

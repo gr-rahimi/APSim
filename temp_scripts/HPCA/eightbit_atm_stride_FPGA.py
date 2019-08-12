@@ -13,7 +13,7 @@ import automata.HDL.hdl_generator as hd_gen
 #logging.basicConfig(level=logging.DEBUG)
 
 
-out_dir = '../../Results/HDL/'
+out_dir = '../../Results/HDL_test/'
 
 def process_single_ds(uat):
 
@@ -32,8 +32,8 @@ def process_single_ds(uat):
     automatas.remove_ors()
     automatas = automatas.get_connected_components_as_automatas()
 
-
-    #uat_count = len(automatas)  # comment this to test a subset of automatons defined in uat_count
+    after_match_reg = False
+    actual_bram = False  # if True, actual bram will be used. Otherwise, LUT emulates bram
 
     automatas = automatas[:uat_count]
     uat_count = len(automatas)
@@ -41,13 +41,13 @@ def process_single_ds(uat):
     number_of_stages = math.ceil(len(automatas) / float(automata_per_stage))
     atms_per_stage = int(math.ceil(len(automatas) / float(number_of_stages)))
 
-    for hom_between, is_Bram in [(False, False),  (False, True)]:
+    for hom_between, is_Bram in [(False, True)]:
 
         for stride_val in range(max_target_stride + 1):
 
             hdl_folder_name = hd_gen.get_hdl_folder_name(prefix=str(uat), number_of_atms=len(automatas),
                                                   stride_value=stride_val, before_match_reg=False,
-                                                  after_match_reg=False, ste_type=1, use_bram=is_Bram,
+                                                  after_match_reg=after_match_reg, ste_type=1, use_bram=is_Bram,
                                                   use_compression=False, compression_depth=-1)
 
             generator_ins = hd_gen.HDL_Gen(path=os.path.join(result_dir, hdl_folder_name), before_match_reg=False,
@@ -84,7 +84,7 @@ def process_single_ds(uat):
                 generator_ins.register_automata(atm=atm, use_compression=False, lut_bram_dic=lut_bram_dic)
 
                 if (atm_idx + 1) % atms_per_stage == 0:
-                    generator_ins.register_stage_pending(single_out=False)
+                    generator_ins.register_stage_pending(single_out=False, use_bram=actual_bram)
 
 
             generator_ins.finilize()
@@ -97,7 +97,7 @@ if __name__ == '__main__':
 
     #os.remove(out_dir + 'summary.txt')
 
-    old_ds = [AnmalZoo.Snort,
+    ds = [AnmalZoo.Snort,
           AnmalZoo.RandomForest,
           AnmalZoo.Ranges1,
           AnmalZoo.PowerEN,
@@ -108,8 +108,8 @@ if __name__ == '__main__':
           AnmalZoo.Custom]
 
 
-
-    ds = [a for a in AnmalZoo if a not in old_ds]
+    ds = []
+    ds = [a for a in AnmalZoo if a not in ds]
 
     thread_count = 8
 

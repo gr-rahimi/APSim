@@ -34,8 +34,8 @@ def process_single_ds(uat):
     automatas.remove_ors()
     automatas = automatas.get_connected_components_as_automatas()
 
-    after_match_reg = True
-    actual_bram = True  # if True, actual bram will be used. Otherwise, LUT emulates bram
+    after_match_reg = False
+    actual_bram = False  # if True, actual bram will be used. Otherwise, LUT emulates bram
 
 
     #uat_count = len(automatas)  # comment this to test a subset of automatons defined in uat_count
@@ -110,9 +110,17 @@ def process_single_ds(uat):
 if __name__ == '__main__':
     open(out_dir + 'summary.txt', 'w')  # creat a new file
 
-    ds = [AnmalZoo.Snort]
+    ds = [AnmalZoo.Snort,
+          AnmalZoo.RandomForest,
+          AnmalZoo.Ranges1,
+          AnmalZoo.PowerEN,
+          AnmalZoo.Protomata,
+          AnmalZoo.Dotstar03,
+          AnmalZoo.ExactMath,
+          AnmalZoo.SPM,
+          AnmalZoo.Custom]
 
-    #ds = [a for a in AnmalZoo if a not in old_ds]
+    ds = [a for a in AnmalZoo if a not in ds]
 
 
 

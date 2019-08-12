@@ -151,19 +151,14 @@ def test_compressor(original_width, byte_trans_map, byte_map_width, translation_
         f.writelines(rendered_content)
 
 
-
-def get_hdl_folder_path(prefix, number_of_atms, stride_value, before_match_reg, after_match_reg, ste_type, use_bram,
+def get_hdl_folder_name(prefix, number_of_atms, stride_value, before_match_reg, after_match_reg, ste_type, use_bram,
                         use_compression, compression_depth):
     folder_name = prefix + 'stage_' + str(number_of_atms) + '_stride' + str(stride_value) + (
         '_before' if before_match_reg else '') + ('_after' if after_match_reg else '') + \
                    ('_ste' + str(ste_type)) + ('_withbram' if use_bram else '_nobram') + \
                   ('with_compD' if use_compression else 'no_comp') + (str(compression_depth) if use_compression else '')
 
-    home = expanduser("~")
-    hdl_path = os.path.join(home, 'HDL')
-    if os.path.exists(hdl_path) is False:
-        os.mkdir(hdl_path)
-    return os.path.join(hdl_path, folder_name)
+    return folder_name
 
 
 def generate_full_lut(atms_list, single_out ,before_match_reg, after_match_reg, ste_type,
@@ -220,6 +215,9 @@ class HDL_Gen(object):
         '''
 
         self._path = path
+        shutil.rmtree(path, ignore_errors=True)
+        os.mkdir(path)
+
         self._clean_and_make_path()
         self._before_match_reg = before_match_reg
         self._after_match_reg = after_match_reg
@@ -302,8 +300,8 @@ class HDL_Gen(object):
         self._atm_info[atm.id] = atm_interface
         for node in atm.nodes:
             atm_interface.nodes.append(self._Node_Interface(id=node.id, report=node.report,
-                                                            sym_count=0 if node.id==FakeRoot.fake_root_id else len(node.symbols),
-                                                            symbols=node.symbols if (node in lut_bram_dic and 2 in lut_bram_dic[node]) else None))
+                                                            sym_count=0 if node.id == FakeRoot.fake_root_id else len(node.symbols),
+                                                            symbols=node.symbols if 2 in lut_bram_dic.get(node, []) else None))
 
         self._pending_automatas.append((atm_interface, lut_bram_dic))
 
@@ -424,9 +422,13 @@ class HDL_Gen(object):
         '''
         this function willl take care of generating brams.
         :param atms_list: this is a list of automatas [(atm id, lut_bram_dic)...]
-        :return: list of chanked brams [[(bram1content, [[(atm1,ste1.id),(atm1,ste5.id)],[(atm1, ste3.id)],....]),()], [(bram2content, [[(atm1,ste1.id),(atm1,ste5.id)],[(atm1, ste3.id)],....]),()]]
+        :return: a tuple
+
+        first : list of chunked brams [[(bram1content, [[(atm1,ste1.id),(atm1,ste5.id)],[(atm1, ste3.id)],....]),()], [(bram2content, [[(atm1,ste1.id),(atm1,ste5.id)],[(atm1, ste3.id)],....]),()]]
                                                          -------column1---------
-                                                                                    --column2---
+                                                                                         --column2---
+
+        second : list of dictionaries. each dictionary belongs to one dimension in stride value. Key value in dictionary is a match vector and value is a list of  tuples (atmid, node.id)
         '''
 
 
@@ -436,7 +438,7 @@ class HDL_Gen(object):
             this function receives a numpy array with 0,1 and convert it to the form that xilinx bram macro likes to receive
             :param bram_content: 
             :param base_value: 
-            :return: 
+            :return:
             '''
 
             assert base_value == 16 or base_value == 8 or base_value == 4 or base_value == 2
@@ -526,21 +528,22 @@ class HDL_Gen(object):
                 current_bram_nodes.reverse()
                 chunked_bram_list[d].append((numpy_bram_tostring(current_bram_content[:, ::-1], base_value=16), current_bram_nodes))
 
-        return chunked_bram_list
+        return chunked_bram_list, brams_list
 
-    def register_stage_pending(self, single_out):
+    def register_stage_pending(self, single_out, use_bram):
         '''
         this function put all the pending autoamtas to one stage and register that stage
         :param single_out:
+        :param use_bram: if True actual bram will be used otherwise LUT will be used to emulate bram
         :return:
         '''
         if not self._pending_automatas:
             return
 
-        brams_contents = self._generate_bram(self._pending_automatas)
+        brams_contents, brams_list = self._generate_bram(self._pending_automatas)
         self._register_stage(atms_id=[atm.id for atm, _ in self._pending_automatas],
                              single_out=single_out,
-                             brams_contents=brams_contents)
+                             brams_contents=brams_contents, brams_list=brams_list, use_bram=use_bram)
 
         # for atm, _ in self._pending_automatas:
         #     for node in atm.nodes:
@@ -548,12 +551,13 @@ class HDL_Gen(object):
         self._pending_automatas = []
 
 
-    def _register_stage(self, atms_id, single_out, brams_contents):
+    def _register_stage(self, atms_id, single_out, brams_contents, brams_list, use_bram):
         '''
 
         :param atms_id: list of ids of automatas in the same stage
         :param single_out: if true, the stage will have one report out put which is the or of all of the outputs
         :param brams_content
+        :param brams_list:
         :param pending_automatas
         :return: None
         '''
@@ -567,7 +571,8 @@ class HDL_Gen(object):
                                            bit_feed_size=self._total_input_len,
                                            id_to_comp_dict={self._atm_to_comp_id[atm_id]:self._comp_info[self._atm_to_comp_id[atm_id]] for atm_id in atms_id if atm_id in self._atm_to_comp_id},
                                            comp_dict={atm_id:self._atm_to_comp_id[atm_id] for atm_id in atms_id if atm_id in self._atm_to_comp_id},
-                                           brams_contents=brams_contents, pending_atms=self._pending_automatas,
+                                           brams_contents=brams_contents, brams_list=brams_list, use_bram=use_bram,
+                                           pending_atms=self._pending_automatas,
                                            after_match=self._after_match_reg)
         with open(os.path.join(self._path, 'stage{}.v'.format(self._stage_id)), 'w') as f:
             f.writelines(rendered_content)

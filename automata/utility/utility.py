@@ -15,7 +15,10 @@ from deap import algorithms, base, creator, tools
 from automata.elemnts import ElementsType
 from automata.elemnts.element import FakeRoot
 from automata.elemnts.ste import PackedInput, PackedInterval, PackedIntervalSet
-
+import automata.automata_network
+import os
+from tqdm import tqdm
+import itertools
 
 
 def draw_matrix(file_to_save, matrix, boundries, **kwargs):
@@ -256,7 +259,7 @@ def _is_symbol_set_sorted(symbol_set):
     return  True
 
 class InputDistributer(object):
-    def __init__(self, is_file, file_path=None, max_stride_size = 1, single_input_size = 1):
+    def __init__(self, is_file, file_path=None, max_stride_size=1, single_input_size=1, translation_dic=None):
         max_stride_size = max(2,max_stride_size)
         '''
         this function read input stream and distribute it amnog readers
@@ -271,6 +274,7 @@ class InputDistributer(object):
         self._file = None
         self._is_file = is_file
         self._single_input_size = single_input_size
+        self._translation_dic = translation_dic
         if is_file:
             self._file = open(file_path, 'rb')
 
@@ -282,7 +286,13 @@ class InputDistributer(object):
         if self._is_file:
             result = 0
             for _ in range(self._single_input_size):
-                result = result * 256 + bytearray(self._file.read(1))[0]
+                try:
+                    current_byte = bytearray(self._file.read(1))[0]
+                except IndexError:
+                    raise StopIteration
+                if self._translation_dic:
+                    current_byte = self._translation_dic[current_byte]
+                result = result * 256 + current_byte
             return result
         else:
             return  input('please eneter a number from 0 to {}'.format(pow(256, self._single_input_size)))
@@ -398,6 +408,7 @@ def _replace_equivalent_symbols(symbol_dictionary_list, atms_list, max_val):
     '''
     :param atms: list of auotmatas
     :param symbol_dictionary_list: a dictionary from nodes to set of 1D numbers
+    :param max_val new max value
     :return: a list of automatas with replaces symbols
     '''
 
@@ -436,7 +447,7 @@ def _replace_equivalent_symbols(symbol_dictionary_list, atms_list, max_val):
 
 def get_equivalent_symbols(atms_list, replace=True, use_random_assignment=False, is_input_homogeneous=False):
     '''
-    this function receives an input list of automatas and returns list of sets witk equivalnet symbols in the same set
+    this function receives an input list of automatas and returns list of sets with equivalent symbols in the same set
     :param atms_list: list of automatas
     :param replace: True/False, if True, replaces the original autoamtaon symbol set
     :param use_random_assignment: if true, assign codes randomly else use an optimal policy
@@ -658,45 +669,47 @@ def _get_alphabet_list(atm):
 
     return list(pt_set), has_star
 
+def _get_sym_dictionary(atm, pt_dic):
+    '''
+    this function receives an automata and a point dictionary. it returns a new dictionary whcih keys are nodes and values
+    are a set of new symbols
+    :param atm: under process automata
+    :param pt_dic: a dictionary from integer points to new points (new points should start from 0)
+    :return: a new dictionary (keys=symbol_set, values=set of new symbols)
+    '''
+    assert atm.stride_value == 1
+    out_dic = {}
+    codes_max = max(pt_dic.itervalues())
+
+    for node in atm.nodes:
+        if node.type == ElementsType.FAKE_ROOT:
+            continue
+
+        if node.symbols.is_star(max_val=atm.max_val_dim):
+            out_dic[node.symbols] = set(range(codes_max + 1))
+        else:
+            val_set = out_dic.setdefault(node.symbols, set())
+            for pt in node.symbols.points:
+                val_set.add(pt_dic[pt[0]])
+
+    return out_dic
+
 def get_unified_symbol(atm, is_input_homogeneous, replace):
     '''
     this function receives a single stride homogemneous automata  and replace the symbols with integers starting from 0
     and the last integers for start case
     :param replace:
+    :param is_input_homogeneous: if true, it means the input stream at runtime will have the same set of symbol as
+    autoamta. this is important as this
     :param atm: input atm
     :return: None
     '''
     assert atm.is_homogeneous and atm.stride_value==1
 
-    def get_sym_dictionary(atm, pt_dic):
-        '''
-        this function receives an automata and a point dictionary. it returns a new dictionary whcih keys are nodes and values
-        are a set of new symbols
-        :param atm: under process automata
-        :param pt_dic: a dictionary from integer points to new points (new points should start from 0)
-        :return: a new dictionary (keys=nodes, values=set of new symbols)
-        '''
-        assert atm.stride_value == 1
-        out_dic = {}
-        codes_max = max(pt_dic.itervalues())
-
-        for node in atm.nodes:
-            if node.type == ElementsType.FAKE_ROOT:
-                continue
-
-            if node.symbols.is_star(max_val=atm.max_val_dim):
-                out_dic[node.symbols] = set(range(codes_max + 1))
-            else:
-                val_set = out_dic.setdefault(node.symbols, set())
-                for pt in node.symbols.points:
-                    val_set.add(pt_dic[pt[0]])
-
-        return out_dic
-
     alphabet_list, has_star = _get_alphabet_list(atm)
     if replace is True:
         pt_dic = {ch: (ch_idx + (1 if is_input_homogeneous is False and len(alphabet_list) < (atm.max_val_dim + 1) and has_star is False else 0))for ch_idx, ch in enumerate(alphabet_list)}
-        sym_dict = get_sym_dictionary(atm, pt_dic=pt_dic)
+        sym_dict = _get_sym_dictionary(atm, pt_dic=pt_dic)
         _replace_equivalent_symbols(symbol_dictionary_list=[sym_dict], atms_list=[atm], max_val=max(pt_dic.itervalues()))
 
     return alphabet_list
@@ -741,13 +754,13 @@ def pact_interconnect(base_size=256, combines_count=4, image_name=None):
 
     return template
 
-def ga_routing(atms_list, routing_template, available_rows, draw_file=None):
+def ga_routing(atms_list, routing_template, available_rows, draw_file=None, draw_plot = False):
     '''
 
     :param atms_list: list of automatons that need to be placed
     :param routing_template: the template as a 2d matrix. when there is a 1, we have a switch there
     :param available_rows: list of integers which represents the available rows
-    :return: list of dictionaies. Each dictionary belongs to one of atms in the order they were recived.
+    :return: best fitness value. TODO: should we return the palcement result?
     '''
 
     total_nodes = sum(map(lambda atm:atm.nodes_count, atms_list))
@@ -770,6 +783,7 @@ def ga_routing(atms_list, routing_template, available_rows, draw_file=None):
     toolbox = base.Toolbox()
     creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
     creator.create("Individual", list, fitness=creator.FitnessMin)
+
     def interval_sampler(numbers, mean_interval, q_size):
         def get_next_interval_size():
             while True:
@@ -797,9 +811,14 @@ def ga_routing(atms_list, routing_template, available_rows, draw_file=None):
         sample.extend(random.sample(q, len(q)))
 
         out_sample = [num for ivl in sample for num in ivl]
+
+        rand_end = random.randint(total_nodes, len(numbers))
+
+        out_sample = out_sample[rand_end:] + out_sample[:rand_end]
+
         return out_sample
 
-    toolbox.register("indices", interval_sampler, available_rows, 16, 3)
+    toolbox.register("indices", interval_sampler, available_rows, 32, 4)
     toolbox.register("individual", tools.initIterate, creator.Individual,
                      toolbox.indices)
     toolbox.register("population", tools.initRepeat, list,
@@ -810,44 +829,106 @@ def ga_routing(atms_list, routing_template, available_rows, draw_file=None):
     def mutlocal_shuffle(individual, indpb, move):
         size = len(individual)
         for i in xrange(size):
-            if random.random() < indpb:
+            if random.random() < indpb or i in individual.bad_set:
                 swap_indx = random.randint(max(0, i - move), min(size - 1, i + move))
                 individual[i], individual[swap_indx] = \
                     individual[swap_indx], individual[i]
         return individual,
 
-    toolbox.register("mutate", mutlocal_shuffle, indpb=0.05, move=3)
+    toolbox.register("mutate", mutlocal_shuffle, indpb=0.1, move=16)
 
     def evaluation(individual):
         cost = 0
+
+        bad_set = set()
 
         for node_idx, node_assignee in enumerate(individual):
             if node_idx >= total_nodes:
                 break
             current_atm, current_node = nodes_list[node_idx]
+
             for neighb in current_atm.get_neighbors(current_node):
                 neighb_idx = node_dic[(current_atm, neighb)]
                 neighb_assignee = individual[neighb_idx]
                 if routing_template[node_assignee, neighb_assignee] != 1:
                     cost += 1
+                    bad_set.add(node_idx)
 
+        individual.bad_set = bad_set
         return cost,
 
+    def my_eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
+                 halloffame=None, verbose=__debug__):
+
+        logbook = tools.Logbook()
+        logbook.header = ['gen', 'nevals'] + (stats.fields if stats else [])
+
+        # Evaluate the individuals with an invalid fitness
+        invalid_ind = [ind for ind in population if not ind.fitness.valid]
+        fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
+        for ind, fit in zip(invalid_ind, fitnesses):
+            ind.fitness.values = fit
+
+        if halloffame is not None:
+            halloffame.update(population)
+
+        record = stats.compile(population) if stats else {}
+        logbook.record(gen=0, nevals=len(invalid_ind), **record)
+        if verbose:
+            print logbook.stream
+
+        # Begin the generational process
+        gen = 0
+        best_eval = evaluation(tools.selBest(population, k=1)[0])[0]
+
+        while gen < ngen and best_eval > 0:
+            print "in GA. Gen: %d current best value: %d" % (gen, best_eval)
+            gen += 1
+            # Select the next generation individuals
+            offspring = toolbox.select(population, len(population))
+
+            # Vary the pool of individuals
+            offspring = algorithms.varAnd(offspring, toolbox, cxpb, mutpb)
+
+            # Evaluate the individuals with an invalid fitness
+            invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
+            fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
+            for ind, fit in zip(invalid_ind, fitnesses):
+                ind.fitness.values = fit
+
+            # Update the hall of fame with the generated individuals
+            if halloffame is not None:
+                halloffame.update(offspring)
+
+            # Replace the current population by the offspring
+            population[:] = offspring
+
+            # Append the current generation statistics to the logbook
+            record = stats.compile(population) if stats else {}
+            logbook.record(gen=gen, nevals=len(invalid_ind), **record)
+            if verbose:
+                print logbook.stream
+            best_eval = evaluation(tools.selBest(population, k=1)[0])[0]
+
+        return population, logbook
+
     toolbox.register("evaluate", evaluation)
-    toolbox.register("select", tools.selTournament, tournsize=50)
+    toolbox.register("select", tools.selTournament, tournsize=20)
 
     fit_stats = tools.Statistics(key=operator.attrgetter("fitness.values"))
     fit_stats.register('mean', np.mean)
     fit_stats.register('min', np.min)
 
-    pop_size = 1024
+    pop_size = 1000
     pop = toolbox.population(n=pop_size)
 
-    pop.insert(0, creator.Individual(range(len(available_rows))))  # adding bfs solution as an initial guess
+    for _ in range(16):
+        pop.insert(random.randint(0, pop_size - 1),
+                   creator.Individual(range(len(available_rows))))  # adding bfs solution as an initial guess
 
-    result, log = algorithms.eaSimple(pop, toolbox,
-                                      cxpb=0.5, mutpb=0.1,
-                                      ngen=100, verbose=False,
+    result, log = my_eaSimple(pop, toolbox,
+                                      cxpb=0.5, mutpb=0.3,
+                                      ngen=75, verbose=False,
                                       stats=fit_stats)
 
     best_individual = tools.selBest(result, k=1)[0]
@@ -882,20 +963,108 @@ def ga_routing(atms_list, routing_template, available_rows, draw_file=None):
                 y_points.append(best_individual[dst_idx])
 
         plt.scatter(x_points, y_points, c='b', s=1, alpha=0.3)
-
-
-
-
         plt.savefig(draw_file, dpi=500)
         plt.close()
 
 
-    plt.figure(figsize=(11, 4))
-    plots = plt.plot(log.select('min'), 'c-', log.select('mean'), 'b-')
-    plt.legend(plots, ('Minimum fitness', 'Mean fitness'), frameon=True)
-    plt.ylabel('Fitness')
-    plt.xlabel('Iterations')
-    plt.show()
+    if draw_plot:
+        plt.figure(figsize=(11, 4))
+        plots = plt.plot(log.select('min'), 'c-', log.select('mean'), 'b-')
+        plt.legend(plots, ('Minimum fitness', 'Mean fitness'), frameon=True)
+        plt.ylabel('Fitness')
+        plt.xlabel('Iterations')
+        plt.show()
+
+    return evaluation(best_individual)[0]
 
 
-    return None
+def get_approximate_automata(atm, translation_dic, max_val_dim):
+    """
+    this function receives a one dimensional automaton uat and replace symbols based on dictionary translation_dic
+    :param atm: under process automata
+    :param translation_dic: a dictionary from int to int
+    :param max_val_dim the max value to be set in the output automata
+    :return a new automaton with applied transformation
+    """
+    pt_to_sym_dic = _get_sym_dictionary(atm, translation_dic)
+    clone_atm = atm.clone()
+    _replace_equivalent_symbols([pt_to_sym_dic], [clone_atm], max_val_dim)
+
+    return clone_atm
+
+
+def compare_input(only_report, check_residuals, is_file, file_path, *automatas):
+    gens = []
+    result = [() for i in range(len(automatas))]
+    max_stride = max([sv.stride_value for sv in automatas])
+
+    inp_dis = InputDistributer(is_file=is_file, file_path=file_path, max_stride_size=max_stride, single_input_size=1)
+
+    for a in automatas:
+        assert max_stride % a.stride_value == 0
+        g = a.feed_input(input_stream=inp_dis.get_stream(a.stride_value), offset=0, jump=a.stride_value)
+        gens.append(g)
+
+    try:
+        if is_file:
+            file_size = os.path.getsize(file_path)
+        else:
+            file_size = 1000
+
+        for _ in tqdm(itertools.count(), total=math.ceil(file_size/max_stride), unit='symbol'):
+            for idx_g, (g, automata) in enumerate(zip(gens, automatas)):
+
+                total_report_residual_details = []
+                is_report = False
+                for _ in range(int(max_stride / automata.stride_value)):
+                    temp_active_states, temp_is_report, report_residual_details = next(g)
+                    total_report_residual_details.extend(report_residual_details)
+                    is_report = is_report or temp_is_report
+
+                result[idx_g] =(temp_active_states, is_report, total_report_residual_details)
+                #print temp_active_states
+
+            for active_state, report_state, total_report_residual_details in result[1:]:
+                assert report_state==result[0][1] # check report states
+                if check_residuals:
+                    assert total_report_residual_details == result[0][2]
+                if not only_report:
+                    assert active_state == result[0][0] # check current states
+
+    except StopIteration:
+        print "They are equal"
+
+
+def automata_run_stat(atm, file_path, cycle_detail, bytes_per_dim, translation_dic=None):
+    """
+    this function feed the input file into atm and gather statistics
+    :param atm: the input automta
+    :param file_path: the file to process
+    :param cycle_detail: if True, a per cycle statistic will also be included
+    :return:
+    """
+
+    total_reports, reports_per_cycle, total_active_states = "total reports count", "reports per cycle",\
+                                                            "total active states count"
+    results = {}
+    results[total_reports] = 0
+    results[total_active_states] = 0
+    results[reports_per_cycle] = []
+
+    inp_dis = InputDistributer(is_file=True, file_path=file_path, max_stride_size=atm.stride_value,
+                               single_input_size=bytes_per_dim, translation_dic=translation_dic)
+    g = atm.feed_input(input_stream=inp_dis.get_stream(atm.stride_value), offset=0, jump=atm.stride_value)
+    try:
+
+        file_size = os.path.getsize(file_path)
+
+        for _ in tqdm(itertools.count(), total=math.ceil(file_size/bytes_per_dim), unit='symbol'):
+            temp_active_states, temp_is_report, report_residual_details = next(g)
+            results[total_reports] += len([r for r in temp_active_states if r.report])
+            results[total_active_states] += len(temp_active_states)
+            if cycle_detail:
+                results[reports_per_cycle].append([r.id for r in temp_active_states if r.report])
+
+    except StopIteration:
+        return results
+

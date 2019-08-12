@@ -4,6 +4,7 @@ from automata.utility.utility import minimize_automata
 import csv
 
 ds = [a for a in AnmalZoo]
+ds = [AnmalZoo.Synthetic_BlockRings]
 
 
 results = {}
@@ -21,11 +22,14 @@ for uat in ds:
             if node.is_fake:
                 continue
 
-            sym_len = len(list(node.symbols.points))
-            results[sym_len] = results.get(sym_len, 0) + 1
+            if node.symbols.is_star(max_val=atm.max_val_dim):
+                continue
+
+            for sym in node.symbols.points:
+                results[sym] = results.get(sym, 0) + 1
 
 
-for k, v in results.items():
-    print " %d symbols count = %d" %(k, v)
+for k in sorted(results.keys()):
+    print " %s symbols count = %d" % (k, results[k])
 
 

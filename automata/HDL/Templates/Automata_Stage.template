@@ -11,6 +11,8 @@
 @param id_to_comp_dict t: a dictionary from compressor ids to their output len. This is the total bit counts
 @param comp_dict: a dictionary to translate from automata ids to compressor ids
 @param brams_contents: list of bram contents
+@param brams_list: this is a list of dictionaries. each dictionary key is the match vector and the value is the tuple (atmid , nodeid)
+@param use_bram: if True actual bram will be used otherwise LUT will be used to emulate bram
 @param pending_atms
 @param after_match
 #}
@@ -95,6 +97,7 @@ Symbol_Compressor_Pipeline_{{comp_dict[atm.id]}} sym_comp_{{comp_dict[atm.id]}}(
 
 
 
+{% if use_bram %}
 {% set per_dim_bit = bit_feed_size // automatas[0].stride_value %}
 {% for d_bram in brams_contents %}
 {% set d_loop = loop %}
@@ -102,7 +105,7 @@ Symbol_Compressor_Pipeline_{{comp_dict[atm.id]}} sym_comp_{{comp_dict[atm.id]}}(
 {% set i_loop = loop %}
 wire [35:0] from_bram_d{{d_loop.index0}}_index{{loop.index0}};
 {{single_bram_macro18('bram_d' + d_loop.index0|string  + 'index'+loop.index0|string, bram, after_match,
-nodes|length, 'from_bram_d'+ d_loop.index0|string + '_index' + loop.index0|string, 'top_symbols['+ (d_loop.index * per_dim_bit - 1)|string + ':' + (d_loop.index * per_dim_bit-8)|string+']')}}
+nodes|length, 'from_bram_d'+ d_loop.index0|string + '_index' + loop.index0|string, 'top_symbols['+ (d_loop.index * per_dim_bit - 1)|string + ':' + (d_loop.index * per_dim_bit - per_dim_bit)|string+']')}}
 
 {%- for atm_node_tuple in nodes -%}
 {% set n_loop = loop %}
@@ -113,6 +116,34 @@ assign {{atm.id}}_n{{node_id}}_d{{d_loop.index0}}_bram = from_bram_d{{d_loop.ind
 {%- endfor -%}
 {% endfor %}
 {% endfor %}
+
+{% else %} {# using lut to emulate bram #}
+
+{% set per_dim_bit = bit_feed_size // automatas[0].stride_value %}
+{% for d_bram in brams_list %}
+{% set d_loop = loop %}
+{% for mv, atm_node_tuple in d_bram.iteritems() %}
+{% set n_loop = loop %}
+{% if not after_match %}
+assign from_bram_d{{d_loop.index0}}_index{{loop.index0}} = (1'b0{% for b in mv %}{% if b == 1 %}||top_symbols[{{per_dim_bit * d_loop.index - 1}}:{{per_dim_bit * d_loop.index0}}]=={{per_dim_bit}}'d{{loop.index0}}{% endif %}{% endfor %})? 1'b1 : 1'b0;
+{% else %}
+reg from_bram_d{{d_loop.index0}}_index{{loop.index0}};
+always @(posedge clk) begin
+    if (1'b0{% for b in mv %}{% if b == 1 %}||top_symbols[{{per_dim_bit * d_loop.index - 1}}:{{per_dim_bit * d_loop.index0}}]=={{per_dim_bit}}'d{{loop.index0}}{% endif %}{% endfor %})
+        from_bram_d{{d_loop.index0}}_index{{loop.index0}} <= 1'b1;
+    else
+        from_bram_d{{d_loop.index0}}_index{{loop.index0}} <= 1'b0;
+end
+{% endif %}
+{% for atm, node_id in atm_node_tuple %}
+assign {{atm.id}}_n{{node_id}}_d{{d_loop.index0}}_bram = from_bram_d{{d_loop.index0}}_index{{n_loop.index0}};
+{% endfor %}
+{% endfor %}
+{% endfor %}
+
+
+
+{% endif %}
 
 
 
