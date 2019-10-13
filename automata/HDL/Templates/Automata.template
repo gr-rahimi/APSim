@@ -1,0 +1,82 @@
+{% import 'LUT_match.template' as lut_match %}
+
+{% macro automata_macro(automata, before_match_reg, after_match_reg, bram_match_id_list, bit_feed_size ) -%}
+
+{#
+@param automata : under process automata
+@param before_match_reg : True/False if True, puts a register exactly after the input
+@param after_match_reg : True/False if True, puts a register exactly after the match if it is LUT based
+@param bram_match_id_list : this is a list of nodes that the matching will be in a block ram
+@param bit_feed_size = number of bits being feed in each cycle
+#}
+
+/*
+{{get_summary(automata)}}
+*/
+
+{% for node in automata.nodes  if not node.id == 0 and node.id not in bram_match_dictionary %} {# 0 is the default id of fake root#}
+{{lut_match.LUT_match( automata.id +'_'+node.id|string, node.symbols, before_match_reg, after_match_reg, bit_feed_size//automata.stride_value)}}
+{% endfor %}
+
+
+module Automata_{{automata.id}}(input clk,
+           input run,
+           input reset,
+           input [{{bit_feed_size - 1}} : 0] symbols
+           {% for node_id in bram_match_id_list %}
+           ,input {{automata.id}}_w_match_{{node_id}}
+           {%- endfor -%}
+           {%for node in automata.nodes if node.report%}
+           , output {{automata.id}}_w_out_{{node.id}}
+           {%- endfor -%}
+           );
+
+wire all_input;
+wire start_of_data;
+
+assign all_input = 1'b1;
+assign start_of_data = ~reset;
+
+
+
+
+{% for node in automata.nodes  if not node.id == 0 %} {# 0 is the default id of fake root#}
+{%- if not node.report -%}
+wire {{automata.id}}_w_out_{{node.id}};
+{%- endif -%}
+{% if node.id not in bram_match_id_list %}
+wire {{automata.id}}_w_match_{{node.id}};
+{% endif %}
+{% endfor %}
+
+{%for node in automata.nodes  if not node.id == 0 %}
+    {% set n_preds = predecessors(automata._my_graph, node)|list%}
+    {%set pred_wire_str = []%}
+    {% for p in n_preds %}
+        {%- if p.id != 0 -%}
+            {% do pred_wire_str.append( automata.id|string +'_w_out_' + p.id|string) %}
+        {%- elif node.start_type|string == 'StartType.start_of_data' -%}
+            {% do pred_wire_str.append('start_of_data') %}
+        {%- else -%} {# all start case #}
+            {% do pred_wire_str.append('all_input') %}
+        {%- endif -%}
+    {% endfor %}
+{% if node.id not in bram_match_id_list %}
+LUT_Match_{{automata.id}}_{{node.id}} #({{bit_feed_size}}) lut_match_{{automata.id}}_{{node.id}}(
+                .clk(clk),
+                .symbols(symbols),
+                .match({{automata.id}}_w_match_{{node.id}}));
+{% endif %}
+
+STE #({{n_preds|length}}) {{automata.id}}_ste_{{node.id}} (
+                .clk(clk),
+                .run(run),
+                .reset(reset),
+                .income_edges({ {{pred_wire_str|join(', ')}} }),
+                .match({{automata.id}}_w_match_{{node.id}}) ,
+                .active_state({{automata.id}}_w_out_{{node.id}}));
+{% endfor %}
+
+endmodule
+{% endmacro %}
+

@@ -1,0 +1,40 @@
+{%macro LUT_match(name, intervals, before_match_reg, after_match_reg, per_number_bit_size)%}
+{#
+@param before_match_reg specifies if we have a FF before the input symbol
+@param after_match_reg specifies if we have a FF after the input symbol
+@param per_number_bit_size number of bits for comparison
+#}
+
+module LUT_Match_{{name}} #(parameter integer width = 8)(
+        input clk,
+        input [width-1:0] symbols,
+        output {% if after_match_reg %} reg {% endif %}match);
+
+wire match_internal;
+
+{%- if before_match_reg %}
+reg [width-1:0] input_capture;
+always @(posedge clk)
+begin
+    input_capture <= symbols;
+end
+{% else %}
+wire [width-1:0] input_capture;
+assign input_capture = symbols;
+{%- endif -%}
+
+{% if after_match_reg %}
+always @ (posedge clk)
+begin
+    match <= match_internal;
+end
+{% else -%}
+assign match = match_internal;
+{%- endif%}
+
+assign match_internal = ({% for  ivl in intervals %}({% set left, right = ivl.left, ivl.right %}{% for i in range(left|length) %}(input_capture[{{ loop.index * per_number_bit_size -1 }}:{{ loop.index * per_number_bit_size - per_number_bit_size }}] >= {{per_number_bit_size}}'d{{left[i]}}) &&(input_capture[{{ loop.index*per_number_bit_size -1}}:{{ loop.index * per_number_bit_size - per_number_bit_size }}] <= {{per_number_bit_size}}'d{{right [i]}}) &&{% endfor %} 1'b1) ||
+     {% endfor %} 1'b0) ? 1'b1 : 1'b0;
+
+endmodule
+{% endmacro%}
+

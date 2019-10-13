@@ -4,4 +4,9 @@
 *.pyc
 *.so
 *.png
-ANMLZoo/
+*.pkl
+*.zip
+*.svg
+*.csv
+*.xlsx
+.DS_Store

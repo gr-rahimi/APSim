@@ -1,0 +1,4 @@
+{% import 'STE_base.template' as ste_base %}
+
+{{ste_base.ste(ste_type)}}
+

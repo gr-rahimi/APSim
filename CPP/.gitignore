@@ -1,0 +1,6 @@
+*
+
+!.gitignore
+!compile.sh
+!VASim.cpp
+!VASim.h

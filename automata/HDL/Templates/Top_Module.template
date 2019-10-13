@@ -1,0 +1,47 @@
+{#
+This template generate the top level module for the whole automaton
+@param automatas: List of Lists all automatas.
+@param bit_feed_size = number of bits being feed in each cycle
+#}
+
+module Top_Module(
+                  input clk,
+                  input reset,
+                  input run,
+                  input [{{bit_feed_size-1}} : 0] symbols
+                  {%- for stage in automatas -%}
+                  {%-for atm in stage %}
+                  {%- for node in atm.nodes if node.report %}
+                   , output {{atm.id}}_w_out_{{node.id}}
+                  {%-endfor %}
+                  {%-endfor%}
+                  {%endfor%}
+                  );
+
+
+
+{% for s in range(automatas|length -1)%}
+wire [{{bit_feed_size -1}} : 0] symbols_s{{s}}_to_{{s+1}};
+wire reset_s{{s}}_to_{{s+1}};
+{% endfor %}
+
+{% for stage_index in range(automatas|length) %}
+Automata_Stage{{stage_index}} automata_stage{{stage_index}}(.clk(clk),
+                                             .run(run),
+                                             .reset({% if stage_index == 0 %}reset{%else%}reset_s{{stage_index -1}}_to_{{stage_index}} {%endif%}),
+                                             .top_symbols({% if stage_index == 0 %} symbols {% else %}symbols_s{{stage_index-1}}_to_{{stage_index}}{% endif %}),
+                                             {%- for atm in automatas[stage_index] -%}
+                                             {%- for node in atm.nodes -%}
+                                             {% if node.report %}
+                                              .{{atm.id}}_w_out_{{node.id}}({{atm.id}}_w_out_{{node.id}}),
+                                             {%- endif %}
+                                             {%- endfor %}
+                                             {% endfor %}
+                                             .out_symbols({% if stage_index < (automatas|length -1)  %} symbols_s{{loop.index0}}_to_{{loop.index0+1}}{%endif%}),
+                                             .out_reset({% if stage_index < (automatas|length -1)  %} reset_s{{loop.index0}}_to_{{loop.index0+1}}{%endif%})
+                                             );
+{% endfor %}
+
+
+
+endmodule

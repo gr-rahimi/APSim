@@ -1,0 +1,31 @@
+module RandomGenerator #(
+                         parameter integer  WIDTH = 32,
+                         parameter [WIDTH-1 : 0] SEED = 32'hABCDEF01,
+                         parameter [WIDTH-1 : 0]XORS = 32'hFEDCBA98)
+(input clk,
+ output reg [WIDTH-1:0] random_out);
+
+ initial begin
+  random_out = SEED;
+ end
+
+
+integer w = 0;
+reg s_in = 0;
+
+always @(posedge clk) begin
+    s_in = 0;
+    for( w=WIDTH-1; w >= 1; w=w-1) begin
+        if (XORS[w] == 1'b1)
+            s_in = s_in ^ random_out[w];
+        random_out[w] <= random_out[w-1];
+    end //for loop
+
+    if (XORS[0] == 1'b1)
+        s_in = s_in ^ random_out[0];
+
+    random_out[0] <= s_in;
+
+end // end always
+
+endmodule

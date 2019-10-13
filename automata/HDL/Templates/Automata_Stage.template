@@ -1,0 +1,104 @@
+{% from 'Automata.template' import automata_macro %}
+{% import 'STE_base.template' as ste_base %}
+
+{#
+@param automatas: List of automatas to be processed
+@param summary_str: summary string to be paste on top of the file
+@param single_out: True/False if True, the circuit willl have only one input which is the OR of all the outputs
+@param bram_list: a 2d list . the first dimension is the list of brams and in each list, there are
+list of tuples(atm.id, node.id) to track the assigned
+@param bram_match_id_list: this is a list of nodes that the matching will be in a block ram
+@stage_index
+@param bit_feed_size: number of bits being feed in each cycle
+@param id_to_comp_dict t: a dictionary from compressor ids to their output len. This is the total bit counts
+@param comp_dict: a dictionary to translate from automata ids to compressor ids
+#}
+
+/*
+{{summary_str}}
+*/
+
+module Automata_Stage{{stage_index}}(input clk,
+                    input run,
+                    input reset,
+                    input [{{bit_feed_size-1}} : 0] top_symbols
+                    {%- if single_out == false %}
+                    {%- for atm in automatas -%}
+                    {%- for node in atm.nodes if node.report %}
+                    , output {{atm.id}}_w_out_{{node.id}}
+                    {%-endfor%}
+                    {%endfor%}
+                    {%-else-%}
+                    ,output single_out
+                    {%-endif-%},
+                    output reg[{{bit_feed_size-1}} : 0] out_symbols,
+                    output reg out_reset
+                    );
+
+always @(posedge clk)
+begin
+    if (run == 1)
+        out_symbols <= top_symbols;
+        out_reset <= reset;
+end
+
+
+{%- if single_out -%}
+{%set report_list=[]%}
+{%for atm in automatas%}
+{%-for node in atm.nodes if node.report-%}
+{% do report_list.append(atm.id|string+'_w_out_'+node.id|string)%}
+wire {{atm.id}}_w_out_{{node.id}};
+
+{%- endfor -%}
+{%- endfor -%}
+
+{# wire {{report_list|join(', ')}}; #}
+assign single_out = {{report_list|join(' | ')}};
+
+{%endif%}
+
+{% for bram in bram_list %}
+{% for atm, node in bram %}
+wire {{atm.id}}_w_match_{{node.id}};
+{%- endfor %}
+bram_module_{{loop.index0}} bram_module_{{loop.index0}}_ins (
+    .clk(clk),
+    .symbols(symbols),
+    .match({ {% for atm, node in bram%}{% if loop.index0 > 0 %}, {% endif %} {{atm.id}}_w_match_{{node.id}}
+    {% endfor %} })
+                                  );
+{% endfor %}
+
+
+{%for atm in  automatas%}
+Automata_{{atm.id}} automata_{{atm.id}} (.clk(clk),
+                     .run(run),
+                     .reset(reset),
+                     .symbols({%if not atm.use_compression %}top_symbols {% else %}from_comp_{{comp_dict[atm.id]}}{% endif %})
+                     {%- for node_id in bram_match_id_list[loop.index0]%}
+                     , .{{atm.id}}_w_match_{{node_id}}({{atm.id}}_w_match_{{node_id}})
+                     {%- endfor %}
+                     {%- for node in atm.nodes if node.report %}
+                      , .{{atm.id}}_w_out_{{node.id}}({{atm.id}}_w_out_{{node.id}})
+                     {%- endfor %}
+                    );
+{% endfor %}
+
+
+{% set unique_compressors=[] %}
+{% for atm in automatas %}
+{% if atm.use_compression and comp_dict[atm.id] not in unique_compressors %}
+
+wire [{{id_to_comp_dict[comp_dict[atm.id]] -1}}:0] from_comp_{{comp_dict[atm.id]}};
+Symbol_Compressor_Pipeline_{{comp_dict[atm.id]}} sym_comp_{{comp_dict[atm.id]}}(
+                            .clk(clk),
+                            .symbol(top_symbols),
+                            .compressed_out(from_comp_{{comp_dict[atm.id]}})
+                            );
+{% do unique_compressors.append(comp_dict[atm.id]) %}
+{% endif %}
+{% endfor %}
+
+endmodule
+

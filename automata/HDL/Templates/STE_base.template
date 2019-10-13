@@ -1,0 +1,43 @@
+{%macro ste(ste_type) -%}
+{#
+@param ste_type: this parameter specify the shape of ste.
+if 1: the default shape mentioned in REAPR and Micron MP480
+2: our version which move th FF after the and gate
+#}
+
+module STE #(parameter integer fan_in = 1)(
+           input clk,
+           input run,
+           input reset,
+           input [fan_in - 1 : 0] income_edges,
+           input match,
+           output {%if ste_type == 2%}reg {% endif %}active_state);
+{%- if ste_type == 2 %}
+always @ (posedge clk)
+begin
+    if (reset == 1)
+        active_state <= 1'b0;
+    else if (run == 1)
+        active_state <= is_potential & match;
+end
+
+{% elif ste_type == 1 %}
+reg internal_reg = 1'b0;
+always @ (posedge clk)
+begin
+    if (reset == 1)
+        internal_reg <= 1'b0;
+    else if (run == 1)
+        internal_reg <= is_potential;
+end
+assign active_state = internal_reg & match;
+{% endif %}
+
+
+wire is_potential;
+
+assign is_potential = |income_edges;
+
+
+endmodule
+{%- endmacro %}
