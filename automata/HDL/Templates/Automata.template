@@ -1,13 +1,15 @@
 {% import 'LUT_match.template' as lut_match %}
 
-{% macro automata_macro(automata, before_match_reg, after_match_reg, bram_match_id_list, bit_feed_size ) -%}
+{% macro automata_macro(automata, before_match_reg, after_match_reg, bit_feed_size, lut_bram_dic ) -%}
 
 {#
 @param automata : under process automata
 @param before_match_reg : True/False if True, puts a register exactly after the input
 @param after_match_reg : True/False if True, puts a register exactly after the match if it is LUT based
-@param bram_match_id_list : this is a list of nodes that the matching will be in a block ram
 @param bit_feed_size = number of bits being feed in each cycle
+@param lut_bram_dic = a dictionary to specify put matching in LUT or BRAM. key: node, value: a tuple of 1,2...
+        1 means LUT, 2 means BRAM. if a node does not exist in this dictionary, LUT will be used for matching for all
+        dimensions by default
 #}
 
 /*
@@ -15,16 +17,19 @@
 */
 
 {% for node in automata.nodes  if not node.id == 0 and node.id not in bram_match_dictionary %} {# 0 is the default id of fake root#}
-{{lut_match.LUT_match( automata.id +'_'+node.id|string, node.symbols, before_match_reg, after_match_reg, bit_feed_size//automata.stride_value)}}
+{{lut_match.LUT_match( automata.id +'_'+node.id|string, node.symbols, before_match_reg, after_match_reg, bit_feed_size//automata.stride_value, node in lut_bram_dic, lut_bram_dic.get(node, None))}}
 {% endfor %}
-
 
 module Automata_{{automata.id}}(input clk,
            input run,
            input reset,
            input [{{bit_feed_size - 1}} : 0] symbols
-           {% for node_id in bram_match_id_list %}
-           ,input {{automata.id}}_w_match_{{node_id}}
+           {% for node, placement in lut_bram_dic.iteritems() -%}
+               {% for d in placement -%}
+                    {% if d == 2 %}
+                    , input {{automata.id}}_n{{node.id}}_d{{loop.index0}}_bram
+                    {% endif %}
+               {%- endfor %}
            {%- endfor -%}
            {%for node in automata.nodes if node.report%}
            , output {{automata.id}}_w_out_{{node.id}}
@@ -37,19 +42,14 @@ wire start_of_data;
 assign all_input = 1'b1;
 assign start_of_data = ~reset;
 
-
-
-
-{% for node in automata.nodes  if not node.id == 0 %} {# 0 is the default id of fake root#}
+{%for node in automata.nodes  if not node.id == 0 %}
 {%- if not node.report -%}
 wire {{automata.id}}_w_out_{{node.id}};
-{%- endif -%}
-{% if node.id not in bram_match_id_list %}
-wire {{automata.id}}_w_match_{{node.id}};
-{% endif %}
-{% endfor %}
+{% endif -%}
 
-{%for node in automata.nodes  if not node.id == 0 %}
+wire {{automata.id}}_lut_match_{{node.id}};
+wire {{automata.id}}_w_match_{{node.id}};
+
     {% set n_preds = predecessors(automata._my_graph, node)|list%}
     {%set pred_wire_str = []%}
     {% for p in n_preds %}
@@ -61,12 +61,14 @@ wire {{automata.id}}_w_match_{{node.id}};
             {% do pred_wire_str.append('all_input') %}
         {%- endif -%}
     {% endfor %}
-{% if node.id not in bram_match_id_list %}
+
 LUT_Match_{{automata.id}}_{{node.id}} #({{bit_feed_size}}) lut_match_{{automata.id}}_{{node.id}}(
                 .clk(clk),
                 .symbols(symbols),
-                .match({{automata.id}}_w_match_{{node.id}}));
-{% endif %}
+                .match({{automata.id}}_lut_match_{{node.id}}));
+
+
+assign {{automata.id}}_w_match_{{node.id}} = {{automata.id}}_lut_match_{{node.id}} {% for d in lut_bram_dic[node] %} {% if d == 2 %} & {{automata.id}}_n{{node.id}}_d{{loop.index0}}_bram {% endif %}{% endfor %};
 
 STE #({{n_preds|length}}) {{automata.id}}_ste_{{node.id}} (
                 .clk(clk),

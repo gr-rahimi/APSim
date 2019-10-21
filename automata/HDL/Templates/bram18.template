@@ -1,0 +1,129 @@
+{% macro single_bram_macro18(ins_name, contents, after_match, width, out_name, input_name) %}
+{#
+@param ins_name: name of the bram instance(it should be unique)
+@param contents: array of the contents. a list of lists of 0 and 1
+@param after_match: if true, a register will be added at the output
+@param width: width of the read port in bits
+@param out_name
+@param input_name
+#}
+
+   // BRAM_SINGLE_MACRO: Single Port RAM
+   //                    Virtex-7
+   // Xilinx HDL Language Template, version 2018.2
+
+   /////////////////////////////////////////////////////////////////////
+   //  READ_WIDTH | BRAM_SIZE | READ Depth  | ADDR Width |            //
+   // WRITE_WIDTH |           | WRITE Depth |            |  WE Width  //
+   // ============|===========|=============|============|============//
+   //    37-72    |  "36Kb"   |      512    |    9-bit   |    8-bit   //
+   //    19-36    |  "36Kb"   |     1024    |   10-bit   |    4-bit   //
+   //    19-36    |  "18Kb"   |      512    |    9-bit   |    4-bit   //
+   //    10-18    |  "36Kb"   |     2048    |   11-bit   |    2-bit   //
+   //    10-18    |  "18Kb"   |     1024    |   10-bit   |    2-bit   //
+   //     5-9     |  "36Kb"   |     4096    |   12-bit   |    1-bit   //
+   //     5-9     |  "18Kb"   |     2048    |   11-bit   |    1-bit   //
+   //     3-4     |  "36Kb"   |     8192    |   13-bit   |    1-bit   //
+   //     3-4     |  "18Kb"   |     4096    |   12-bit   |    1-bit   //
+   //       2     |  "36Kb"   |    16384    |   14-bit   |    1-bit   //
+   //       2     |  "18Kb"   |     8192    |   13-bit   |    1-bit   //
+   //       1     |  "36Kb"   |    32768    |   15-bit   |    1-bit   //
+   //       1     |  "18Kb"   |    16384    |   14-bit   |    1-bit   //
+   /////////////////////////////////////////////////////////////////////
+
+   BRAM_SINGLE_MACRO #(
+      .BRAM_SIZE("18Kb"), // Target BRAM, "18Kb" or "36Kb"
+      .DEVICE("7SERIES"), // Target Device: "7SERIES"
+      .DO_REG({% if after_match%}1{% else %}0{% endif %}), // Optional output register (0 or 1)
+      .INIT({{width}}'b{% for _ in range(width) %}0{% endfor %}), // Initial values on output port
+      .INIT_FILE ("NONE"),
+      .WRITE_WIDTH({{width}}), // Valid values are 1-72 (37-72 only valid when BRAM_SIZE="36Kb")
+      .READ_WIDTH({{width}}),  // Valid values are 1-72 (37-72 only valid when BRAM_SIZE="36Kb")
+      .SRVAL({{width}}'b{% for _ in range(width) %}0{% endfor %}), // Set/Reset value for port output
+      .WRITE_MODE("NO_CHANGE"), // "WRITE_FIRST", "READ_FIRST", or "NO_CHANGE"
+      .INIT_00(256'h{{contents[1 - 1] }}),
+      .INIT_01(256'h{{contents[2 - 1] }}),
+      .INIT_02(256'h{{contents[3 - 1] }}),
+      .INIT_03(256'h{{contents[4 - 1] }}),
+      .INIT_04(256'h{{contents[5 - 1] }}),
+      .INIT_05(256'h{{contents[6 - 1] }}),
+      .INIT_06(256'h{{contents[7 - 1] }}),
+      .INIT_07(256'h{{contents[8 - 1] }}),
+      .INIT_08(256'h{{contents[9 - 1] }}),
+      .INIT_09(256'h{{contents[10 - 1] }}),
+      .INIT_0A(256'h{{contents[11 - 1] }}),
+      .INIT_0B(256'h{{contents[12 - 1] }}),
+      .INIT_0C(256'h{{contents[13 - 1] }}),
+      .INIT_0D(256'h{{contents[14 - 1] }}),
+      .INIT_0E(256'h{{contents[15 - 1] }}),
+      .INIT_0F(256'h{{contents[16 - 1] }}),
+      .INIT_10(256'h{{contents[17 - 1] }}),
+      .INIT_11(256'h{{contents[18 - 1] }}),
+      .INIT_12(256'h{{contents[19 - 1] }}),
+      .INIT_13(256'h{{contents[20 - 1] }}),
+      .INIT_14(256'h{{contents[21 - 1] }}),
+      .INIT_15(256'h{{contents[22 - 1] }}),
+      .INIT_16(256'h{{contents[23 - 1] }}),
+      .INIT_17(256'h{{contents[24 - 1] }}),
+      .INIT_18(256'h{{contents[25 - 1] }}),
+      .INIT_19(256'h{{contents[26 - 1] }}),
+      .INIT_1A(256'h{{contents[27 - 1] }}),
+      .INIT_1B(256'h{{contents[28 - 1] }}),
+      .INIT_1C(256'h{{contents[29 - 1] }}),
+      .INIT_1D(256'h{{contents[30 - 1] }}),
+      .INIT_1E(256'h{{contents[31 - 1] }}),
+      .INIT_1F(256'h{{contents[32 - 1] }}),
+      .INIT_20(256'h{{contents[33 - 1] }}),
+      .INIT_21(256'h{{contents[34 - 1] }}),
+      .INIT_22(256'h{{contents[35 - 1] }}),
+      .INIT_23(256'h{{contents[36 - 1] }}),
+      .INIT_24(256'h{{contents[37 - 1] }}),
+      .INIT_25(256'h{{contents[38 - 1] }}),
+      .INIT_26(256'h{{contents[39 - 1] }}),
+      .INIT_27(256'h{{contents[40 - 1] }}),
+      .INIT_28(256'h{{contents[41 - 1] }}),
+      .INIT_29(256'h{{contents[42 - 1] }}),
+      .INIT_2A(256'h{{contents[43 - 1] }}),
+      .INIT_2B(256'h{{contents[44 - 1] }}),
+      .INIT_2C(256'h{{contents[45 - 1] }}),
+      .INIT_2D(256'h{{contents[46 - 1] }}),
+      .INIT_2E(256'h{{contents[47 - 1] }}),
+      .INIT_2F(256'h{{contents[48 - 1] }}),
+      .INIT_30(256'h{{contents[49 - 1] }}),
+      .INIT_31(256'h{{contents[50 - 1] }}),
+      .INIT_32(256'h{{contents[51 - 1] }}),
+      .INIT_33(256'h{{contents[52 - 1] }}),
+      .INIT_34(256'h{{contents[53 - 1] }}),
+      .INIT_35(256'h{{contents[54 - 1] }}),
+      .INIT_36(256'h{{contents[55 - 1] }}),
+      .INIT_37(256'h{{contents[56 - 1] }}),
+      .INIT_38(256'h{{contents[57 - 1] }}),
+      .INIT_39(256'h{{contents[58 - 1] }}),
+      .INIT_3A(256'h{{contents[59 - 1] }}),
+      .INIT_3B(256'h{{contents[60 - 1] }}),
+      .INIT_3C(256'h{{contents[61 - 1] }}),
+      .INIT_3D(256'h{{contents[62 - 1] }}),
+      .INIT_3E(256'h{{contents[63 - 1] }}),
+      .INIT_3F(256'h{{contents[64 - 1] }}),
+      // The next set of INITP_xx are for the parity bits
+      .INITP_00(256'h{{contents[65 - 1] }}),
+      .INITP_01(256'h{{contents[66 - 1] }}),
+      .INITP_02(256'h{{contents[67 - 1] }}),
+      .INITP_03(256'h{{contents[68 - 1] }}),
+      .INITP_04(256'h{{contents[69 - 1] }}),
+      .INITP_05(256'h{{contents[70 - 1] }}),
+      .INITP_06(256'h{{contents[71 - 1] }}),
+      .INITP_07(256'h{{contents[72 - 1] }})
+   ) {{ins_name}} (
+      .DO({{out_name}}),       // Output data, width defined by READ_WIDTH parameter
+      .ADDR({{input_name}}),   // Input address, width defined by read/write port depth
+      .CLK(clk),     // 1-bit input clock
+      .DI({{width}}'b{% for _ in range(width) %}0{% endfor %}),       // Input data port, width defined by WRITE_WIDTH parameter
+      .EN(1'b1),       // 1-bit input RAM enable
+      .REGCE(1'b0), // 1-bit input output register enable
+      .RST(1'b0),     // 1-bit input reset
+      .WE(1'b0)        // Input write enable, width defined by write port depth
+   );
+
+   // End of BRAM_SINGLE_MACRO_inst instantiation
+{% endmacro %}

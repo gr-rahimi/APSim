@@ -1,15 +1,14 @@
-from jinja2 import Environment, FileSystemLoader
-import networkx
 import shutil, os
-from automata.automata_network import Automatanetwork
-from automata.elemnts.element import FakeRoot
-import numpy as np
 from itertools import count, chain
 import math
+from os.path import expanduser
 from collections import namedtuple
-
-
-
+import logging
+from jinja2 import Environment, FileSystemLoader
+import numpy as np
+import networkx
+from automata.automata_network import Automatanetwork
+from automata.elemnts.element import FakeRoot
 
 
 def _genrate_bram_hex_content_from_matrix(bram_matrix):
@@ -152,15 +151,14 @@ def test_compressor(original_width, byte_trans_map, byte_map_width, translation_
         f.writelines(rendered_content)
 
 
-
-def get_hdl_folder_path(prefix, number_of_atms, stride_value, before_match_reg, after_match_reg, ste_type, use_bram,
+def get_hdl_folder_name(prefix, number_of_atms, stride_value, before_match_reg, after_match_reg, ste_type, use_bram,
                         use_compression, compression_depth):
     folder_name = prefix + 'stage_' + str(number_of_atms) + '_stride' + str(stride_value) + (
         '_before' if before_match_reg else '') + ('_after' if after_match_reg else '') + \
                    ('_ste' + str(ste_type)) + ('_withbram' if use_bram else '_nobram') + \
                   ('with_compD' if use_compression else 'no_comp') + (str(compression_depth) if use_compression else '')
 
-    return os.path.join('/Volumes/gr5yf/HDL',folder_name)
+    return folder_name
 
 
 def generate_full_lut(atms_list, single_out ,before_match_reg, after_match_reg, ste_type,
@@ -207,32 +205,41 @@ def generate_full_lut(atms_list, single_out ,before_match_reg, after_match_reg, 
 
 
 class HDL_Gen(object):
-    def __init__(self, path, before_match_reg, after_match_reg, ste_type, total_input_len=8):
+    def __init__(self, path, before_match_reg, after_match_reg, ste_type, total_input_len, bram_shape=None):
         '''
         :param path: path to generate verilog files
         :param before_match_reg
         :param after_match_reg
-        :param one_input_len: it implies what is the original bit size. this will be used in flexamata
+        :param bram_shape: (width, col) representing the size of bram to be used
+        :param
         '''
+
         self._path = path
+        shutil.rmtree(path, ignore_errors=True)
+        os.mkdir(path)
+
         self._clean_and_make_path()
         self._before_match_reg = before_match_reg
         self._after_match_reg = after_match_reg
         self._ste_type = ste_type
-        self._env = Environment(loader=FileSystemLoader('automata/HDL/Templates'), extensions=['jinja2.ext.do'])
-        self._total_input_len =  total_input_len
+        module_abs_dir = os.path.dirname(os.path.abspath(__file__))
+        self._env = Environment(loader=FileSystemLoader(os.path.join(module_abs_dir, 'Templates')),
+                                extensions=['jinja2.ext.do'])
+        self._total_input_len = total_input_len
         self._comp_id, self._stage_id = -1, -1 # tracking assign id for compressors
         self._atm_to_comp_id = {}  # key= atm_id, value=compressor_id
         self._comp_info = {}  # key=comp_id, value=compressor out_len
         self._atm_info = {}  # this dictionary keeps the required information in tempalates for individual automatas
         self._stage_info = {} # keeps information about automatas in the same stage. key= stage_idx, value= list of atm_ids
          # this is a 2D list for keeping autoamatas that reide in the same stage
-        self._Atm_Interface = namedtuple('Atm_Interface',['id', 'nodes', 'nodes_count', 'reports_count', 'edges_count',
-                                                          'stride_value', 'use_compression'])
-        self._Node_Interface = namedtuple('Node_Interface', ['id', 'report', 'sym_count'])
+        self._Atm_Interface = namedtuple('Atm_Interface', ['id', 'nodes', 'nodes_count', 'reports_count', 'edges_count',
+                                                          'stride_value', 'use_compression', 'max_val_dim'])
+        self._Node_Interface = namedtuple('Node_Interface', ['id', 'report', 'sym_count', 'symbols'])
+        self._pending_automatas = [] # this list keeps all the automata that has not been assigned to a stage [(atm_interface, lut_bram_dic),....]
+        self._bram_shape = bram_shape
 
 
-    def _generate_single_automata(self, automata, inp_bit_len):
+    def _generate_single_automata(self, automata, inp_bit_len, lut_bram_dic):
         '''
         this function generates a single automata
         :param automata: input autoamata
@@ -248,38 +255,55 @@ class HDL_Gen(object):
         rendered_content = template.render(automata=automata,
                                            before_match_reg=self._before_match_reg,
                                            after_match_reg=self._after_match_reg,
-                                           bram_match_id_list=[],
-                                           bit_feed_size=inp_bit_len) # TODO change the name of bit_feed_size in template. it is confusing with other bit_feed_size which is non compressed len
+                                           bit_feed_size=inp_bit_len,
+                                           lut_bram_dic=lut_bram_dic) # TODO change the name of bit_feed_size in template. it is confusing with other bit_feed_size which is non compressed len
 
         with open(os.path.join(self._path, automata.id + '.v', ), 'w') as f:
             f.writelines(rendered_content)
 
-    def register_automata(self, atm, use_compression, byte_trans_map=None, translation_list=None,
-                          compression_depth=None):
+    def register_automata(self, atm, use_compression, byte_trans_map=None, translation_list=None, lut_bram_dic={}):
         '''
         :param atm:
         :param use_compression:
         :param byte_trans_map:
         :param translation_list:
-        :param compression_depth:
+        :param lut_bram_dic: a dictionary to specify put matching in LUT or BRAM. key: node, value: a tuple of 1,2...
+        1 means LUT, 2 means BRAM. if a node does not exist in this dictionary, LUT will be used for matching for all
+        dimensions by default
         :return:
         '''
-        if not use_compression:
-            self._generate_single_automata(automata=atm, inp_bit_len=self._total_input_len)
-        if use_compression:
+
+        assert atm.fake_root not in lut_bram_dic
+
+        def __check_dic_valid():
+            for k, v in lut_bram_dic.iteritems():
+                assert len(v) == atm.stride_value
+                assert k.is_fake is True or (2 not in v or k.is_symbolset_splitable())
+                if 2 in v:
+                    assert use_compression is False
+
+        __check_dic_valid() # check for validation of lutbram dic
+
+        if use_compression is False:
+            self._generate_single_automata(automata=atm, inp_bit_len=self._total_input_len, lut_bram_dic=lut_bram_dic)
+        else:
             single_map_len = HDL_Gen._get_sym_map_bit_len(byte_trans_map if not translation_list else translation_list[-1])
+            assert single_map_len == int(math.ceil(math.log(atm.max_val_dim + 1, 2)))
             inp_bit_len = single_map_len * atm.stride_value
-            self._generate_single_automata(atm, inp_bit_len=inp_bit_len)
+            self._generate_single_automata(automata=atm, inp_bit_len=inp_bit_len, lut_bram_dic=lut_bram_dic)
 
         assert atm.id not in self._atm_info
         atm_interface = self._Atm_Interface(id=atm.id, nodes=[], nodes_count=atm.nodes_count,
                                             reports_count=sum(1 for _ in atm.get_filtered_nodes(lambda ste: ste.report)),
-                                            edges_count=atm.get_number_of_edges(), stride_value=atm.stride_value,
-                                            use_compression=use_compression)
+                                            edges_count=atm.edges_count, stride_value=atm.stride_value,
+                                            use_compression=use_compression, max_val_dim=atm.max_val_dim)
         self._atm_info[atm.id] = atm_interface
         for node in atm.nodes:
             atm_interface.nodes.append(self._Node_Interface(id=node.id, report=node.report,
-                                                            sym_count=0 if node.id==FakeRoot.fake_root_id else len(node.symbols)))
+                                                            sym_count=0 if node.id == FakeRoot.fake_root_id else len(node.symbols),
+                                                            symbols=node.symbols if 2 in lut_bram_dic.get(node, []) else None))
+
+        self._pending_automatas.append((atm_interface, lut_bram_dic))
 
 
 
@@ -328,9 +352,18 @@ class HDL_Gen(object):
         os.mkdir(self._path)
 
     @classmethod
+    def get_bit_len(cls, codes_max):
+        """
+        this fucntion returns the max value that needs
+        :param codes_max: the maximum value that will be feed in
+        :return: the number of bits needed
+        """
+        return int(math.ceil(math.log(codes_max + 1, 2)))
+
+    @classmethod
     def _get_sym_map_bit_len(cls, sym_dict):
         codes_max = max(sym_dict.values())
-        return int(math.ceil(math.log(codes_max + 1, 2))) # this one is for code 0 which will be assigned to
+        return cls.get_bit_len(codes_max)
 
     def _generate_compressors(self, original_width, byte_trans_map, byte_map_width, translation_list, idx, width_list,
                              initial_width, output_width):
@@ -385,10 +418,147 @@ class HDL_Gen(object):
 
         return '\n'.join(str_list)
 
-    def register_stage(self, atms_id, single_out):
+    def _generate_bram(self, atms_list):
+        '''
+        this function willl take care of generating brams.
+        :param atms_list: this is a list of automatas [(atm id, lut_bram_dic)...]
+        :return: a tuple
+
+        first : list of chunked brams [[(bram1content, [[(atm1,ste1.id),(atm1,ste5.id)],[(atm1, ste3.id)],....]),()], [(bram2content, [[(atm1,ste1.id),(atm1,ste5.id)],[(atm1, ste3.id)],....]),()]]
+                                                         -------column1---------
+                                                                                         --column2---
+
+        second : list of dictionaries. each dictionary belongs to one dimension in stride value. Key value in dictionary is a match vector and value is a list of  tuples (atmid, node.id)
+        '''
+
+
+
+        def numpy_bram_tostring(bram_content, base_value):
+            '''
+            this function receives a numpy array with 0,1 and convert it to the form that xilinx bram macro likes to receive
+            :param bram_content: 
+            :param base_value: 
+            :return:
+            '''
+
+            assert base_value == 16 or base_value == 8 or base_value == 4 or base_value == 2
+
+            def array_to_str(inp_array):
+                sum = 0
+                for i in inp_array:
+                    sum = sum * 2 + i
+
+                if sum < 10:
+                    return str(sum)
+                elif sum == 10:
+                    return 'A'
+                elif sum == 11:
+                    return 'B'
+                elif sum == 12:
+                    return 'C'
+                elif sum == 13:
+                    return 'D'
+                elif sum == 14:
+                    return 'E'
+                elif sum == 15:
+                    return 'F'
+
+            per_row_bits = 256
+            bits_count = int(math.log(base_value, 2))
+            result_list = []
+            flatten_arr = bram_content.flatten()
+
+            for row in np.split(flatten_arr, flatten_arr.size / per_row_bits):
+                row_content = []
+                for chunk in np.split(row, row.size / bits_count):
+                    to_str = array_to_str(chunk)
+                    row_content.append(to_str)
+
+                result_list.append("".join(row_content))
+
+            return result_list
+
+        all_len = [len(bram_lut_dic) == 0 for _, bram_lut_dic in atms_list]
+        if all(all_len):
+            return []
+
+        all_type = []
+        for _, bram_lut_dic in atms_list:
+            for t in bram_lut_dic.itervalues():
+                all_type.append(2 not in t)
+
+        if all(all_type):
+            return []
+
+        stride_vals = [len(v) for _, bram_lut_dic in atms_list for v in bram_lut_dic.itervalues()]
+
+        assert len(set(stride_vals)) == 1 # all should have same stride value
+
+        stride_val = atms_list[0][0].stride_value
+
+        assert stride_val == stride_vals[0]
+        assert self._bram_shape
+        assert self._total_input_len / stride_val <= math.log(self._bram_shape[0], 2)
+
+        brams_list = [{} for _ in range(stride_val)]
+
+        for atm, bram_lut_dic in atms_list:
+            for node, bram_lut_d in bram_lut_dic.iteritems():
+                for d_idx, d in enumerate(bram_lut_d):
+                    if d == 2:
+                        match_vector = node.symbols.points_on_dim(d_idx, self._bram_shape[0])
+                        brams_list[d_idx].setdefault(match_vector, []).append((atm, node.id))
+
+        chunked_bram_list = [[] for _ in range(stride_val)]
+
+        for d in range(stride_val):
+            bram_list = brams_list[d]
+            current_bram_content, current_bram_nodes = None, None
+            for v_idx, (mv, atmid_nodeid_tuple) in enumerate(bram_list.iteritems()):
+                if v_idx % self._bram_shape[1] == 0:
+                    if current_bram_content is not None:
+                        chunked_bram_list[d].append((numpy_bram_tostring(current_bram_content, base_value=16), current_bram_nodes))
+                    current_bram_content = np.zeros(self._bram_shape, dtype=np.int8)
+                    current_bram_nodes = []
+
+                current_bram_content[:, v_idx % self._bram_shape[1]] = mv
+                current_bram_nodes.append(atmid_nodeid_tuple)
+
+            if current_bram_nodes:  # remaining nodes
+                current_bram_nodes.reverse()
+                chunked_bram_list[d].append((numpy_bram_tostring(current_bram_content[:, ::-1], base_value=16), current_bram_nodes))
+
+        return chunked_bram_list, brams_list
+
+    def register_stage_pending(self, single_out, use_bram):
+        '''
+        this function put all the pending autoamtas to one stage and register that stage
+        :param single_out:
+        :param use_bram: if True actual bram will be used otherwise LUT will be used to emulate bram
+        :return:
+        '''
+        if not self._pending_automatas:
+            return
+
+        brams_contents, brams_list = self._generate_bram(self._pending_automatas)
+        self._register_stage(atms_id=[atm.id for atm, _ in self._pending_automatas],
+                             single_out=single_out,
+                             brams_contents=brams_contents, brams_list=brams_list, use_bram=use_bram)
+
+        # for atm, _ in self._pending_automatas:
+        #     for node in atm.nodes:
+        #         node.symbols = None
+        self._pending_automatas = []
+
+
+    def _register_stage(self, atms_id, single_out, brams_contents, brams_list, use_bram):
         '''
 
         :param atms_id: list of ids of automatas in the same stage
+        :param single_out: if true, the stage will have one report out put which is the or of all of the outputs
+        :param brams_content
+        :param brams_list:
+        :param pending_automatas
         :return: None
         '''
         self._stage_id += 1
@@ -396,16 +566,20 @@ class HDL_Gen(object):
         template = self._env.get_template('Automata_Stage.template')
         rendered_content = template.render(automatas=[self._atm_info[temp_atm_id] for temp_atm_id in atms_id],
                                            summary_str=self._get_stage_summary(self._atm_info.values()),
-                                           single_out=single_out, bram_list=[],
-                                           bram_match_id_list=[[] for _ in atms_id],
+                                           single_out=single_out,
                                            stage_index=self._stage_id,
                                            bit_feed_size=self._total_input_len,
                                            id_to_comp_dict={self._atm_to_comp_id[atm_id]:self._comp_info[self._atm_to_comp_id[atm_id]] for atm_id in atms_id if atm_id in self._atm_to_comp_id},
-                                           comp_dict={atm_id:self._atm_to_comp_id[atm_id] for atm_id in atms_id if atm_id in self._atm_to_comp_id})
+                                           comp_dict={atm_id:self._atm_to_comp_id[atm_id] for atm_id in atms_id if atm_id in self._atm_to_comp_id},
+                                           brams_contents=brams_contents, brams_list=brams_list, use_bram=use_bram,
+                                           pending_atms=self._pending_automatas,
+                                           after_match=self._after_match_reg)
         with open(os.path.join(self._path, 'stage{}.v'.format(self._stage_id)), 'w') as f:
             f.writelines(rendered_content)
 
+
     def finilize(self):
+
         atms_list = [[self._atm_info[atm_id] for atm_id in atms_id]for atms_id in self._stage_info.values()]
 
         template = self._env.get_template('Top_Module.template')

@@ -1,17 +1,20 @@
 {% from 'Automata.template' import automata_macro %}
 {% import 'STE_base.template' as ste_base %}
+{% from 'bram18.template' import single_bram_macro18 %}
 
 {#
 @param automatas: List of automatas to be processed
 @param summary_str: summary string to be paste on top of the file
 @param single_out: True/False if True, the circuit willl have only one input which is the OR of all the outputs
-@param bram_list: a 2d list . the first dimension is the list of brams and in each list, there are
-list of tuples(atm.id, node.id) to track the assigned
-@param bram_match_id_list: this is a list of nodes that the matching will be in a block ram
 @stage_index
 @param bit_feed_size: number of bits being feed in each cycle
 @param id_to_comp_dict t: a dictionary from compressor ids to their output len. This is the total bit counts
 @param comp_dict: a dictionary to translate from automata ids to compressor ids
+@param brams_contents: list of bram contents
+@param brams_list: this is a list of dictionaries. each dictionary key is the match vector and the value is the tuple (atmid , nodeid)
+@param use_bram: if True actual bram will be used otherwise LUT will be used to emulate bram
+@param pending_atms
+@param after_match
 #}
 
 /*
@@ -58,27 +61,19 @@ assign single_out = {{report_list|join(' | ')}};
 
 {%endif%}
 
-{% for bram in bram_list %}
-{% for atm, node in bram %}
-wire {{atm.id}}_w_match_{{node.id}};
-{%- endfor %}
-bram_module_{{loop.index0}} bram_module_{{loop.index0}}_ins (
-    .clk(clk),
-    .symbols(symbols),
-    .match({ {% for atm, node in bram%}{% if loop.index0 > 0 %}, {% endif %} {{atm.id}}_w_match_{{node.id}}
-    {% endfor %} })
-                                  );
-{% endfor %}
-
 
 {%for atm in  automatas%}
 Automata_{{atm.id}} automata_{{atm.id}} (.clk(clk),
                      .run(run),
                      .reset(reset),
                      .symbols({%if not atm.use_compression %}top_symbols {% else %}from_comp_{{comp_dict[atm.id]}}{% endif %})
-                     {%- for node_id in bram_match_id_list[loop.index0]%}
-                     , .{{atm.id}}_w_match_{{node_id}}({{atm.id}}_w_match_{{node_id}})
-                     {%- endfor %}
+                     {% for node, placement in pending_atms[loop.index0][1].iteritems() -%}
+                        {% for d in placement -%}
+                            {% if d == 2 %}
+                            ,.{{atm.id}}_n{{node.id}}_d{{loop.index0}}_bram({{atm.id}}_n{{node.id}}_d{{loop.index0}}_bram)
+                            {%- endif %}
+                        {%- endfor %}
+                     {%- endfor -%}
                      {%- for node in atm.nodes if node.report %}
                       , .{{atm.id}}_w_out_{{node.id}}({{atm.id}}_w_out_{{node.id}})
                      {%- endfor %}
@@ -99,6 +94,58 @@ Symbol_Compressor_Pipeline_{{comp_dict[atm.id]}} sym_comp_{{comp_dict[atm.id]}}(
 {% do unique_compressors.append(comp_dict[atm.id]) %}
 {% endif %}
 {% endfor %}
+
+
+
+{% if use_bram %}
+{% set per_dim_bit = bit_feed_size // automatas[0].stride_value %}
+{% for d_bram in brams_contents %}
+{% set d_loop = loop %}
+{% for bram, nodes in d_bram %}
+{% set i_loop = loop %}
+wire [35:0] from_bram_d{{d_loop.index0}}_index{{loop.index0}};
+{{single_bram_macro18('bram_d' + d_loop.index0|string  + 'index'+loop.index0|string, bram, after_match,
+nodes|length, 'from_bram_d'+ d_loop.index0|string + '_index' + loop.index0|string, 'top_symbols['+ (d_loop.index * per_dim_bit - 1)|string + ':' + (d_loop.index * per_dim_bit - per_dim_bit)|string+']')}}
+
+{%- for atm_node_tuple in nodes -%}
+{% set n_loop = loop %}
+{%- for atm, node_id in atm_node_tuple -%}
+
+assign {{atm.id}}_n{{node_id}}_d{{d_loop.index0}}_bram = from_bram_d{{d_loop.index0}}_index{{i_loop.index0}}[{{n_loop.index0}}];
+{% endfor -%}
+{%- endfor -%}
+{% endfor %}
+{% endfor %}
+
+{% else %} {# using lut to emulate bram #}
+
+{% set per_dim_bit = bit_feed_size // automatas[0].stride_value %}
+{% for d_bram in brams_list %}
+{% set d_loop = loop %}
+{% for mv, atm_node_tuple in d_bram.iteritems() %}
+{% set n_loop = loop %}
+{% if not after_match %}
+assign from_bram_d{{d_loop.index0}}_index{{loop.index0}} = (1'b0{% for b in mv %}{% if b == 1 %}||top_symbols[{{per_dim_bit * d_loop.index - 1}}:{{per_dim_bit * d_loop.index0}}]=={{per_dim_bit}}'d{{loop.index0}}{% endif %}{% endfor %})? 1'b1 : 1'b0;
+{% else %}
+reg from_bram_d{{d_loop.index0}}_index{{loop.index0}};
+always @(posedge clk) begin
+    if (1'b0{% for b in mv %}{% if b == 1 %}||top_symbols[{{per_dim_bit * d_loop.index - 1}}:{{per_dim_bit * d_loop.index0}}]=={{per_dim_bit}}'d{{loop.index0}}{% endif %}{% endfor %})
+        from_bram_d{{d_loop.index0}}_index{{loop.index0}} <= 1'b1;
+    else
+        from_bram_d{{d_loop.index0}}_index{{loop.index0}} <= 1'b0;
+end
+{% endif %}
+{% for atm, node_id in atm_node_tuple %}
+assign {{atm.id}}_n{{node_id}}_d{{d_loop.index0}}_bram = from_bram_d{{d_loop.index0}}_index{{n_loop.index0}};
+{% endfor %}
+{% endfor %}
+{% endfor %}
+
+
+
+{% endif %}
+
+
 
 endmodule
 

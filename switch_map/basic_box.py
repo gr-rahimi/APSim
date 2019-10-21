@@ -31,7 +31,7 @@ class BaseSwitch(object):
 
     def set_switch(self, row, col):
 
-        assert (row, col) < self._size , "trying to set wrong location in switch box"
+        assert (row, col) < self._size, "trying to set wrong location in switch box"
         #print row, col ,self._size, len(self._switch_array), len(self._switch_array[row])
         if self._switch_array[row][col] == -1 or\
             self._switch_array[row][col] == 0:

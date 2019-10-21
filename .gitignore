@@ -9,4 +9,7 @@
 *.svg
 *.csv
 *.xlsx
-.DS_Store
+*.DS_Store
+*.gz
+*.tar
+Results/

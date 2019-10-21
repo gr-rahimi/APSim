@@ -236,8 +236,14 @@ class PackedInterval(object):
         :param max_val: maximum value of star. for 8 bit, it is 255
         :return: True if it is star
         '''
-        assert self.dim == 1
-        return self.left[0] == 0 and self.right[0] == max_val
+
+        for d in range(self.dim):
+            if self.left[d] == 0 and self.right[d] == max_val:
+                continue
+            else:
+                return False
+
+        return True
 
     def __hash__(self):
         return hash((self.left, self.right))
@@ -247,10 +253,20 @@ class PackedInterval(object):
 
 class PackedIntervalSet(object):
     def __init__(self, packed_interval_set):
+        self.__mutable = True
         self._set_interval_set(packed_interval_set)
+        self._set_points = None
 
     def _set_interval_set(self, packed_interval_set):
-        self._interval_set = SortedSet(packed_interval_set)
+        if self.mutable:
+            self._interval_set = SortedSet(packed_interval_set)
+        else:
+            new_sorted_set = SortedSet(packed_interval_set)
+            if new_sorted_set[0].left < self._interval_set[0].left:
+                raise RuntimeError()
+            else:
+                self._interval_set = new_sorted_set
+
 
     def __iter__(self):
         return self._interval_set.__iter__()
@@ -268,7 +284,10 @@ class PackedIntervalSet(object):
         return True
 
     def __hash__(self):
-        return hash(self._interval_set[0].left)
+        if self.__mutable:
+            raise RuntimeError()
+        else:
+            return hash(self._interval_set[0].left)
 
     def __eq__(self, other):
         if len(self._interval_set)!= len(other._interval_set):
@@ -280,6 +299,12 @@ class PackedIntervalSet(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    def initialize_set_points(self):
+        self._set_points = set()
+
+        for pt in self.points:
+            self._set_points.add(pt)
 
     def _split_corner_gen(self):
         intervals = []
@@ -344,12 +369,27 @@ class PackedIntervalSet(object):
             return self._interval_set[0].dim
 
     def add_interval(self, interval):
-        #import bisect
-        assert isinstance(interval, PackedInterval), "argument should be an instance of PackedInterval"
-        #bisect.insort(self._interval_set, interval)
-        self._interval_set.add(interval)
-        return
+        if self.__mutable:
+            #import bisect
+            assert isinstance(interval, PackedInterval), "argument should be an instance of PackedInterval"
+            #bisect.insort(self._interval_set, interval)
+            self._interval_set.add(interval)
+            return
+        else:
+            if interval.left < self._interval_set[0].left:
+                raise RuntimeError()
+            else:
+                assert isinstance(interval, PackedInterval), "argument should be an instance of PackedInterval"
+                # bisect.insort(self._interval_set, interval)
+                self._interval_set.add(interval)
 
+    @property
+    def mutable(self):
+        return self.__mutable
+
+    @mutable.setter
+    def mutable(self, mutable_val):
+        self.__mutable = mutable_val
 
     def is_symbolset_a_subset(self, other_symbol_set):
         """
@@ -381,6 +421,7 @@ class PackedIntervalSet(object):
 
     @classmethod
     def combine(cls, left_set, right_set):
+
         #TODO I think it is better to not use add_interval.
         #  Can we say that this new intervals are independent?
 
@@ -401,15 +442,18 @@ class PackedIntervalSet(object):
         return PackedIntervalSet(new_packed_list)
 
     def clone(self):
-        return PackedIntervalSet([interval for interval in self._interval_set])
+        return PackedIntervalSet(self._interval_set)
 
-    def can_accept(self, input_pt):
-        assert isinstance(input_pt, PackedInput)
-        for intvl in self._interval_set:
-            if intvl.can_interval_accept(input_pt):
-                return True
+    def can_accept(self, input_pt, fast_mode=False):
+        if fast_mode is False:
+            assert isinstance(input_pt, PackedInput)
+            for intvl in self._interval_set:
+                if intvl.can_interval_accept(input_pt):
+                    return True
+            return False
+        else:
+            return input_pt.point in self._set_points
 
-        return False
 
     def __repr__(self):
         pass
@@ -426,6 +470,9 @@ class PackedIntervalSet(object):
             return "*" + to_return_str + "*"
 
     def merge(self):
+        if self.__mutable is False:
+            raise RuntimeError()
+
         if self.dim > 1:
             return
         new_sym_set = []
@@ -435,7 +482,7 @@ class PackedIntervalSet(object):
         curr_right = self._interval_set[0].right[0]
 
         for ivl in self._interval_set[1:]:
-            if ivl.left[0] - 1 <=curr_right :
+            if ivl.left[0] - 1 <= curr_right:
                 curr_right = ivl.right[0]
             else:
                 new_sym_set.append(PackedInterval(PackedInput((curr_left,)), PackedInput((curr_right,))))
@@ -450,6 +497,10 @@ class PackedIntervalSet(object):
         :return:
             None
         """
+
+        if self.__mutable is False:
+            raise RuntimeError()
+
         if self._interval_set:
 
             to_be_deleted = [] # keeps inexes of items that are going to be deleted
@@ -498,8 +549,28 @@ class PackedIntervalSet(object):
 
         return
 
+    def points_on_dim(self, d, array_len):
+        '''
+        this function iterate over numbers in a specific dimnesion
+        :param d: the dimension iteratating will happen
+        :param array_len: length of the array that this vector will be places
+        :return: iterator
+        '''
+        assert d < self.dim, 'this access is out of range'
+        out_array = [0] * array_len
+
+        for ivl in self._interval_set:
+            left_d = ivl.left[d]
+            right_d = ivl.right[d]
+
+            out_array[left_d: right_d + 1] = [1] * (right_d + 1 - left_d)
+
+        return tuple(out_array)
 
     def clear(self):
+        if self.__mutable is False:
+            raise RuntimeError()
+
         del self._interval_set[:]
 
 
@@ -509,7 +580,6 @@ class PackedIntervalSet(object):
         :Param maximum acceptable value
         :return: True if it is
         '''
-        assert self.dim == 1
         for ivl in self:
             if ivl.is_interval_star(max_val=max_val):
                 return True
