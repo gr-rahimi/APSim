@@ -1035,12 +1035,16 @@ def compare_input(only_report, check_residuals, is_file, file_path, *automatas):
         print "They are equal"
 
 
-def automata_run_stat(atm, file_path, cycle_detail, bytes_per_dim, translation_dic=None):
+def automata_run_stat(atm, file_path, cycle_detail, report_detail, bytes_per_dim, translation_dic=None, iterations=0):
     """
     this function feed the input file into atm and gather statistics
     :param atm: the input automta
     :param file_path: the file to process
     :param cycle_detail: if True, a per cycle statistic will also be included
+    :param report_detail: if True, number of reports per cycle and if report in a cycle will be gathered
+    :param bytes_per_dim: number of bytes to be combined to shape a single input from the file
+    :param translation_dic: a dictionary from int to int to transfrom the input symbol
+    :param iterations: number of iteration that the inputs will be feed into input. if 0, the whole input will be streamed
     :return:
     """
 
@@ -1049,28 +1053,44 @@ def automata_run_stat(atm, file_path, cycle_detail, bytes_per_dim, translation_d
     #                                                                            "total active states count",\
     #                                                                             "actives per cycle"
 
-    from automata.utility import total_reports, total_active_states, reports_per_cycle, actives_per_cycle
+    from automata.utility import total_reports, total_active_states, reports_per_cycle, actives_per_cycle, reports_in_cycle
     results = {}
     results[total_reports] = 0
     results[total_active_states] = 0
     results[reports_per_cycle] = []
     results[actives_per_cycle] = []
+    results[reports_in_cycle] = []
 
     inp_dis = InputDistributer(is_file=True, file_path=file_path, max_stride_size=atm.stride_value,
                                single_input_size=bytes_per_dim, translation_dic=translation_dic)
-    g = atm.feed_input(input_stream=inp_dis.get_stream(atm.stride_value), offset=0, jump=atm.stride_value)
+    g = atm.feed_input(input_stream=inp_dis.get_stream(atm.stride_value), offset=0, jump=atm.stride_value,
+                       fast_mode=True)
     try:
 
         file_size = os.path.getsize(file_path)
 
-        for _ in tqdm(itertools.count(), total=math.ceil(file_size/bytes_per_dim), unit='symbol'):
+        #for _ in tqdm(itertools.count(), total=math.ceil(file_size/bytes_per_dim), unit='symbol'):
+        import datetime
+        for i in itertools.count():
+            if iterations > 0 and i == iterations:
+                break
+            if i % 10000 == 0:
+                print "at ", datetime.datetime.now().time(), "for ", file_path, "  byte ", i
             temp_active_states, temp_is_report, report_residual_details = next(g)
             results[total_reports] += len([r for r in temp_active_states if r.report])
             results[total_active_states] += len(temp_active_states)
             if cycle_detail:
-                results[reports_per_cycle].append([r.id for r in temp_active_states if r.report])
                 results[actives_per_cycle].append([r.id for r in temp_active_states])
+            if report_detail:
+                results[reports_per_cycle].append(len([r.id for r in temp_active_states if r.report]))
+                results[reports_in_cycle].append(temp_is_report)
+
+
+
 
     except StopIteration:
-        return results
+        pass
+
+    return results
+
 

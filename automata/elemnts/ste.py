@@ -255,6 +255,7 @@ class PackedIntervalSet(object):
     def __init__(self, packed_interval_set):
         self.__mutable = True
         self._set_interval_set(packed_interval_set)
+        self._set_points = None
 
     def _set_interval_set(self, packed_interval_set):
         if self.mutable:
@@ -298,6 +299,12 @@ class PackedIntervalSet(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    def initialize_set_points(self):
+        self._set_points = set()
+
+        for pt in self.points:
+            self._set_points.add(pt)
 
     def _split_corner_gen(self):
         intervals = []
@@ -437,13 +444,16 @@ class PackedIntervalSet(object):
     def clone(self):
         return PackedIntervalSet(self._interval_set)
 
-    def can_accept(self, input_pt):
-        assert isinstance(input_pt, PackedInput)
-        for intvl in self._interval_set:
-            if intvl.can_interval_accept(input_pt):
-                return True
+    def can_accept(self, input_pt, fast_mode=False):
+        if fast_mode is False:
+            assert isinstance(input_pt, PackedInput)
+            for intvl in self._interval_set:
+                if intvl.can_interval_accept(input_pt):
+                    return True
+            return False
+        else:
+            return input_pt.point in self._set_points
 
-        return False
 
     def __repr__(self):
         pass

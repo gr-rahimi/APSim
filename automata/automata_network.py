@@ -1216,7 +1216,7 @@ class Automatanetwork(object):
             if not right_ste_src.start_type == StartType.fake_root:
                 right_automata.add_edge(right_ste_src, right_ste_dst)
 
-    def _find_next_states(self, current_active_states, input):
+    def _find_next_states(self, current_active_states, input, fast_mode=False):
         """
 
         :param current_active_states: a set of current active states
@@ -1233,7 +1233,7 @@ class Automatanetwork(object):
         for act_st in current_active_states:
             if self.is_homogeneous:
                 for neighb in self._my_graph.neighbors(act_st):
-                    can_accept  = neighb.symbols.can_accept(input_pt=PackedInput(input))
+                    can_accept = neighb.symbols.can_accept(input_pt=PackedInput(input), fast_mode=fast_mode)
                     temp_report = can_accept and neighb.report
                     is_report = is_report or temp_report
                     if can_accept:
@@ -1243,7 +1243,8 @@ class Automatanetwork(object):
             else:
                 out_edges = self._my_graph.out_edges(act_st, data=True, keys=False)
                 for edge in out_edges:
-                    can_accept= edge[2][Automatanetwork.symbol_data_key].can_accept(input_pt=PackedInput(input))
+                    can_accept = edge[2][Automatanetwork.symbol_data_key].can_accept(input_pt=PackedInput(input),
+                                                                                     fast_mode=fast_mode)
                     temp_report = can_accept and edge[1].report
                     is_report = is_report or temp_report
                     if can_accept:
@@ -1253,9 +1254,9 @@ class Automatanetwork(object):
 
         return is_report, new_active_states, report_residual_details
 
-    def feed_input(self, input_stream, offset, jump):
+    def feed_input(self, input_stream, offset, jump, fast_mode=False):
 
-
+        assert self.does_have_special_elements() is False, 'special elements are not allowed'
         assert offset<jump, "this condition should be met"
 
         mask = [1 if offset <= i < (offset + self.stride_value) else 0 for i in range(jump)]
@@ -1265,19 +1266,30 @@ class Automatanetwork(object):
         if self.is_homogeneous:
             all_start_states = [all_start_neighb for all_start_neighb in self._my_graph.neighbors(self.fake_root)
                                 if all_start_neighb.start_type == StartType.all_input]
+
+            if fast_mode:
+                for st in self.nodes:
+                    if st.is_fake:
+                        continue
+                    st.symbols.initialize_set_points()
+
         else:
             all_start_edges = [all_start_edge for all_start_edge in
                                self._my_graph.out_edges(self.fake_root, data=True, keys=False)
                                if all_start_edge[2]['start_type'] == StartType.all_input]
+            if fast_mode:
+                for ed in self.get_edges(data=True):
+                    ed[2][Automatanetwork.symbol_data_key].symbols.initialize_set_points()
+
 
         for input in input_stream:
             input=tuple(itertools.compress(input, mask))
             is_report, new_active_states, report_residual_details =\
-                self._find_next_states(current_active_states=active_states, input=input)
+                self._find_next_states(current_active_states=active_states, input=input, fast_mode=fast_mode)
 
             if self.is_homogeneous:
                 for all_start_state in all_start_states:
-                    can_accept= all_start_state.symbols.can_accept(input_pt=PackedInput(input))
+                    can_accept= all_start_state.symbols.can_accept(input_pt=PackedInput(input), fast_mode=fast_mode)
                     temp_report = can_accept and all_start_state.report
                     is_report = is_report or temp_report
                     if can_accept:
@@ -1286,7 +1298,7 @@ class Automatanetwork(object):
                             report_residual_details[(all_start_state.report_residual-1) % self.stride_value] = True
             else:
                 for all_start_edge in all_start_edges:
-                    can_accept = all_start_edge[2][Automatanetwork.symbol_data_key].can_accept(input_pt=PackedInput(input))
+                    can_accept = all_start_edge[2][Automatanetwork.symbol_data_key].can_accept(input_pt=PackedInput(input), fast_mode=fast_mode)
                     temp_report = can_accept and all_start_edge[1].report
                     is_report = is_report or temp_report
                     if can_accept:
@@ -1485,7 +1497,7 @@ class Automatanetwork(object):
                 self.add_edge(self.fake_root, node)
 
     def get_connected_components_size(self):
-        undirected_graph= self._my_graph.to_undirected()
+        undirected_graph = self._my_graph.to_undirected()
         undirected_graph.remove_node("fake_root")
         return tuple(len(g) for g in sorted(nx.connected_components(undirected_graph), key=len, reverse=True))
 
@@ -2151,6 +2163,14 @@ def compare_strided(only_report, file_path,*automatas ):
 
 
 def compare_real_approximate(file_path, automata):
+    '''
+    This function compares a NFA that might not be homogeneous to be executed on Micron AP
+    deprecated
+    :param file_path:
+    :param automata:
+    :return:
+    '''
+
     stride_value = automata.get_stride_value()
     false_reports_exact, false_actives, false_reports_each_cycle, true_total_reports = 0, 0, 0, 0
     false_stat_per_state={}
