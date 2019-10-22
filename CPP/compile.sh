@@ -1,8 +1,20 @@
 #!/bin/bash
-rm *.so *.o *.cxx *.pyc *.py
+if [ "$#" -ne 1 ]; then
+    echo "Include the path to the python2.7 include directory"
+    exit 1
+fi
+Python_Path=$1 
+
+if [ ! -d $Python_Path ]
+then
+    echo "Python include path does not exist"
+    exit 1 # die with error code 9999
+fi
+
+rm *.so *.o *.cxx *.pyc *.py 2> /dev/null
 touch __init__.py
 g++ -c -fPIC -fPIC -std=c++11  VASim.cpp
 swig -c++ -python VASim.i
-g++ -c -fPIC -std=c++11 VASim_wrap.cxx  -I ~/anaconda2/include/python2.7
+g++ -c -fPIC -std=c++11 VASim_wrap.cxx  -I $Python_Path
 g++ -shared -Wl,-soname,_VASim.so -o _VASim.so VASim.o VASim_wrap.o
 #g++ -undefined dynamic_lookup  VASim.o VASim_wrap.o -o _VASim.so
