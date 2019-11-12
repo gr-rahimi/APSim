@@ -13,3 +13,4 @@
 *.gz
 *.tar
 Results/
+test_scripts/

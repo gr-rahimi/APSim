@@ -69,6 +69,25 @@ if __name__ == '__main__':
         pass
 
     ds = [a for a in AnmalZoo]
+    ds.remove(AnmalZoo.Hamming)
+    ds.remove(AnmalZoo.Levenshtein)
+    ds.remove(AnmalZoo.EntityResolution)
+    ds.remove(AnmalZoo.Dotstar)
+    ds.remove(AnmalZoo.PowerEN)
+    ds.remove(AnmalZoo.Brill)
+    ds.remove(AnmalZoo.RandomForest)
+    ds.remove(AnmalZoo.Dotstar03)
+    ds.remove(AnmalZoo.Dotstar06)
+    ds.remove(AnmalZoo.Dotstar09)
+    ds.remove(AnmalZoo.Protomata)
+    ds.remove(AnmalZoo.Ranges05)
+    ds.remove(AnmalZoo.Bro217)
+    ds.remove(AnmalZoo.Ranges1)
+    ds.remove(AnmalZoo.ExactMath)
+    ds.remove(AnmalZoo.Custom)
+    ds.remove(AnmalZoo.TCP)
+    ds.remove(AnmalZoo.Synthetic_BlockRings)
+
     thread_count = 8
 
     t_pool = ThreadPool(thread_count)

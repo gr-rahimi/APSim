@@ -32,7 +32,7 @@ def process_single_ds(uat):
                                        translation_dic=translation_dic)
         approximate_final.append(appr_run_result[total_reports])
 
-        with open(str(uat) + '.ttxt', "a") as f:
+        with open(str(uat) + '.txt', "a") as f:
             print >> f, "real reports: " + str(real_final[-1])
             print >> f, "approximate reports: " + str(approximate_final[-1])
             print >> f, "real nodes count: " + str(atm.nodes_count)

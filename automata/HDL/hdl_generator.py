@@ -480,7 +480,7 @@ class HDL_Gen(object):
 
         all_len = [len(bram_lut_dic) == 0 for _, bram_lut_dic in atms_list]
         if all(all_len):
-            return []
+            return [], []
 
         all_type = []
         for _, bram_lut_dic in atms_list:
@@ -488,7 +488,7 @@ class HDL_Gen(object):
                 all_type.append(2 not in t)
 
         if all(all_type):
-            return []
+            return [], []
 
         stride_vals = [len(v) for _, bram_lut_dic in atms_list for v in bram_lut_dic.itervalues()]
 

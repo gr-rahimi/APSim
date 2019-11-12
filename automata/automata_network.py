@@ -219,6 +219,7 @@ class Automatanetwork(object):
     def clone(self):
         return deepcopy(self)
 
+
     def get_neighbors(self, node):
         return self._my_graph.neighbors(node)
 

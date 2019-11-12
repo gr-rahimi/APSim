@@ -19,6 +19,7 @@ import automata.automata_network
 import os
 from tqdm import tqdm
 import itertools
+from pathos.multiprocessing import ProcessingPool as Pool
 
 
 def draw_matrix(file_to_save, matrix, boundries, **kwargs):
@@ -569,7 +570,7 @@ def get_equivalent_symbols(atms_list, replace=True, use_random_assignment=False,
                 opt_dic[sym_set] = new_set
 
     if replace:
-        _replace_equivalent_symbols(symbol_dictionary_list=optimal_dics, atms_list=atms_list, max_val=len(new_dic) + (-1 if need_extra_code is False else 0))
+        _replace_equivalent_symbols(symbol_dictionary_list=optimal_dics, atms_list=atms_list, max_val=max(new_dic.itervalues()))
 
     if use_random_assignment is False:
         return {pt: new_map[pt_map] for pt, pt_map in new_dic.iteritems()}
@@ -754,37 +755,56 @@ def pact_interconnect(base_size=256, combines_count=4, image_name=None):
 
     return template
 
-def ga_routing(atms_list, routing_template, available_rows, draw_file=None, draw_plot = False):
+def ga_routing(atms_list, routing_template, available_rows,
+               placement_cond_dic={},
+               draw_file=None, draw_plot = False):
     '''
 
     :param atms_list: list of automatons that need to be placed
     :param routing_template: the template as a 2d matrix. when there is a 1, we have a switch there
     :param available_rows: list of integers which represents the available rows
+    :param placement_cond_dic: a dictionary of physical placement consition. key is the (atm, node) and value is a set
+                               contining the physical ids that the key node can be palces
     :return: best fitness value. TODO: should we return the palcement result?
     '''
 
+    print "number of conditioned nodes=", len(placement_cond_dic)
     total_nodes = sum(map(lambda atm:atm.nodes_count, atms_list))
-    assert total_nodes <= len(available_rows)
+    assert total_nodes <= len(available_rows), "number of nodes are more than what available in hardware"
 
     node_start_index = 0
     node_dic = {}
+    placement_cond_id = {}  # keeps the conditions based on the node index
     nodes_list = [None] * total_nodes
     for atm in atms_list:
-        local_node_dic = atm.get_BFS_label_dictionary(start_from_root=True, set_nodes_idx=True, start_index=node_start_index)
+        local_node_dic = atm.get_BFS_label_dictionary(start_from_root=True, set_nodes_idx=True,
+                                                      start_index=node_start_index)
         node_start_index += atm.nodes_count
 
         for node, index in local_node_dic.iteritems():
             node_dic[(atm, node)] = index
-
             nodes_list[index] = (atm, node)
+
+            if (atm, node) in placement_cond_dic:
+                placement_cond_id[index] = placement_cond_dic[(atm, node)]
 
     assert None not in nodes_list
 
     toolbox = base.Toolbox()
     creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
-    creator.create("Individual", list, fitness=creator.FitnessMin)
+    creator.create("Individual", list, fitness=creator.FitnessMin, bad_set=set)
+
+
 
     def interval_sampler(numbers, mean_interval, q_size):
+        """
+
+        :param numbers: a list of integers that samples will be based of them
+        :param mean_interval: average length of the intervals of consequrnt numbers
+        :param q_size: the size of intervals in the Q
+        :return: a list of integers which represent the sample
+        """
+
         def get_next_interval_size():
             while True:
                 number = np.random.poisson(mean_interval)
@@ -818,13 +838,17 @@ def ga_routing(atms_list, routing_template, available_rows, draw_file=None, draw
 
         return out_sample
 
+
     toolbox.register("indices", interval_sampler, available_rows, 32, 4)
     toolbox.register("individual", tools.initIterate, creator.Individual,
                      toolbox.indices)
     toolbox.register("population", tools.initRepeat, list,
                      toolbox.individual)
 
+
     toolbox.register("mate", tools.cxOrdered)
+    pool = Pool()
+    toolbox.register("map", pool.map)
 
     def mutlocal_shuffle(individual, indpb, move):
         size = len(individual)
@@ -835,24 +859,103 @@ def ga_routing(atms_list, routing_template, available_rows, draw_file=None, draw
                     individual[swap_indx], individual[i]
         return individual,
 
-    toolbox.register("mutate", mutlocal_shuffle, indpb=0.1, move=16)
+    toolbox.register("mutate", mutlocal_shuffle, indpb=0.1, move=64)
 
     def evaluation(individual):
+
+
+
         cost = 0
+        switch_cost = 1
+        cond_cost = 10
+        local_optimization = True
 
         bad_set = set()
+
+        def get_node_cost(node_idx, place_check=True, neighb_check=True, pred_check=True, self_chck=True):
+            """
+            this function return the cost of a single node based on its child and parents
+            :param node_idx: index of node in individual encoding
+            :param loc: assigned loc as index
+            :param place_check: check the current limitation of placement
+            :param neighb_check: count the cost of neighbors
+            :param pred_check: count the cost of parents
+            :param self_chck: count the self connectivity check
+            :return:
+            """
+            node_assignee = individual[node_idx]
+            total_cost = 0
+            if place_check:
+                if node_idx in placement_cond_id and individual[node_idx] not in placement_cond_id[node_idx]:
+                    total_cost += cond_cost
+
+            current_atm, current_node = nodes_list[node_idx]
+
+            if neighb_check:
+                for neighb in current_atm.get_neighbors(current_node):
+                    if neighb == current_node:
+                        continue
+                    neighb_idx = node_dic[(current_atm, neighb)]
+                    neighb_assignee = individual[neighb_idx]
+                    if routing_template[node_assignee, neighb_assignee] != 1:
+                        total_cost += switch_cost
+
+            if pred_check:
+                for pred in current_atm.get_predecessors(current_node):
+                    if pred == current_node or pred.is_fake:
+                        continue
+                    pred_idx = node_dic[(current_atm, pred)]
+                    pred_assignee = individual[pred_idx]
+                    if routing_template[pred_assignee, node_assignee] != 1:
+                        total_cost += switch_cost
+
+            if self_chck:
+                if current_atm.does_STE_has_self_loop(current_node):
+                    if routing_template[node_assignee, node_assignee] != 1:
+                        total_cost += switch_cost
+
+            return total_cost
+
+        if local_optimization:
+            dp = {}
+            # we compare states one by one and swap them if this move makes the situation better
+            for node1_idx, node1_assignee in enumerate(individual):
+                if node1_idx >= total_nodes:
+                    break
+
+                src_cost = dp[node1_idx] if node1_idx in dp else dp.setdefault(node1_idx, get_node_cost(node1_idx))
+                for node2_idx, node2_assignee in enumerate(individual[node1_idx+1:]):
+                    if node2_idx >= total_nodes:
+                        break
+                    dst_cost = dp[node2_idx] if node2_idx in dp else dp.setdefault(node2_idx, get_node_cost(node2_idx))
+                    individual[node1_idx], individual[node2_idx] = individual[node2_idx], individual[node1_idx]
+                    new_src_cost = get_node_cost(node1_idx)
+                    new_dst_cost = get_node_cost(node2_idx)
+
+                    if (new_src_cost + new_dst_cost) < src_cost + dst_cost:
+                        atm_src, src_node = nodes_list[node1_idx]
+                        atm_dst, dst_node = nodes_list[node1_idx]
+                        for nb_pd in itertools.chain(atm_src.get_neighbors(src_node),
+                                                     atm_src.get_predecessors(src_node),
+                                                     atm_dst.get_neighbors(dst_node),
+                                                     atm_dst.get_predecessors(dst_node)):
+                            if nb_pd.is_fake:
+                                continue
+                            nb_pd_idx = node_dic[(atm_src, nb_pd)]  # atm_src == atm_dst
+                            if nb_pd_idx in dp:
+                                del dp[nb_pd_idx]
+                        dp[node1_idx] = new_src_cost
+                        dp[node2_idx] = new_dst_cost
+                    else:
+                        individual[node1_idx], individual[node2_idx] = individual[node2_idx], individual[node1_idx]
 
         for node_idx, node_assignee in enumerate(individual):
             if node_idx >= total_nodes:
                 break
-            current_atm, current_node = nodes_list[node_idx]
-
-            for neighb in current_atm.get_neighbors(current_node):
-                neighb_idx = node_dic[(current_atm, neighb)]
-                neighb_assignee = individual[neighb_idx]
-                if routing_template[node_assignee, neighb_assignee] != 1:
-                    cost += 1
-                    bad_set.add(node_idx)
+            node_cost = get_node_cost(node_idx, pred_check=False)
+            cost+=node_cost
+            if node_cost > 0:
+                bad_set.add(node_idx)
 
         individual.bad_set = bad_set
         return cost,
@@ -919,8 +1022,9 @@ def ga_routing(atms_list, routing_template, available_rows, draw_file=None, draw
     fit_stats.register('mean', np.mean)
     fit_stats.register('min', np.min)
 
-    pop_size = 1000
+    pop_size = 100
     pop = toolbox.population(n=pop_size)
+
 
     for _ in range(16):
         pop.insert(random.randint(0, pop_size - 1),
