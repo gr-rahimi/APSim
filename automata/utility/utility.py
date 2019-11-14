@@ -791,7 +791,8 @@ def ga_routing(atms_list, routing_template, available_rows,
     assert None not in nodes_list
 
     toolbox = base.Toolbox()
-    creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
+    switch_cost_weight, cond_cost_weight = 1.0, 5.0
+    creator.create("FitnessMin", base.Fitness, weights=(-cond_cost_weight, -switch_cost_weight))
     creator.create("Individual", list, fitness=creator.FitnessMin, bad_set=set)
 
 
@@ -845,29 +846,108 @@ def ga_routing(atms_list, routing_template, available_rows,
     toolbox.register("population", tools.initRepeat, list,
                      toolbox.individual)
 
+    def my_cxOrdered(ind1, ind2):
+        """Executes an ordered crossover (OX) on the input
+        individuals. The two individuals are modified in place. This crossover
+        expects :term:`sequence` individuals of indices, the result for any other
+        type of individuals is unpredictable.
 
-    toolbox.register("mate", tools.cxOrdered)
+        :param ind1: The first individual participating in the crossover.
+        :param ind2: The second individual participating in the crossover.
+        :returns: A tuple of two individuals.
+
+        Moreover, this crossover generates holes in the input
+        individuals. A hole is created when an attribute of an individual is
+        between the two crossover points of the other individual. Then it rotates
+        the element so that all holes are between the crossover points and fills
+        them with the removed elements in order. For more details see
+        [Goldberg1989]_.
+
+        This function uses the :func:`~random.sample` function from the python base
+        :mod:`random` module.
+
+        .. [Goldberg1989] Goldberg. Genetic algorithms in search,
+           optimization and machine learning. Addison Wesley, 1989
+        """
+        interval_avg_len = 64
+        size = min(len(ind1), len(ind2))
+        a, = random.sample(xrange(size - interval_avg_len), 1)
+        b = a + random.sample(xrange(interval_avg_len), 1)[0]
+
+        if a > b:
+            a, b = b, a
+
+        holes1, holes2 = [True] * size, [True] * size
+        for i in range(size):
+            if i < a or i > b:
+                holes1[ind2[i]] = False
+                holes2[ind1[i]] = False
+
+        # We must keep the original values somewhere before scrambling everything
+        temp1, temp2 = ind1, ind2
+        k1, k2 = b + 1, b + 1
+        for i in range(size):
+            if not holes1[temp1[(i + b + 1) % size]]:
+                ind1[k1 % size] = temp1[(i + b + 1) % size]
+                k1 += 1
+
+            if not holes2[temp2[(i + b + 1) % size]]:
+                ind2[k2 % size] = temp2[(i + b + 1) % size]
+                k2 += 1
+
+        # Swap the content between a and b (included)
+        for i in range(a, b + 1):
+            ind1[i], ind2[i] = ind2[i], ind1[i]
+
+        return ind1, ind2
+    toolbox.register("mate", my_cxOrdered)
     pool = Pool()
     toolbox.register("map", pool.map)
 
     def mutlocal_shuffle(individual, indpb, move):
         size = len(individual)
+        reverse_assign = {curr_assign: curr_index for curr_index, curr_assign in enumerate(individual)}
         for i in xrange(size):
             if random.random() < indpb or i in individual.bad_set:
-                swap_indx = random.randint(max(0, i - move), min(size - 1, i + move))
-                individual[i], individual[swap_indx] = \
-                    individual[swap_indx], individual[i]
+                if i not in placement_cond_id:
+                    # there is no condition on this node
+                    while True:
+                        swap_indx = random.randint(max(0, i - move), min(size - 1, i + move))
+                        if swap_indx not in placement_cond_id:
+                            break
+
+                    individual[i], individual[swap_indx] = \
+                        individual[swap_indx], individual[i]
+
+                    reverse_assign[individual[i]], reverse_assign[individual[swap_indx]] = swap_indx, i
+                else:
+
+                    while True:
+                        cond_move_max = 256
+                        new_place = random.choice(list(placement_cond_id[i]))
+                        if abs(new_place - individual[i]) > cond_move_max:
+                            continue
+                        if reverse_assign[new_place] not in placement_cond_id:
+                            break
+
+                    individual[reverse_assign[i]], individual[reverse_assign[new_place]] = \
+                        individual[reverse_assign[new_place]], individual[reverse_assign[i]]
+
+                    reverse_assign[individual[i]], reverse_assign[new_place] = \
+                        reverse_assign[new_place], reverse_assign[individual[i]]
+
+
         return individual,
 
-    toolbox.register("mutate", mutlocal_shuffle, indpb=0.1, move=64)
+    toolbox.register("mutate", mutlocal_shuffle, indpb=0.1, move=32)
 
     def evaluation(individual):
 
 
 
-        cost = 0
+        total_switch_cost, total_cond_cost = 0, 0
         switch_cost = 1
-        cond_cost = 10
+        cond_cost = 1
         local_optimization = True
 
         bad_set = set()
@@ -884,10 +964,10 @@ def ga_routing(atms_list, routing_template, available_rows,
             :return:
             """
             node_assignee = individual[node_idx]
-            total_cost = 0
+            total_switch_cost, total_cond_cost = 0, 0
             if place_check:
                 if node_idx in placement_cond_id and individual[node_idx] not in placement_cond_id[node_idx]:
-                    total_cost += cond_cost
+                    total_cond_cost += cond_cost
 
             current_atm, current_node = nodes_list[node_idx]
 
@@ -898,7 +978,7 @@ def ga_routing(atms_list, routing_template, available_rows,
                     neighb_idx = node_dic[(current_atm, neighb)]
                     neighb_assignee = individual[neighb_idx]
                     if routing_template[node_assignee, neighb_assignee] != 1:
-                        total_cost += switch_cost
+                        total_switch_cost += switch_cost
 
             if pred_check:
                 for pred in current_atm.get_predecessors(current_node):
@@ -907,14 +987,14 @@ def ga_routing(atms_list, routing_template, available_rows,
                     pred_idx = node_dic[(current_atm, pred)]
                     pred_assignee = individual[pred_idx]
                     if routing_template[pred_assignee, node_assignee] != 1:
-                        total_cost += switch_cost
+                        total_switch_cost += switch_cost
 
             if self_chck:
                 if current_atm.does_STE_has_self_loop(current_node):
                     if routing_template[node_assignee, node_assignee] != 1:
-                        total_cost += switch_cost
+                        total_switch_cost += switch_cost
 
-            return total_cost
+            return total_cond_cost, total_switch_cost
 
         if local_optimization:
             dp = {}
@@ -923,16 +1003,22 @@ def ga_routing(atms_list, routing_template, available_rows,
                 if node1_idx >= total_nodes:
                     break
 
-                src_cost = dp[node1_idx] if node1_idx in dp else dp.setdefault(node1_idx, get_node_cost(node1_idx))
+                src_cond_cost, src_switch_cost = dp[node1_idx] if node1_idx in dp else\
+                    dp.setdefault(node1_idx, get_node_cost(node1_idx))
+
                 for node2_idx, node2_assignee in enumerate(individual[node1_idx+1:]):
                     if node2_idx >= total_nodes:
                         break
-                    dst_cost = dp[node2_idx] if node2_idx in dp else dp.setdefault(node2_idx, get_node_cost(node2_idx))
+                    dst_cond_cost, dst_switch_cost = dp[node2_idx] if node2_idx in dp else\
+                        dp.setdefault(node2_idx, get_node_cost(node2_idx))
                     individual[node1_idx], individual[node2_idx] = individual[node2_idx], individual[node1_idx]
-                    new_src_cost = get_node_cost(node1_idx)
-                    new_dst_cost = get_node_cost(node2_idx)
+                    new_src_cond_cost, new_src_switch_cost = get_node_cost(node1_idx)
+                    new_dst_cond_cost, new_dst_switch_cost = get_node_cost(node2_idx)
 
-                    if (new_src_cost + new_dst_cost) < src_cost + dst_cost:
+                    if (new_src_switch_cost * switch_cost_weight + new_src_cond_cost * cond_cost_weight +
+                        new_dst_switch_cost * switch_cost_weight + new_dst_cond_cost * cond_cost_weight) <\
+                            (src_switch_cost * switch_cost_weight + src_cond_cost * cond_cost_weight +\
+                            dst_switch_cost * switch_cost_weight + dst_cond_cost * cond_cost_weight):
                         atm_src, src_node = nodes_list[node1_idx]
                         atm_dst, dst_node = nodes_list[node1_idx]
                         for nb_pd in itertools.chain(atm_src.get_neighbors(src_node),
@@ -944,21 +1030,22 @@ def ga_routing(atms_list, routing_template, available_rows,
                             nb_pd_idx = node_dic[(atm_src, nb_pd)]  # atm_src == atm_dst
                             if nb_pd_idx in dp:
                                 del dp[nb_pd_idx]
-                        dp[node1_idx] = new_src_cost
-                        dp[node2_idx] = new_dst_cost
+                        dp[node1_idx] = (new_src_cond_cost, new_src_switch_cost)
+                        dp[node2_idx] = (new_dst_cond_cost, new_dst_switch_cost)
                     else:
                         individual[node1_idx], individual[node2_idx] = individual[node2_idx], individual[node1_idx]
 
         for node_idx, node_assignee in enumerate(individual):
             if node_idx >= total_nodes:
                 break
-            node_cost = get_node_cost(node_idx, pred_check=False)
-            cost+=node_cost
-            if node_cost > 0:
+            node_cond_cost, node_switch_cost = get_node_cost(node_idx, pred_check=False)
+            total_switch_cost += node_switch_cost
+            total_cond_cost += node_cond_cost
+            if node_switch_cost > 0 or node_cond_cost > 0:
                 bad_set.add(node_idx)
 
         individual.bad_set = bad_set
-        return cost,
+        return total_cond_cost, total_switch_cost
 
     def my_eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None,
                  halloffame=None, verbose=__debug__):
@@ -982,13 +1069,14 @@ def ga_routing(atms_list, routing_template, available_rows,
 
         # Begin the generational process
         gen = 0
-        best_eval = evaluation(tools.selBest(population, k=1)[0])[0]
+        best_eval = evaluation(tools.selBest(population, k=1)[0])
 
-        while gen < ngen and best_eval > 0:
-            print "in GA. Gen: %d current best value: %d" % (gen, best_eval)
+        while gen < ngen and sum(best_eval) > 0:
+            print "in GA. Gen: %d current best value: %s" % (gen, best_eval)
             gen += 1
             # Select the next generation individuals
             offspring = toolbox.select(population, len(population))
+            #offspring = toolbox.select(population)
 
             # Vary the pool of individuals
             offspring = algorithms.varAnd(offspring, toolbox, cxpb, mutpb)
@@ -1011,18 +1099,21 @@ def ga_routing(atms_list, routing_template, available_rows,
             logbook.record(gen=gen, nevals=len(invalid_ind), **record)
             if verbose:
                 print logbook.stream
-            best_eval = evaluation(tools.selBest(population, k=1)[0])[0]
+            best_eval = evaluation(tools.selBest(population, k=1)[0])
 
         return population, logbook
 
+    pop_size = 100
     toolbox.register("evaluate", evaluation)
-    toolbox.register("select", tools.selTournament, tournsize=20)
+    toolbox.register("select", tools.selTournament, tournsize=15)
+    #toolbox.register("select", tools.selNSGA2, k=pop_size)
+
 
     fit_stats = tools.Statistics(key=operator.attrgetter("fitness.values"))
     fit_stats.register('mean', np.mean)
     fit_stats.register('min', np.min)
 
-    pop_size = 100
+
     pop = toolbox.population(n=pop_size)
 
 
@@ -1079,7 +1170,7 @@ def ga_routing(atms_list, routing_template, available_rows,
         plt.xlabel('Iterations')
         plt.show()
 
-    return evaluation(best_individual)[0]
+    return sum(evaluation(best_individual))
 
 
 def get_approximate_automata(atm, translation_dic, max_val_dim):
