@@ -791,7 +791,7 @@ def ga_routing(atms_list, routing_template, available_rows,
     assert None not in nodes_list
 
     toolbox = base.Toolbox()
-    switch_cost_weight, cond_cost_weight = 1.0, 5.0
+    switch_cost_weight, cond_cost_weight = 1.0, 10.0
     creator.create("FitnessMin", base.Fitness, weights=(-cond_cost_weight, -switch_cost_weight))
     creator.create("Individual", list, fitness=creator.FitnessMin, bad_set=set)
 
