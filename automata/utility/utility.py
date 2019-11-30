@@ -1015,19 +1015,24 @@ def ga_routing(atms_list, routing_template, available_rows,
                     new_src_cond_cost, new_src_switch_cost = get_node_cost(node1_idx)
                     new_dst_cond_cost, new_dst_switch_cost = get_node_cost(node2_idx)
 
-                    if (new_src_switch_cost * switch_cost_weight + new_src_cond_cost * cond_cost_weight +
-                        new_dst_switch_cost * switch_cost_weight + new_dst_cond_cost * cond_cost_weight) <\
-                            (src_switch_cost * switch_cost_weight + src_cond_cost * cond_cost_weight +\
-                            dst_switch_cost * switch_cost_weight + dst_cond_cost * cond_cost_weight):
+                    # if (new_src_switch_cost * switch_cost_weight + new_src_cond_cost * cond_cost_weight +
+                    #     new_dst_switch_cost * switch_cost_weight + new_dst_cond_cost * cond_cost_weight) <\
+                    #     (src_switch_cost * switch_cost_weight + src_cond_cost * cond_cost_weight +
+                    #     dst_switch_cost * switch_cost_weight + dst_cond_cost * cond_cost_weight):
+                    if (new_src_cond_cost + new_dst_cond_cost < src_cond_cost + dst_cond_cost)\
+                            or ((new_src_cond_cost + new_dst_cond_cost == src_cond_cost + dst_cond_cost)
+                                and (new_src_switch_cost + new_dst_switch_cost < src_switch_cost + dst_switch_cost)):
                         atm_src, src_node = nodes_list[node1_idx]
-                        atm_dst, dst_node = nodes_list[node1_idx]
-                        for nb_pd in itertools.chain(atm_src.get_neighbors(src_node),
-                                                     atm_src.get_predecessors(src_node),
-                                                     atm_dst.get_neighbors(dst_node),
-                                                     atm_dst.get_predecessors(dst_node)):
+                        atm_dst, dst_node = nodes_list[node2_idx]
+                        for curr_atm, nb_pd in itertools.chain(
+                                zip(itertools.repeat(atm_src), atm_src.get_neighbors(src_node)),
+                                zip(itertools.repeat(atm_src), atm_src.get_predecessors(src_node)),
+                                zip(itertools.repeat(atm_dst), atm_dst.get_neighbors(dst_node)),
+                                zip(itertools.repeat(atm_dst), atm_dst.get_predecessors(dst_node))):
                             if nb_pd.is_fake:
                                 continue
-                            nb_pd_idx = node_dic[(atm_src, nb_pd)]  # atm_src == atm_dst
+
+                            nb_pd_idx = node_dic[(curr_atm, nb_pd)]
                             if nb_pd_idx in dp:
                                 del dp[nb_pd_idx]
                         dp[node1_idx] = (new_src_cond_cost, new_src_switch_cost)
