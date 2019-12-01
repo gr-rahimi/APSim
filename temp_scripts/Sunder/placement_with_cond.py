@@ -2,7 +2,8 @@ from __future__ import division
 from automata.utility.utility import pact_interconnect
 import automata as atma
 from automata.AnmalZoo.anml_zoo import anml_path, AnmalZoo
-import os, shutil
+import os
+import shutil
 from tqdm import tqdm
 import numpy as np
 import pickle

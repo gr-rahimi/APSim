@@ -7,15 +7,11 @@ from matplotlib import colors
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
-#from mpl_toolkits.mplot3d import Axes3D
 import networkx as nx
-import igraph
-from sortedcollections import SortedList
 from deap import algorithms, base, creator, tools
 from automata.elemnts import ElementsType
 from automata.elemnts.element import FakeRoot
 from automata.elemnts.ste import PackedInput, PackedInterval, PackedIntervalSet
-import automata.automata_network
 import os
 from tqdm import tqdm
 import itertools
@@ -201,27 +197,27 @@ def cut_switch_box(sb, l):
 
 
 
-def get_graph_from_matrix(routing_matrix, is_igraph):
-    R, C = len(routing_matrix), len(routing_matrix[0])
-
-    assert R==C, "matrix should be squared"
-    if is_igraph:
-        G = igraph.Graph(directed = True)
-    else:
-        G= nx.DiGraph()
-
-    for i in range(R):
-        if is_igraph:
-            G.add_vertices(i)
-        else:
-            G.add_node(i)
-
-    for i in range(R):
-        for j in range(R):
-            if routing_matrix[i][j]:
-
-                G.add_edge(i, j)
-    return G
+# def get_graph_from_matrix(routing_matrix, is_igraph):
+#     R, C = len(routing_matrix), len(routing_matrix[0])
+#
+#     assert R==C, "matrix should be squared"
+#     if is_igraph:
+#         G = igraph.Graph(directed = True)
+#     else:
+#         G= nx.DiGraph()
+#
+#     for i in range(R):
+#         if is_igraph:
+#             G.add_vertices(i)
+#         else:
+#             G.add_node(i)
+#
+#     for i in range(R):
+#         for j in range(R):
+#             if routing_matrix[i][j]:
+#
+#                 G.add_edge(i, j)
+#     return G
 
 def get_switch_count(switch_layout):
     sum_list = map(lambda x:sum(x), switch_layout)

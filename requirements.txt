@@ -1,0 +1,9 @@
+sortedcontainers==1.5.7
+numpy==1.11.2
+matplotlib==2.1.0
+pathos==0.2.5
+networkx==2.2
+deap==1.2.2
+tqdm==4.30.0
+Cython==0.26.1
+Jinja2==2.10.1
