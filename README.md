@@ -11,7 +11,7 @@ OS: Linux, mac OS
 
 1. Clone a fresh copy of the git APSim repository (`git clone <path to APSim repo>`).
 
-2. Download and Install Anaconda (pyhton 2.7)
+2. Download and Install Anaconda (python 2.7)
 
 3. Install the following python packages using all available in Anaconda repositories:
 
