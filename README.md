@@ -9,7 +9,7 @@ Setup
 External dependencies: `g++, swig, python`
 OS: Linux, mac OS
 
-1. Clone a fresh copy of the git APSim repository (`git clone <path to APSim repo>`).
+1. Clone a fresh copy of the git APSim repository (`git clone -b ASPLOS_AE https://github.com/gr-rahimi/APSim.git`).
 
 2. Download and Install Anaconda (python 2.7)
 
