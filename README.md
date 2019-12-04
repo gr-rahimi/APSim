@@ -21,6 +21,7 @@ OS: Linux, mac OS
     `./compile ~/anaconda2/include/python2.7/`
     
 5. Add APSim to your PYTHONPATH
+'export PYTHONPATH=$PYTHONPATH:/home/foo/APSim'
 
 6. Clone a fresh copy of ANMLZoo
 `git clone https://github.com/gr-rahimi/ANMLZoo.git`
