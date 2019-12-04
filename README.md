@@ -23,10 +23,10 @@ OS: Linux, mac OS
     
 5. Add APSim to your PYTHONPATH
 
-`export PYTHONPATH=$PYTHONPATH:/home/foo/APSim`
+    `export PYTHONPATH=$PYTHONPATH:/home/foo/APSim`
 
 6. Clone a fresh copy of ANMLZoo
 
-`git clone https://github.com/gr-rahimi/ANMLZoo.git`
+    `git clone https://github.com/gr-rahimi/ANMLZoo.git`
 
 7. Update the variable ANMLZoo's address path in APSim's module `automata/AnmalZoo/anml_zoo.py` variable `_base_address`
