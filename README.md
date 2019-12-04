@@ -18,12 +18,15 @@ OS: Linux, mac OS
     `sortedcontainers, numpy, matplotlib, pathos, networkx, deap, tqdm, Jinja2, pygraphviz`
 
 4. Go to the CPP folder and run the compile script with python include directoy path. For example:
+
     `./compile ~/anaconda2/include/python2.7/`
     
 5. Add APSim to your PYTHONPATH
+
 `export PYTHONPATH=$PYTHONPATH:/home/foo/APSim`
 
 6. Clone a fresh copy of ANMLZoo
+
 `git clone https://github.com/gr-rahimi/ANMLZoo.git`
 
 7. Update the variable ANMLZoo's address path in APSim's module `automata/AnmalZoo/anml_zoo.py` variable `_base_address`
