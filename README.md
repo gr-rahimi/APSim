@@ -19,8 +19,6 @@ OS: Linux, mac OS
 
 4. Go to the CPP folder and run the compile script with python include directoy path. For example:
     `./compile ~/anaconda2/include/python2.7/`
-
-5. Compile zsim: `scons -j16`
-
-6. Launch a test run: `./build/opt/zsim tests/simple.cfg`
+    
+5. Add APSim to your PYTHONPATH
 
