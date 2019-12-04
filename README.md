@@ -13,7 +13,7 @@ OS: Linux, mac OS
 
 2. Download and Install Anaconda (pyhton 2.7)
 
-3. Install the following python packages:
+3. Install the following python packages using all available in Anaconda repositories:
 
     `sortedcontainers, numpy, matplotlib, pathos, networkx, deap, tqdm, Jinja2, pygraphviz`
 
