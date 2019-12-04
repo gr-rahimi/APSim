@@ -13,11 +13,11 @@ fi
 
 rm *.so *.o *.cxx *.pyc *.py 2> /dev/null
 touch __init__.py
-gcc -c -fPIC -fPIC -std=c++11  VASim.cpp
+g++ -c -fPIC -fPIC -std=c++11  VASim.cpp
 swig -c++ -python VASim.i
-gcc -c -fPIC -std=c++11 VASim_wrap.cxx  -I $Python_Path
-gcc -shared -Wl,-soname,_VASim.so -o _VASim.so VASim.o VASim_wrap.o
-#gcc -undefined dynamic_lookup  VASim.o VASim_wrap.o -o _VASim.so
+g++ -c -fPIC -std=c++11 VASim_wrap.cxx  -I $Python_Path
+g++ -shared -Wl,-soname,_VASim.so -o _VASim.so VASim.o VASim_wrap.o
+#g++ -undefined dynamic_lookup  VASim.o VASim_wrap.o -o _VASim.so
 
 me=`dirname "$0"`
 so_path="$me/_VASim.so"
