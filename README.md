@@ -34,3 +34,5 @@ OS: Linux, mac OS
     `git clone https://github.com/gr-rahimi/ANMLZoo.git`
 
 7. Update the variable ANMLZoo's address path in APSim's module `automata/AnmalZoo/anml_zoo.py` variable `_base_address`
+
+8. Run example scripts in the Example folder
