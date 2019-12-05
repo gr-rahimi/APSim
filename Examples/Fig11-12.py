@@ -26,8 +26,12 @@ def process_single_ds(uat):
         # bitwidth to be calculated
 
         stats = [[0, 0] for _ in range(len(target_bit_widths))]
+        total_ns, total_ne = 0.0, 0.0
 
         for atm in automatas:
+            total_ns += atm.nodes_count
+            total_ne += atm.edges_count
+
             b_atm = atma.automata_network.get_bit_automaton(atm, original_bit_width=atm.max_val_dim_bits_len)
             # generate bit automaton
 
@@ -55,7 +59,7 @@ def process_single_ds(uat):
         global_lock.acquire()
         print uat
         for tb_idx, tb in enumerate(target_bit_widths):
-            print "bitwidth = ", tb, "number of states = ", stats[tb_idx][0], "number of edges = ", stats[tb_idx][1]
+            print "bitwidth = ", tb, ":  number of states (normalized to 8bit design) = ", stats[tb_idx][0]/total_ns, "number of edges (normalized to 8bit design) = ", stats[tb_idx][1]/total_ne
 
         global_lock.release()
         return uat, stats
