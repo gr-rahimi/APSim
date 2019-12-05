@@ -19,11 +19,11 @@ OS: Linux, mac OS
     
     `conda install -c conda-forge sortedcontainers matplotlib pathos deap tqdm`
     
-    `conda install -c anaconda jinja2 pygraphviz networkx`
+    `conda install -c anaconda jinja2 pygraphviz networkx pygraphviz numpy`
 
 4. Go to the CPP folder and run the compile script with python include directoy path. For example:
 
-    `./compile ~/anaconda2/include/python2.7/`
+    `./compile ~/anaconda2/in clude/python2.7/`
     
 5. Add APSim to your PYTHONPATH
 
