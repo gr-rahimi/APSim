@@ -38,7 +38,9 @@ Install
 
 7. Update the variable ANMLZoo's address path in APSim's module `automata/AnmalZoo/anml_zoo.py` variable `_base_address`
 
-# Usage 
+
+Usage
+-------
 There are some scripts available in the "Example" folder replicating main experiments in the paper. Run each of them using the following command
 `python <script name>`
 
