@@ -1,6 +1,6 @@
 # APSim 
 
-APSim is an automata compiler using python. It supports many essential automata compiling features such as minimization, fan in/out constraint, connected components extraction,... etc.
+APSim is an automata processing simulator, implemented in python. It supports many essential automata compiling features such as automata minimization, automata transformation, fan in/out constraint, connected components extraction, static and run-time analysis, etc.
 APSim uses NetworkX as its underlying data straucture to maintain the automataon as a graph and run automaton processing algorithms to reshape the underlying graph.
 
 Requirements
