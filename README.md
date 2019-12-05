@@ -3,9 +3,8 @@
 APSim is an automata compiler using python. It supports many essential automata compiling features such as minimization, fan in/out constraint, connected components extraction,... etc.
 APSim uses NetworkX as its underlying data straucture to maintain the automataon as a graph and run automaton processing algorithms to reshape the underlying graph.
 
-Setup
------
-
+Requirements
+------------
 External dependencies: `g++, swig, python`
 OS: Linux, mac OS
 
@@ -20,6 +19,10 @@ OS: Linux, mac OS
     `conda install -c conda-forge sortedcontainers matplotlib pathos deap tqdm`
     
     `conda install -c anaconda jinja2 pygraphviz networkx pygraphviz numpy`
+    
+
+Install
+-------
 
 4. Go to the CPP folder and run the compile script with python include directoy path. For example:
 
@@ -40,4 +43,9 @@ There are some scripts available in the "Example" folder replicating main experi
 `python <script name>`
 
 
+Reference
+----------
+Elaheh Sadredini, Reza Rahimi, Marzieh Lenjani, Mircea Stan, and Kevin Skadron. "FlexAmata: A Universal and
+Efficient Adaption of Applications to Spatial Automata Processing Accelerators." The 25th International Conference on
+Architectural Support for Programming Languages and Operating Systems (ASPLOS), 2020.
 
