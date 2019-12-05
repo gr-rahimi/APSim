@@ -16,7 +16,9 @@ OS: Linux, mac OS
 3. Install the following python packages using all available in Anaconda repositories:
 
     `sortedcontainers, numpy, matplotlib, pathos, networkx, deap, tqdm, Jinja2, pygraphviz`
+    
     `conda install -c conda-forge sortedcontainers matplotlib pathos deap tqdm`
+    
     `conda install -c anaconda jinja2 pygraphviz networkx`
 
 4. Go to the CPP folder and run the compile script with python include directoy path. For example:
