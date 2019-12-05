@@ -45,6 +45,14 @@ There are some scripts available in the "Example" folder replicating main experi
 `python <script name>`
 
 
+
+# Demo
+A demo for automata transformation and minimization, and also HDL generation for the transformed automata can be found here:
+http://ec2-3-80-185-123.compute-1.amazonaws.com:8888/lab?
+
+password: ASPLOS_AE
+
+
 Reference
 ----------
 Elaheh Sadredini, Reza Rahimi, Marzieh Lenjani, Mircea Stan, and Kevin Skadron. "FlexAmata: A Universal and
