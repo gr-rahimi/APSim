@@ -98,7 +98,7 @@ def process_single_ds(uat):
                 hdl_writers[stride_val].register_automata(atm=s_atm, use_compression=False, lut_bram_dic=lut_bram_dic)
 
                 if (atm_idx + 1) % atms_per_stage == 0:
-                    hdl_writers[stride_val].register_stage_pending(single_out=False, use_bram=actual_bram)
+                    hdl_writers[stride_val].register_stage_pending(use_bram=actual_bram)
 
         for i in range(max_target_stride + 1):
             hdl_writers[i].finilize()

@@ -1,5 +1,5 @@
 import xml.etree.cElementTree as ET
-from .automata_network import Automatanetwork
+from automata.automata_network import Automatanetwork
 
 
 def parse_anml_file(file_path):

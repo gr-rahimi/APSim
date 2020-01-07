@@ -108,6 +108,6 @@ for uat in under_process_atms:
                                                   translation_list=translation_list)
 
             if (atm_idx + 1) % atms_per_stage == 0:
-                generator_ins.register_stage_pending(single_out=False)
+                generator_ins.register_stage_pending()
 
         generator_ins.finilize()

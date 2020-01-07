@@ -84,7 +84,7 @@ def process_single_ds(uat):
                 generator_ins.register_automata(atm=atm, use_compression=False, lut_bram_dic=lut_bram_dic)
 
                 if (atm_idx + 1) % atms_per_stage == 0:
-                    generator_ins.register_stage_pending(single_out=False, use_bram=actual_bram)
+                    generator_ins.register_stage_pending(use_bram=actual_bram)
 
 
             generator_ins.finilize()

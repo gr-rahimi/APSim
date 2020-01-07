@@ -1,7 +1,7 @@
 from enum import Enum
 import os.path
 
-_base_address = "/zf15/gr5yf/Git/ANMLZoo"
+_base_address = "/home/gr5yf/Git/ANMLZoo"
 
 class AnmalZoo(Enum):
     Brill = 0

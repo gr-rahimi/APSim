@@ -1,0 +1,36 @@
+{#
+@param symbol_fifo_bit_width: integer, the bitwidth of symbol and metadata all together
+#}
+
+create_bd_design "inter_stage_fifo"
+create_bd_cell -type ip -vlnv xilinx.com:ip:fifo_generator:13.2 fifo_generator_0
+set_property name symbol_fifo [get_bd_cells fifo_generator_0]
+set_property -dict [list CONFIG.Fifo_Implementation {Common_Clock_Distributed_RAM} CONFIG.Input_Data_Width {{'{'}}{{symbol_fifo_bit_width}}{{'}'}} CONFIG.Input_Depth {16} CONFIG.Output_Data_Width {{'{'}}{{symbol_fifo_bit_width}}{{'}'}} CONFIG.Output_Depth {16} CONFIG.Use_Embedded_Registers {false} CONFIG.Valid_Flag {true} CONFIG.Data_Count_Width {4} CONFIG.Write_Data_Count_Width {4} CONFIG.Read_Data_Count_Width {4} CONFIG.Full_Threshold_Assert_Value {14} CONFIG.Full_Threshold_Negate_Value {13}] [get_bd_cells symbol_fifo]
+
+create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:fifo_write_rtl:1.0 FIFO_WRITE
+connect_bd_intf_net [get_bd_intf_pins symbol_fifo/FIFO_WRITE] [get_bd_intf_ports FIFO_WRITE]
+
+create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:fifo_read_rtl:1.0 FIFO_READ
+connect_bd_intf_net [get_bd_intf_pins symbol_fifo/FIFO_READ] [get_bd_intf_ports FIFO_READ]
+
+create_bd_port -dir I -type clk -freq_hz 250000000 clk
+connect_bd_net [get_bd_pins /symbol_fifo/clk] [get_bd_ports clk]
+
+create_bd_port -dir I srst
+connect_bd_net [get_bd_pins /symbol_fifo/srst] [get_bd_ports srst]
+
+create_bd_port -dir O valid
+connect_bd_net [get_bd_pins /symbol_fifo/valid] [get_bd_ports valid]
+
+generate_target all [get_files  ./project_1.srcs/sources_1/bd/inter_stage_fifo/inter_stage_fifo.bd]
+
+catch { config_ip_cache -export [get_ips -all inter_stage_fifo_fifo_generator_0_0] }
+export_ip_user_files -of_objects [get_files ./project_1.srcs/sources_1/bd/inter_stage_fifo/inter_stage_fifo.bd] -no_script -sync -force -quiet
+create_ip_run [get_files -of_objects [get_fileset sources_1] ./project_1.srcs/sources_1/bd/inter_stage_fifo/inter_stage_fifo.bd]
+launch_runs -jobs 8 inter_stage_fifo_fifo_generator_0_0_synth_1
+
+wait_on_run inter_stage_fifo_fifo_generator_0_0_synth_1
+
+make_wrapper -files [get_files ./project_1.srcs/sources_1/bd/inter_stage_fifo/inter_stage_fifo.bd] -top
+add_files -norecurse ./project_1.srcs/sources_1/bd/inter_stage_fifo/hdl/inter_stage_fifo_wrapper.v
+update_compile_order -fileset sources_1

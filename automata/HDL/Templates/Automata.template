@@ -39,16 +39,18 @@ module Automata_{{automata.id}}(input clk,
 wire all_input;
 wire start_of_data;
 
-assign all_input = 1'b1;
-assign start_of_data = ~reset;
-
 {%for node in automata.nodes  if not node.id == 0 %}
 {%- if not node.report -%}
 wire {{automata.id}}_w_out_{{node.id}};
 {% endif -%}
-
 wire {{automata.id}}_lut_match_{{node.id}};
 wire {{automata.id}}_w_match_{{node.id}};
+{% endfor %}
+
+assign all_input = 1'b1;
+assign start_of_data = ~reset;
+
+{%for node in automata.nodes  if not node.id == 0 %}
 
     {% set n_preds = predecessors(automata._my_graph, node)|list%}
     {%set pred_wire_str = []%}

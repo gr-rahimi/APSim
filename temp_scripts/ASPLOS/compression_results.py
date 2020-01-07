@@ -78,7 +78,7 @@ def process_single_ds(uat):
                                                   translation_list=translation_list)
 
             if (atm_idx + 1) % atms_per_stage == 0:
-                generator_ins.register_stage_pending(single_out=False, use_bram=use_bram)
+                generator_ins.register_stage_pending(use_bram=use_bram)
 
         generator_ins.finilize()
 

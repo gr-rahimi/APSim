@@ -2,46 +2,181 @@
 This template generate the top level module for the whole automaton
 @param automatas: List of Lists all automatas.
 @param bit_feed_size = number of bits being feed in each cycle
+@param axis_bw_list : list of the axi stream TDATA of each stage in bits (report vector and metadata)
+@param md_counter_bw: bit width of metadata
+@param use_mid_fifo: True/Flase, if True, a fifo will be placed between each stage to keep the symbols and metadata. Using this technique, we can get rid of the global signal run as
+each automata only looks to its input fifo to check if any symbol is available
 #}
 
 module Top_Module(
-                  input clk,
-                  input reset,
-                  input run,
-                  input [{{bit_feed_size-1}} : 0] symbols
-                  {%- for stage in automatas -%}
-                  {%-for atm in stage %}
-                  {%- for node in atm.nodes if node.report %}
-                   , output {{atm.id}}_w_out_{{node.id}}
-                  {%-endfor %}
-                  {%-endfor%}
-                  {%endfor%}
-                  );
+                ddr4_sdram_c1_act_n,
+                ddr4_sdram_c1_adr,
+                ddr4_sdram_c1_ba,
+                ddr4_sdram_c1_bg,
+                ddr4_sdram_c1_ck_c,
+                ddr4_sdram_c1_ck_t,
+                ddr4_sdram_c1_cke,
+                ddr4_sdram_c1_cs_n,
+                ddr4_sdram_c1_dm_n,
+                ddr4_sdram_c1_dq,
+                ddr4_sdram_c1_dqs_c,
+                ddr4_sdram_c1_dqs_t,
+                ddr4_sdram_c1_odt,
+                ddr4_sdram_c1_reset_n,
+                default_250mhz_clk1_clk_n,
+                default_250mhz_clk1_clk_p,
+                sys_rst,
+                atm_clk);
+
+output wire ddr4_sdram_c1_act_n;
+output wire [16:0]ddr4_sdram_c1_adr;
+output wire [1:0]ddr4_sdram_c1_ba;
+output wire ddr4_sdram_c1_bg;
+output wire ddr4_sdram_c1_ck_c;
+output wire ddr4_sdram_c1_ck_t;
+output wire ddr4_sdram_c1_cke;
+output wire ddr4_sdram_c1_cs_n;
+inout wire [7:0]ddr4_sdram_c1_dm_n;
+inout wire [63:0]ddr4_sdram_c1_dq;
+inout wire[7:0]ddr4_sdram_c1_dqs_c;
+inout wire [7:0]ddr4_sdram_c1_dqs_t;
+output wire ddr4_sdram_c1_odt;
+output wire ddr4_sdram_c1_reset_n;
+input wire default_250mhz_clk1_clk_n;
+input wire default_250mhz_clk1_clk_p;
+input wire sys_rst;
+input wire atm_clk;
 
 
+reg [{{bit_feed_size - 1}} : 0] input_sym;
+reg [{{md_counter_bw - 1}} : 0] md_counter;
+wire [{{automatas|length - 1}} : 0] intcons_stop_vector;
+{% if not use_mid_fifo %}
+wire global_run;
+assign global_run = ~(|intcons_stop_vector);
+{% else %}
+{% for s in range(automatas|length) %}
+wire run_stage_{{s}};
+{% endfor %}
+{% endif %}
 
-{% for s in range(automatas|length -1)%}
-wire [{{bit_feed_size -1}} : 0] symbols_s{{s}}_to_{{s+1}};
-wire reset_s{{s}}_to_{{s+1}};
+{%- for s in range(automatas|length) -%}
+{% if not use_mid_fifo %}
+reg [{{bit_feed_size - 1}} : 0] pre_stage_{{s}}_sym;
+reg [{{md_counter_bw - 1}} : 0] pre_stage_{{s}}_metadata;
+{% else %}
+wire [{{bit_feed_size - 1}} : 0] pre_stage_{{s}}_sym;
+wire [{{md_counter_bw - 1}} : 0] pre_stage_{{s}}_metadata;
+wire FIFO_READ_empty_stage_{{s}};
+wire FIFO_READ_rd_en_stage_{{s}};
+wire FIFO_WRITE_full_stage_{{s}};
+wire FIFO_WRITE_wr_en_stage_{{s}};
+wire FIFO_valid_stage_{{s}};
+{% endif %}
+reg pre_stage_{{s}}_res;
+{%- endfor %}
+
+always @(posedge atm_clk) begin
+input_sym <= input_sym + 1;
+end
+
+always @(posedge atm_clk) begin
+md_counter <= md_counter + 1;
+end
+{% if not use_mid_fifo %}
+{% for s in range(automatas|length)%}
+always @(posedge atm_clk) begin
+    {%- if s == 0 %}
+    pre_stage_{{s}}_sym <= input_sym;
+    pre_stage_{{s}}_res <= sys_rst;
+    pre_stage_{{s}}_metadata <= md_counter;
+    {%- else %}
+    pre_stage_{{s}}_sym <= pre_stage_{{s - 1}}_sym;
+    pre_stage_{{s}}_res <= pre_stage_{{s - 1}}_res;
+    pre_stage_{{s}}_metadata <= pre_stage_{{s - 1}}_metadata;
+    {% endif %}
+end
+{% endfor %}
+{% else %}
+
+{% for s in range(automatas|length)%}
+always @(posedge atm_clk) begin
+{%- if s == 0 %}
+pre_stage_{{s}}_res <= sys_rst;
+{% else %}
+pre_stage_{{s}}_res <= pre_stage_{{s - 1}}_res;
+{% endif %}
+end
+inter_stage_fifo_wrapper pre_stage_{{s}}_fifo(.FIFO_READ_empty(FIFO_READ_empty_stage_{{s}}),
+                                              .FIFO_READ_rd_data({pre_stage_{{s}}_metadata, pre_stage_{{s}}_sym}),
+                                              .FIFO_READ_rd_en(FIFO_READ_rd_en_stage_{{s}}),
+                                              .FIFO_WRITE_full(FIFO_WRITE_full_stage_{{s}}),
+                                              .FIFO_WRITE_wr_data({% if s == 0 %} {md_counter, input_sym} {% else %} {pre_stage_{{s - 1}}_metadata, pre_stage_{{s - 1}}_sym} {% endif %}),
+                                              .FIFO_WRITE_wr_en(FIFO_WRITE_wr_en_stage_{{s}}),
+                                              .clk(atm_clk),
+                                              .srst(pre_stage_{{s}}_res),
+                                              .valid(FIFO_valid_stage_{{s}}));
+
+assign FIFO_WRITE_wr_en_stage_{{s}} = {% if s > 0 %}  FIFO_valid_stage_{{s - 1}} & (~intcons_stop_vector[{{s - 1}}]) {% else %} 1'b1{% endif%};
+assign FIFO_READ_rd_en_stage_{{s}} = (~intcons_stop_vector[{{s}}]) {% if s < (automatas|length - 1) %} & FIFO_WRITE_full_stage_{{s + 1}}{% endif%};
+assign run_stage_{{s}} = FIFO_READ_rd_en_stage_{{s}} &  FIFO_valid_stage_{{s}};
+{% endfor %}
+{% endif %}
+
+{# counting the number of report states #}
+{% set ns = namespace(report_count=0) %}
+{%- for stage in automatas -%}
+{%- for atm in stage -%}
+{%- for node in atm.nodes -%}
+{%if node.report %} {% set ns.report_count = ns.report_count + 1 %} {%endif%}
+{%- endfor -%}
+{%- endfor -%}
+{%- endfor %}
+
+wire [{{ns.report_count - 1}} : 0] global_report_vector;
+
+{% set ns = namespace(curr_count=0, cum_count=0) -%}
+{% for stage_index in range(automatas|length) -%}
+wire [{{axis_bw_list[stage_index] - 1}} : 0] axi_tdata_stage_{{stage_index}};
+wire axi_tvalid_stage_{{stage_index}};
+wire axi_tready_stage_{{stage_index}};
+
+Automata_Stage{{stage_index}} automata_stage{{stage_index}}(.clk(atm_clk),
+                                             .run({% if not use_mid_fifo %}global_run{% else %}run_stage_{{s}}{%endif%}),
+                                             .reset(pre_stage_{{stage_index}}_res),
+                                             .top_symbols(pre_stage_{{stage_index}}_sym),
+                                             .axi_tready(axi_tready_stage_{{stage_index}}),
+                                             .sym_meta_d(pre_stage_{{stage_index}}_metadata),
+                                             .axi_tvalid(axi_tvalid_stage_{{stage_index}}),
+                                             {%- set ns.curr_count = 0%} {%- for atm in automatas[stage_index] %}{% for node in atm.nodes %}{% if node.report %} {% set ns.curr_count = ns.curr_count + 1%} {% endif %} {% endfor %} {% endfor %}
+                                             .report_vect(global_report_vector[ {{ns.cum_count + ns.curr_count - 1}} : {{ns.cum_count}}]){% set ns.cum_count = ns.cum_count + ns.curr_count%}{%set ns.curr_count = 0%},
+                                             .axi_tdata(axi_tdata_stage_{{stage_index}}),
+                                             .local_intcon_stoped(intcons_stop_vector[{{stage_index}}]));
 {% endfor %}
 
-{% for stage_index in range(automatas|length) %}
-Automata_Stage{{stage_index}} automata_stage{{stage_index}}(.clk(clk),
-                                             .run(run),
-                                             .reset({% if stage_index == 0 %}reset{%else%}reset_s{{stage_index -1}}_to_{{stage_index}} {%endif%}),
-                                             .top_symbols({% if stage_index == 0 %} symbols {% else %}symbols_s{{stage_index-1}}_to_{{stage_index}}{% endif %}),
-                                             {%- for atm in automatas[stage_index] -%}
-                                             {%- for node in atm.nodes -%}
-                                             {% if node.report %}
-                                              .{{atm.id}}_w_out_{{node.id}}({{atm.id}}_w_out_{{node.id}}),
-                                             {%- endif %}
-                                             {%- endfor %}
-                                             {% endfor %}
-                                             .out_symbols({% if stage_index < (automatas|length -1)  %} symbols_s{{loop.index0}}_to_{{loop.index0+1}}{%endif%}),
-                                             .out_reset({% if stage_index < (automatas|length -1)  %} reset_s{{loop.index0}}_to_{{loop.index0+1}}{%endif%})
-                                             );
-{% endfor %}
-
-
+report_architecture_bd_wrapper report_intconn(
+                                              .clk_fifo_slave(atm_clk),
+                                              .ddr4_sdram_c1_act_n(ddr4_sdram_c1_act_n),
+                                              .ddr4_sdram_c1_adr(ddr4_sdram_c1_adr),
+                                              .ddr4_sdram_c1_ba(ddr4_sdram_c1_ba),
+                                              .ddr4_sdram_c1_bg(ddr4_sdram_c1_bg),
+                                              .ddr4_sdram_c1_ck_c(ddr4_sdram_c1_ck_c),
+                                              .ddr4_sdram_c1_ck_t(ddr4_sdram_c1_ck_t),
+                                              .ddr4_sdram_c1_cke(ddr4_sdram_c1_cke),
+                                              .ddr4_sdram_c1_cs_n(ddr4_sdram_c1_cs_n),
+                                              .ddr4_sdram_c1_dm_n(ddr4_sdram_c1_dm_n),
+                                              .ddr4_sdram_c1_dq(ddr4_sdram_c1_dq),
+                                              .ddr4_sdram_c1_dqs_c(ddr4_sdram_c1_dqs_c),
+                                              .ddr4_sdram_c1_dqs_t(ddr4_sdram_c1_dqs_t),
+                                              .ddr4_sdram_c1_odt(ddr4_sdram_c1_odt),
+                                              .ddr4_sdram_c1_reset_n(ddr4_sdram_c1_reset_n),
+                                              .default_250mhz_clk1_clk_n(default_250mhz_clk1_clk_n),
+                                              .default_250mhz_clk1_clk_p(default_250mhz_clk1_clk_p),
+                                              {% for stage_index in range(automatas|length) %}.input_report_AXIS_stage_{{stage_index}}_tdata(axi_tdata_stage_{{stage_index}}),
+                                              .input_report_AXIS_stage_{{stage_index}}_tready(axi_tready_stage_{{stage_index}}),
+                                              .input_report_AXIS_stage_{{stage_index}}_tvalid(axi_tvalid_stage_{{stage_index}}),
+                                              {% endfor -%}
+                                              .sys_rst(sys_rst)
+                                              );
 
 endmodule

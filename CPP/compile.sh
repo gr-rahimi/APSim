@@ -8,7 +8,7 @@ Python_Path=$1
 if [ ! -d $Python_Path ]
 then
     echo "Python include path does not exist"
-    exit 1 # die with error code 9999
+    exit 1 # die with error code 1
 fi
 
 rm *.so *.o *.cxx *.pyc *.py 2> /dev/null

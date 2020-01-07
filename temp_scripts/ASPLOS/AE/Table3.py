@@ -74,7 +74,7 @@ def process_single_ds(uat):
             generator_ins.register_automata(atm=atm, use_compression=False)
 
             if (atm_idx + 1) % atms_per_stage == 0:
-                generator_ins.register_stage_pending(single_out=False, use_bram=False)
+                generator_ins.register_stage_pending(use_bram=False)
 
         generator_ins.finilize()
         shutil.make_archive(hdl_folder_name, 'zip', result_dir)

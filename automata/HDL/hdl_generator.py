@@ -152,11 +152,12 @@ def test_compressor(original_width, byte_trans_map, byte_map_width, translation_
 
 
 def get_hdl_folder_name(prefix, number_of_atms, stride_value, before_match_reg, after_match_reg, ste_type, use_bram,
-                        use_compression, compression_depth):
+                        use_compression, compression_depth, use_mid_fifo, use_rst):
     folder_name = prefix + 'stage_' + str(number_of_atms) + '_stride' + str(stride_value) + (
         '_before' if before_match_reg else '') + ('_after' if after_match_reg else '') + \
                    ('_ste' + str(ste_type)) + ('_withbram' if use_bram else '_nobram') + \
-                  ('with_compD' if use_compression else 'no_comp') + (str(compression_depth) if use_compression else '')
+                  ('with_compD' if use_compression else 'no_comp') + (str(compression_depth) if use_compression else '') + \
+                  ('_use_rst' if use_rst else '_no_rst') + ('_use_mid_fifo' if use_mid_fifo else '_use_mid_reg')
 
     return folder_name
 
@@ -205,13 +206,16 @@ def generate_full_lut(atms_list, single_out ,before_match_reg, after_match_reg, 
 
 
 class HDL_Gen(object):
-    def __init__(self, path, before_match_reg, after_match_reg, ste_type, total_input_len, bram_shape=None):
+    metada_bw = 24 # size of the report vector metadata
+
+    def __init__(self, path, before_match_reg, after_match_reg, ste_type, total_input_len, bram_shape=None, use_mid_fifo=True, use_rst=True):
         '''
         :param path: path to generate verilog files
         :param before_match_reg
         :param after_match_reg
         :param bram_shape: (width, col) representing the size of bram to be used
-        :param
+        :param use_mid_fifo: True/False, if True, a fifo will be applied between each stages
+        :param use_rst: True/False, if True, reset signal will be used to reset the STE's FFs.
         '''
 
         self._path = path
@@ -237,7 +241,8 @@ class HDL_Gen(object):
         self._Node_Interface = namedtuple('Node_Interface', ['id', 'report', 'sym_count', 'symbols'])
         self._pending_automatas = [] # this list keeps all the automata that has not been assigned to a stage [(atm_interface, lut_bram_dic),....]
         self._bram_shape = bram_shape
-
+        self._use_mid_fifo = use_mid_fifo
+        self._use_rst = use_rst
 
     def _generate_single_automata(self, automata, inp_bit_len, lut_bram_dic):
         '''
@@ -530,10 +535,9 @@ class HDL_Gen(object):
 
         return chunked_bram_list, brams_list
 
-    def register_stage_pending(self, single_out, use_bram):
+    def register_stage_pending(self, use_bram):
         '''
         this function put all the pending autoamtas to one stage and register that stage
-        :param single_out:
         :param use_bram: if True actual bram will be used otherwise LUT will be used to emulate bram
         :return:
         '''
@@ -542,7 +546,6 @@ class HDL_Gen(object):
 
         brams_contents, brams_list = self._generate_bram(self._pending_automatas)
         self._register_stage(atms_id=[atm.id for atm, _ in self._pending_automatas],
-                             single_out=single_out,
                              brams_contents=brams_contents, brams_list=brams_list, use_bram=use_bram)
 
         # for atm, _ in self._pending_automatas:
@@ -550,12 +553,18 @@ class HDL_Gen(object):
         #         node.symbols = None
         self._pending_automatas = []
 
+    def _get_report_counts_of_autoamta_list(self, atms_list):
+        """
+        recive a list of automatas and return number of toal report counts
+        :param atms_list: the input list of automatas
+        :return:
+        """
+        return sum([1 for atm in atms_list for node in atm.nodes if node.report])
 
-    def _register_stage(self, atms_id, single_out, brams_contents, brams_list, use_bram):
+    def _register_stage(self, atms_id, brams_contents, brams_list, use_bram):
         '''
 
         :param atms_id: list of ids of automatas in the same stage
-        :param single_out: if true, the stage will have one report out put which is the or of all of the outputs
         :param brams_content
         :param brams_list:
         :param pending_automatas
@@ -564,38 +573,109 @@ class HDL_Gen(object):
         self._stage_id += 1
         self._stage_info[self._stage_id] = list(atms_id)
         template = self._env.get_template('Automata_Stage.template')
-        rendered_content = template.render(automatas=[self._atm_info[temp_atm_id] for temp_atm_id in atms_id],
+        current_stage_atms = [self._atm_info[temp_atm_id] for temp_atm_id in atms_id]
+        rendered_content = template.render(automatas=current_stage_atms,
                                            summary_str=self._get_stage_summary(self._atm_info.values()),
-                                           single_out=single_out,
                                            stage_index=self._stage_id,
                                            bit_feed_size=self._total_input_len,
                                            id_to_comp_dict={self._atm_to_comp_id[atm_id]:self._comp_info[self._atm_to_comp_id[atm_id]] for atm_id in atms_id if atm_id in self._atm_to_comp_id},
                                            comp_dict={atm_id:self._atm_to_comp_id[atm_id] for atm_id in atms_id if atm_id in self._atm_to_comp_id},
                                            brams_contents=brams_contents, brams_list=brams_list, use_bram=use_bram,
                                            pending_atms=self._pending_automatas,
-                                           after_match=self._after_match_reg)
+                                           after_match=self._after_match_reg,
+                                           axis_bw=HDL_Gen._get_ceil_dividable(self._get_report_counts_of_autoamta_list(current_stage_atms) + HDL_Gen.metada_bw, 8),
+                                           metadata_bw=HDL_Gen.metada_bw)
         with open(os.path.join(self._path, 'stage{}.v'.format(self._stage_id)), 'w') as f:
             f.writelines(rendered_content)
 
+    @classmethod
+    def _get_ceil_dividable(cls, a, b):
+        """
+        returns the smallest integer greater or equal to a that is dividable to b
+        :param a: int
+        :param b: int
+        :return:
+        """
+        return int(math.ceil(a/float(b))*b)
 
-    def finilize(self):
+    @classmethod
+    def _get_intcon_tree(cls, leaf_count, max_degree):
+        """
+        this function returns the array necessary to configure the interconnect connectivity pattern
+        :param leaf_count: int, total number of leaf counts
+        :param max_degree: int the max degree which each internal node can have
+        :return: the connectivity pattern list
+        """
+        assert max_degree > 1, "max degree should be more than one"
+        return_list = []
+        curr_count = leaf_count
+        while curr_count > 0:
+            curr_list = []
+            req_parent_nodes = cls._get_ceil_dividable(curr_count, max_degree) / max_degree
+            residual = leaf_count % req_parent_nodes
+            min_leaf_per_parent = curr_count / req_parent_nodes
+            curr_index = 0
+            for i in range(req_parent_nodes):
+                child_list = []
+                for j in range(min_leaf_per_parent):
+                    child_list.append(curr_index)
+                    curr_index += 1
+                if i < residual:
+                    child_list.append(curr_index)
+                    curr_index += 1
+                curr_list.append(child_list)
+
+            return_list.append(curr_list)
+            curr_count = req_parent_nodes
+            if curr_count == 1:
+                break
+        return return_list
+
+
+
+
+
+    def finilize(self, dataplane_intcon_max_degree, contplane_intcon_max_degree):
 
         atms_list = [[self._atm_info[atm_id] for atm_id in atms_id]for atms_id in self._stage_info.values()]
 
         template = self._env.get_template('Top_Module.template')
-        rendered_content = template.render(automatas=atms_list, bit_feed_size=self._total_input_len)
+        rendered_content = template.render(automatas=atms_list, bit_feed_size=self._total_input_len,
+                                           axis_bw_list=[HDL_Gen._get_ceil_dividable(self._get_report_counts_of_autoamta_list(current_stage_atms) + HDL_Gen.metada_bw, 8) for current_stage_atms in atms_list],
+                                           md_counter_bw=HDL_Gen.metada_bw, use_mid_fifo=self._use_mid_fifo)
         with open(os.path.join(self._path, 'top_module.v'), 'w') as f:
             f.writelines(rendered_content)
 
         template = self._env.get_template('Single_STE.template')
-        rendered_content = template.render(ste_type=self._ste_type)
+        rendered_content = template.render(ste_type=self._ste_type, use_rst = self._use_rst)
         with open(os.path.join(self._path, 'ste.v'), 'w') as f:
             f.writelines(rendered_content)
 
         # TCL script
         template = self._env.get_template('tcl.template')
         rendered_content = template.render()
-        with open(os.path.join(self._path, 'my_script.tcl'), 'w') as f:
+        with open(os.path.join(self._path, 'main_script.tcl'), 'w') as f:
+            f.writelines(rendered_content.encode('utf-8'))
+
+        # TCL script for FIFO in between of stages
+        template = self._env.get_template('symbol_fifo.template')
+        rendered_content = template.render(symbol_fifo_bit_width=self._total_input_len + HDL_Gen.metada_bw)
+        with open(os.path.join(self._path, 'symbol_fifo.tcl'), 'w') as f:
+            f.writelines(rendered_content.encode('utf-8'))
+
+        # report interconnect tcl script
+        template = self._env.get_template('report_block_design_tcl.template')
+        # this is only for the current tes and need to be updated later
+
+        dataplane_con_tree = self._get_intcon_tree(leaf_count=len(atms_list), max_degree=dataplane_intcon_max_degree)
+        controlplane_con_tree = self._get_intcon_tree(leaf_count=len(atms_list), max_degree=contplane_intcon_max_degree)
+        rendered_content = template.render(report_packet_width_list=[HDL_Gen._get_ceil_dividable(self._get_report_counts_of_autoamta_list(atm_stage_list)+ HDL_Gen.metada_bw, 8) / 8 for atm_stage_list in atms_list],
+                                   report_buffer_length=[4096 for _ in atms_list],
+                                   intconn_info_list=[[32, len(l), 256, l] for l in dataplane_con_tree],
+                                   lite_intconn_info=[[len(l), 256, l] for l in controlplane_con_tree],
+                                   autoamta_clock_freq=250)
+
+        with open(os.path.join(self._path, 'report_interconnect.tcl'), 'w') as f:
             f.writelines(rendered_content.encode('utf-8'))
 
         # Timing constrains

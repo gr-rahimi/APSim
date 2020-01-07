@@ -1,9 +1,9 @@
 from __future__ import division
 from copy import deepcopy
-from .elemnts.ste import S_T_E, PackedIntervalSet, PackedInput, get_Symbol_type, PackedInterval
-from .elemnts.element import StartType, FakeRoot
-from .elemnts.or_elemnt import OrElement
-from .elemnts import ElementsType
+from automata.elemnts.ste import S_T_E, PackedIntervalSet, PackedInput, get_Symbol_type, PackedInterval
+from automata.elemnts.element import StartType, FakeRoot
+from automata.elemnts.or_elemnt import OrElement
+from automata.elemnts import ElementsType
 import networkx as nx
 import matplotlib.pyplot as plt
 from collections import  deque

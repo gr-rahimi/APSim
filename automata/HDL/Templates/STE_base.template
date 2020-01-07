@@ -1,8 +1,9 @@
-{%macro ste(ste_type) -%}
+{%macro ste(ste_type, use_rst) -%}
 {#
 @param ste_type: this parameter specify the shape of ste.
 if 1: the default shape mentioned in REAPR and Micron MP480
 2: our version which move th FF after the and gate
+@param use_rst: True/False, if True, the reset signal will be used to reset each STE's FF. Otherwise, the reset will be handles by inserting a symbol as input that No STE can match it.
 #}
 
 module STE #(parameter integer fan_in = 1)(
@@ -11,8 +12,12 @@ module STE #(parameter integer fan_in = 1)(
            input reset,
            input [fan_in - 1 : 0] income_edges,
            input match,
-           output {%if ste_type == 2%}reg {% endif %}active_state);
+           output active_state);
+
+wire is_potential;
 {%- if ste_type == 2 %}
+reg active_state;
+{% if use_rst %}
 always @ (posedge clk)
 begin
     if (reset == 1)
@@ -20,9 +25,18 @@ begin
     else if (run == 1)
         active_state <= is_potential & match;
 end
-
+{% else %} {# do not use reset #}
+always @ (posedge clk)
+begin
+    if (run == 1)
+        active_state <= is_potential & match;
+end
+{% endif %}
 {% elif ste_type == 1 %}
 reg internal_reg = 1'b0;
+wire active_state;
+
+{% if use_rst %}
 always @ (posedge clk)
 begin
     if (reset == 1)
@@ -31,13 +45,17 @@ begin
         internal_reg <= is_potential;
 end
 assign active_state = internal_reg & match;
+{% else %} {# do not use reset #}
+always @ (posedge clk)
+begin
+    if (run == 1)
+        internal_reg <= is_potential;
+end
+assign active_state = internal_reg & match;
+{% endif %}
 {% endif %}
 
-
-wire is_potential;
-
 assign is_potential = |income_edges;
-
 
 endmodule
 {%- endmacro %}
