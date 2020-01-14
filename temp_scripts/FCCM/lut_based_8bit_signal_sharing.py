@@ -41,12 +41,10 @@ def process_single_ds(uat):
     automatas.remove_ors()
     automatas = automatas.get_connected_components_as_automatas()
 
-    #uat_count = 20  # number of automata to be processed
+    #uat_count = 10  # number of automata to be processed
     uat_count = len(automatas)  # comment this to test a subset of automatons defined in uat_count
     automatas = automatas[:uat_count]
     uat_count = len(automatas)
-
-
     number_of_stages = int(math.ceil(len(automatas) / float(automata_per_stage)))
     # number of pipleine stages
 
@@ -54,20 +52,22 @@ def process_single_ds(uat):
 
     hdl_folder_name = hd_gen.get_hdl_folder_name(prefix=str(uat), number_of_atms=len(automatas),
                                                  stride_value=0, before_match_reg=False,
-                                                 after_match_reg=False, ste_type=1, use_bram=False,
+                                                 after_match_reg=False, ste_type=1, use_bram=True,
                                                  use_compression=False, compression_depth=-1, use_mid_fifo=use_mid_fifo, use_rst=use_rst)
 
     print "folder name to store the HDLs:", hdl_folder_name
 
-    generator_ins = hd_gen.HDL_Gen(path=os.path.join("/home/gr5yf/FCCM_2020", hdl_folder_name), before_match_reg=False,
+    generator_ins = hd_gen.HDL_Gen(path=os.path.join("/home/gr5yf/FCCM_2020/bram8emulate", hdl_folder_name), before_match_reg=False,
                                    after_match_reg=False, ste_type=1,
-                                   total_input_len=dbw, use_mid_fifo=use_mid_fifo, use_rst=use_rst)
+                                   total_input_len=dbw, use_mid_fifo=use_mid_fifo, use_rst=use_rst, bram_shape=(512, 36))
 
     for atm_idx, atm in enumerate(automatas):
         print 'processing {0} number {1} from {2}'.format(uat, atm_idx + 1, uat_count)
         minimize_automata(atm)
+        lut_bram_dic = {n: tuple((2 for _ in range(atm.stride_value))) for n in atm.nodes if
+                        n.is_fake is False}
 
-        generator_ins.register_automata(atm=atm, use_compression=False)
+        generator_ins.register_automata(atm=atm, use_compression=False, lut_bram_dic=lut_bram_dic)
 
         if (atm_idx + 1) % atms_per_stage == 0:
             generator_ins.register_stage_pending(use_bram=False)
@@ -82,7 +82,7 @@ def process_single_ds(uat):
 if __name__ == '__main__':
     for use_fifo in [True, False]:
         use_mid_fifo = use_fifo
-        process_single_ds(AnmalZoo.Protomata)
+        process_single_ds(AnmalZoo.TCP)
 
     print "Results are ready in zip files in the Home directory"
     print "Please extract the zip file and synthesize them on your machine using Vivado. To run the synthesize, run the following command."

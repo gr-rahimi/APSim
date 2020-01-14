@@ -1,4 +1,8 @@
 from jinja2 import Environment, FileSystemLoader
+import automata.HDL.hdl_generator as hd_gen
+intcon_tree = hd_gen.HDL_Gen._get_intcon_tree(101, 10)
+print intcon_tree
+exit(0)
 
 env = Environment(loader=FileSystemLoader('Templates'), extensions=['jinja2.ext.do'])
 template = env.get_template('./report_block_design_tcl.template')

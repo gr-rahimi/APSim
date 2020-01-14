@@ -14,8 +14,6 @@ import automata.HDL.hdl_generator as hd_gen
 #
 
 
-out_dir_prefix = './'
-
 dbw = 8
 use_mid_fifo = True
 use_rst = True
@@ -41,7 +39,7 @@ def process_single_ds(uat):
     automatas.remove_ors()
     automatas = automatas.get_connected_components_as_automatas()
 
-    #uat_count = 20  # number of automata to be processed
+    #uat_count = 10  # number of automata to be processed
     uat_count = len(automatas)  # comment this to test a subset of automatons defined in uat_count
     automatas = automatas[:uat_count]
     uat_count = len(automatas)
@@ -59,7 +57,7 @@ def process_single_ds(uat):
 
     print "folder name to store the HDLs:", hdl_folder_name
 
-    generator_ins = hd_gen.HDL_Gen(path=os.path.join("/home/gr5yf/FCCM_2020", hdl_folder_name), before_match_reg=False,
+    generator_ins = hd_gen.HDL_Gen(path=os.path.join("/home/gr5yf/FCCM_2020/lut8", hdl_folder_name), before_match_reg=False,
                                    after_match_reg=False, ste_type=1,
                                    total_input_len=dbw, use_mid_fifo=use_mid_fifo, use_rst=use_rst)
 
@@ -82,7 +80,7 @@ def process_single_ds(uat):
 if __name__ == '__main__':
     for use_fifo in [True, False]:
         use_mid_fifo = use_fifo
-        process_single_ds(AnmalZoo.Protomata)
+        process_single_ds(AnmalZoo.SPM)
 
     print "Results are ready in zip files in the Home directory"
     print "Please extract the zip file and synthesize them on your machine using Vivado. To run the synthesize, run the following command."

@@ -51,9 +51,11 @@ input wire atm_clk;
 reg [{{bit_feed_size - 1}} : 0] input_sym;
 reg [{{md_counter_bw - 1}} : 0] md_counter;
 wire [{{automatas|length - 1}} : 0] intcons_stop_vector;
+reg [{{automatas|length - 1}} : 0] almost_full_reg;
 {% if not use_mid_fifo %}
 wire global_run;
-assign global_run = ~(|intcons_stop_vector);
+//assign global_run = ~(|intcons_stop_vector);
+assign global_run = ~(|almost_full_reg);
 {% else %}
 {% for s in range(automatas|length) %}
 wire run_stage_{{s}};
@@ -118,7 +120,9 @@ inter_stage_fifo_wrapper pre_stage_{{s}}_fifo(.FIFO_READ_empty(FIFO_READ_empty_s
                                               .valid(FIFO_valid_stage_{{s}}));
 
 assign FIFO_WRITE_wr_en_stage_{{s}} = {% if s > 0 %}  FIFO_valid_stage_{{s - 1}} & (~intcons_stop_vector[{{s - 1}}]) {% else %} 1'b1{% endif%};
-assign FIFO_READ_rd_en_stage_{{s}} = (~intcons_stop_vector[{{s}}]) {% if s < (automatas|length - 1) %} & FIFO_WRITE_full_stage_{{s + 1}}{% endif%};
+//assign FIFO_READ_rd_en_stage_{{s}} = (~intcons_stop_vector[{{s}}]) {% if s < (automatas|length - 1) %} & FIFO_WRITE_full_stage_{{s + 1}}{% endif%};
+assign FIFO_READ_rd_en_stage_{{s}} = (~almost_full_reg[{{s}}]) {% if s < (automatas|length - 1) %} & FIFO_WRITE_full_stage_{{s + 1}}{% endif%};
+// assign run_stage_{{s}} = FIFO_READ_rd_en_stage_{{s}} &  FIFO_valid_stage_{{s}};
 assign run_stage_{{s}} = FIFO_READ_rd_en_stage_{{s}} &  FIFO_valid_stage_{{s}};
 {% endfor %}
 {% endif %}
@@ -140,9 +144,15 @@ wire [{{ns.report_count - 1}} : 0] global_report_vector;
 wire [{{axis_bw_list[stage_index] - 1}} : 0] axi_tdata_stage_{{stage_index}};
 wire axi_tvalid_stage_{{stage_index}};
 wire axi_tready_stage_{{stage_index}};
+wire almost_full_stage_{{stage_index}};
+
+
+always @(posedge atm_clk) begin
+   almost_full_reg[{{stage_index}}] <= almost_full_stage_{{stage_index}};
+end
 
 Automata_Stage{{stage_index}} automata_stage{{stage_index}}(.clk(atm_clk),
-                                             .run({% if not use_mid_fifo %}global_run{% else %}run_stage_{{s}}{%endif%}),
+                                             .run({% if not use_mid_fifo %}global_run{% else %}run_stage_{{stage_index}}{%endif%}),
                                              .reset(pre_stage_{{stage_index}}_res),
                                              .top_symbols(pre_stage_{{stage_index}}_sym),
                                              .axi_tready(axi_tready_stage_{{stage_index}}),
@@ -175,6 +185,7 @@ report_architecture_bd_wrapper report_intconn(
                                               {% for stage_index in range(automatas|length) %}.input_report_AXIS_stage_{{stage_index}}_tdata(axi_tdata_stage_{{stage_index}}),
                                               .input_report_AXIS_stage_{{stage_index}}_tready(axi_tready_stage_{{stage_index}}),
                                               .input_report_AXIS_stage_{{stage_index}}_tvalid(axi_tvalid_stage_{{stage_index}}),
+                                              .almost_full_stage_{{stage_index}}(almost_full_stage_{{stage_index}}),
                                               {% endfor -%}
                                               .sys_rst(sys_rst)
                                               );

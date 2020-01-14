@@ -4,6 +4,7 @@ set_property board_part xilinx.com:vcu118:part0:2.3 [current_project]
 
 set verilog_files [glob *.v]
 add_files -norecurse $verilog_files
+read_xdc -mode out_of_context ./clk_constrain.xdc
 update_compile_order -fileset sources_1
 
 source ./report_interconnect.tcl
@@ -13,7 +14,7 @@ update_compile_order -fileset sources_1
 synth_design -mode out_of_context -flatten_hierarchy rebuilt -top Top_Module
 #launch_runs synth_1 -jobs 8
 
-#write_checkpoint synth.dcp
+write_checkpoint -force synth.dcp
 
 set_property HD.PARTITION 1 [current_design]
 
@@ -22,7 +23,7 @@ place_design
 phys_opt_design
 route_design
 
-read_xdc -mode out_of_context ./clk_constrain.xdc
+
 report_timing_summary -file ./timing_summary.txt
 
 report_utilization -hierarchical  -file ./utilization.txt

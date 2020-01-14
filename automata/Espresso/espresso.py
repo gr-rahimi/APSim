@@ -35,7 +35,7 @@ class Espresso(object):
 
         logging.debug("Spresso split started...")
         try:
-            espresso_out = subprocess.check_output('/zf15/gr5yf/Git/espresso-logic/bin/espresso /tmp/rezasim_espresso{}split.txt'
+            espresso_out = subprocess.check_output('/home/gr5yf/Git/espresso-logic/bin/espresso /tmp/rezasim_espresso{}split.txt'
                                                .format(tid),
                                                shell=True)
         except subprocess.CalledProcessError as e:

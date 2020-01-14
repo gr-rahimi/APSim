@@ -612,7 +612,7 @@ class HDL_Gen(object):
         while curr_count > 0:
             curr_list = []
             req_parent_nodes = cls._get_ceil_dividable(curr_count, max_degree) / max_degree
-            residual = leaf_count % req_parent_nodes
+            residual = curr_count % req_parent_nodes
             min_leaf_per_parent = curr_count / req_parent_nodes
             curr_index = 0
             for i in range(req_parent_nodes):
@@ -672,7 +672,7 @@ class HDL_Gen(object):
         rendered_content = template.render(report_packet_width_list=[HDL_Gen._get_ceil_dividable(self._get_report_counts_of_autoamta_list(atm_stage_list)+ HDL_Gen.metada_bw, 8) / 8 for atm_stage_list in atms_list],
                                    report_buffer_length=[4096 for _ in atms_list],
                                    intconn_info_list=[[32, len(l), 256, l] for l in dataplane_con_tree],
-                                   lite_intconn_info=[[len(l), 256, l] for l in controlplane_con_tree],
+                                   lite_intconn_info=[[len(l), l] for l in controlplane_con_tree],
                                    autoamta_clock_freq=250)
 
         with open(os.path.join(self._path, 'report_interconnect.tcl'), 'w') as f:

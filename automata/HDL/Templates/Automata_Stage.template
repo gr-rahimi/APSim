@@ -41,6 +41,7 @@ module Automata_Stage{{stage_index}}(input clk,
                     output local_intcon_stoped
                     );
 wire axi_tvalid;
+wire [{{ns.report_count - 1}} : 0] report_vect;
 wire [{{axis_bw - 1}} : 0] axi_tdata;
 wire local_intcon_stoped;
 
@@ -48,7 +49,8 @@ wire to_automata_run; // a single bit to each autoatomata s a run signal
 
 assign axi_tvalid = |report_vect;
 assign axi_tdata = {{'{'}} sym_meta_d, report_vect {{'}'}};
-assign local_intcon_stoped = ~axi_tready & axi_tvalid;
+//assign local_intcon_stoped = ~axi_tready & axi_tvalid;
+assign local_intcon_stoped = 1'b0;
 
 assign to_automata_run = run;
 

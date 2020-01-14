@@ -27,11 +27,17 @@ update_compile_order -fileset sources_1
 create_bd_cell -type ip -vlnv xilinx.com:ip:axis_data_fifo:2.0 axi_report_fifo_stage_{{loop.index0}}
 set_property -dict [list CONFIG.TDATA_NUM_BYTES.VALUE_SRC USER] [get_bd_cells axi_report_fifo_stage_{{loop.index0}}]
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {{ '{' }}{{rep_sze}}{{ '}' }} CONFIG.FIFO_DEPTH {{ '{' }}{{report_buffer_length[loop.index0]}}{{ '}' }} CONFIG.IS_ACLK_ASYNC {1} CONFIG.HAS_RD_DATA_COUNT {1}] [get_bd_cells axi_report_fifo_stage_{{loop.index0}}]
+#enable almost full for the fifo
+set_property -dict [list CONFIG.HAS_AFULL {1}] [get_bd_cells axi_report_fifo_stage_{{loop.index0}}]
 
 #generating AXI stream interface for fifos. This will be connected to the report states directly
 create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:axis_rtl:1.0 input_report_AXIS_stage_{{loop.index0}}
 set_property CONFIG.TDATA_NUM_BYTES [get_property CONFIG.TDATA_NUM_BYTES [get_bd_intf_pins axi_report_fifo_stage_{{loop.index0}}/S_AXIS]] [get_bd_intf_ports input_report_AXIS_stage_{{loop.index0}}]
 connect_bd_intf_net [get_bd_intf_pins axi_report_fifo_stage_{{loop.index0}}/S_AXIS] [get_bd_intf_ports input_report_AXIS_stage_{{loop.index0}}]
+
+#generating almost full port
+create_bd_port -dir O almost_full_stage_{{loop.index0}}
+connect_bd_net [get_bd_pins axi_report_fifo_stage_{{loop.index0}}/almost_full] [get_bd_ports almost_full_stage_{{loop.index0}}]
 
 # generate AXI GPIO for buffer capacity and connect the capacity to the gpio
 create_bd_cell -type ip -vlnv xilinx.com:ip:axi_gpio:2.0 axi_gpio_buff_cap_stage_{{loop.index0}}
