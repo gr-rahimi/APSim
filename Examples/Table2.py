@@ -22,8 +22,6 @@ def process_single_ds(uat):
 
     for atm_idx, atm in enumerate(automatas):
 
-        minimize_automata(atm)
-
         all_nodes = filter(lambda n:n.id != 0, atm.nodes)  # filter fake root
         all_nodes_symbols_len_count = [len(list(n.symbols.points)) for n in all_nodes]
 
