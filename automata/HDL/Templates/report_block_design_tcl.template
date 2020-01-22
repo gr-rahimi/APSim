@@ -11,6 +11,7 @@ intercon to be conected to
 the second item is a list of integers which specify the index of the previous layers.
 @param report_axi_clk_freq: frequency of axi interconnect, DMA, Width converter and FIFO in MHz
 @param autoamta_clock_freq: frequency of automata processor in MHz
+@param prog_full: integer, threshold value that will be set for report FIFOs
 #}
 
 #create_project -force project_1 ./ -part xcvu9p-flga2104-2L-e
@@ -29,6 +30,10 @@ set_property -dict [list CONFIG.TDATA_NUM_BYTES.VALUE_SRC USER] [get_bd_cells ax
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {{ '{' }}{{rep_sze}}{{ '}' }} CONFIG.FIFO_DEPTH {{ '{' }}{{report_buffer_length[loop.index0]}}{{ '}' }} CONFIG.IS_ACLK_ASYNC {1} CONFIG.HAS_RD_DATA_COUNT {1}] [get_bd_cells axi_report_fifo_stage_{{loop.index0}}]
 #enable almost full for the fifo
 set_property -dict [list CONFIG.HAS_AFULL {1}] [get_bd_cells axi_report_fifo_stage_{{loop.index0}}]
+
+#enable the programmable full and the threshold
+set_property -dict [list CONFIG.HAS_PROG_FULL {1}] [get_bd_cells axi_report_fifo_stage_{{loop.index0}}]
+set_property -dict [list CONFIG.PROG_FULL_THRESH {{ '{' }}{{prog_full}}{{ '} '}}] [get_bd_cells axi_report_fifo_stage_{{loop.index0}}]
 
 #generating AXI stream interface for fifos. This will be connected to the report states directly
 create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:axis_rtl:1.0 input_report_AXIS_stage_{{loop.index0}}

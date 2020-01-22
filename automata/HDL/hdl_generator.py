@@ -673,7 +673,7 @@ class HDL_Gen(object):
                                    report_buffer_length=[4096 for _ in atms_list],
                                    intconn_info_list=[[32, len(l), 256, l] for l in dataplane_con_tree],
                                    lite_intconn_info=[[len(l), l] for l in controlplane_con_tree],
-                                   autoamta_clock_freq=250)
+                                   autoamta_clock_freq=250, prog_full=8)
 
         with open(os.path.join(self._path, 'report_interconnect.tcl'), 'w') as f:
             f.writelines(rendered_content.encode('utf-8'))

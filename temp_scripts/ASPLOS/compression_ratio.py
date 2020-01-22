@@ -14,12 +14,13 @@ import numpy as np
 
 def process_single_ds(uat):
 
-    number_of_autoamtas = 200
+
     with open(str(uat) + '.txt', "w+") as f:
         pass
     all_automata = atma.parse_anml_file(anml_path[uat])
     all_automata.remove_ors()
     automatas = all_automata.get_connected_components_as_automatas()
+    number_of_autoamtas = len(automatas)
 
     if len(automatas) > number_of_autoamtas:
         #automatas = random.sample(automatas, number_of_autoamtas)
@@ -28,6 +29,7 @@ def process_single_ds(uat):
 
     number_of_autoamtas = len(automatas)
     total_bit_len = []
+    total_bit_hist = {}
 
     for atm_idx, atm in enumerate(automatas):
 
@@ -36,9 +38,11 @@ def process_single_ds(uat):
         bc_sym_dict = get_equivalent_symbols([atm], replace=True)
         bc_bits_len = int(math.ceil(math.log(max(bc_sym_dict.values()), 2)))
 
-        total_bit_len .append(bc_bits_len)
-        with open(str(uat) + '.txt', "a") as f:
-            print >> f, "compressed bit length: " + str(bc_bits_len)
+        total_bit_len.append(bc_bits_len)
+        total_bit_hist[bc_bits_len] = total_bit_hist.get(bc_bits_len, 0) + 1
+
+        #with open(str(uat) + '.txt', "a") as f:
+        #   print >> f, "compressed bit length: " + str(bc_bits_len)
 
     with open('compression_ratio_summary.txt', "a") as f:
         fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -46,14 +50,21 @@ def process_single_ds(uat):
         print >> f, str(uat)
         print >> f, "AVG:" + str(sum(total_bit_len) / float(number_of_autoamtas))
         print >> f, "STD:" + str(np.std(total_bit_len))
+        print >> f, "---------Histogram---------"
+        for k, v in total_bit_hist.iteritems():
+            print >> f, "bit len {0} = {1}".format(k, v)
         print >> f, "----------------------------------------------------------------"
         fcntl.flock(f, fcntl.LOCK_UN)
 
 
 if __name__ == '__main__':
-    with open('compression_ratio_summary.txt', "w+") as f:
-        pass
-    ds = [a for a in AnmalZoo]
+
+    ds = [a for a in AnmalZoo if a not in [AnmalZoo.Levenshtein, AnmalZoo.PowerEN, AnmalZoo.Hamming, AnmalZoo.Brill,
+                                           AnmalZoo.Fermi, AnmalZoo.Protomata, AnmalZoo.Dotstar, AnmalZoo.Dotstar03,
+                                           AnmalZoo.Synthetic_BlockRings, AnmalZoo.Dotstar06, AnmalZoo.Dotstar09,
+                                           AnmalZoo.Ranges05, AnmalZoo.Bro217, AnmalZoo.Ranges1, AnmalZoo.ExactMath,
+                                           AnmalZoo.Custom]]
+
     thread_count = 8
 
     t_pool = ThreadPool(thread_count)
