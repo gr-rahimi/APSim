@@ -1,0 +1,139 @@
+{% from 'Automata.template' import automata_macro %}
+{% import 'STE_base.template' as ste_base %}
+{% from 'bram18.template' import single_bram_macro18 %}
+
+{#
+@param automatas: List of automatas to be processed
+@param summary_str: summary string to be paste on top of the file
+@stage_index: current stage index (started from zero)
+@param bit_feed_size: number of bits being feed in each cycle
+@param id_to_comp_dict t: a dictionary from compressor ids to their output len. This is the total bit counts
+@param comp_dict: a dictionary to translate from automata ids to compressor ids
+@param brams_contents: list of bram contents
+@param brams_list: this is a list of dictionaries. each dictionary key is the match vector and the value is the tuple (atmid , nodeid)
+@param use_bram: if True actual bram will be used otherwise LUT will be used to emulate bram
+@param pending_atms
+@param after_match
+@param axis_bw : size of the axi stream TDATA in bits (report vector and metadata)
+@param metadata_bw: size of the metadata in bits to be added to the report vector
+#}
+
+/*
+{{summary_str}}
+*/
+{# counting the number of report states #}
+{% set ns = namespace(report_count=0) %}
+{%- for atm in automatas -%}
+{%- for node in atm.nodes -%}
+{%if node.report %} {% set ns.report_count = ns.report_count + 1 %} {%endif%}
+{%- endfor -%}
+{%- endfor %}
+
+module Automata_Stage{{stage_index}}(input clk,
+                    input run,
+                    input reset,
+                    input [{{bit_feed_size-1}} : 0] top_symbols,
+                    input axi_tready,
+                    input [{{metadata_bw -1}} : 0] sym_meta_d,
+                    output axi_tvalid,
+                    output[{{ns.report_count - 1}} : 0] report_vect,
+                    output[{{axis_bw - 1}} : 0] axi_tdata,
+                    output local_intcon_stoped
+                    );
+wire axi_tvalid;
+wire [{{ns.report_count - 1}} : 0] report_vect;
+wire [{{axis_bw - 1}} : 0] axi_tdata;
+wire local_intcon_stoped;
+
+wire to_automata_run; // a single bit to each autoatomata s a run signal
+
+assign axi_tvalid = |report_vect;
+assign axi_tdata = {{'{'}} sym_meta_d, report_vect {{'}'}};
+//assign local_intcon_stoped = ~axi_tready & axi_tvalid;
+assign local_intcon_stoped = 1'b0;
+
+assign to_automata_run = run;
+
+{% set ns = namespace(curr_count=0) %}
+{%for atm in  automatas%}
+Automata_{{atm.id}} automata_{{atm.id}} (.clk(clk),
+                     .run(to_automata_run),
+                     .reset(reset),
+                     .symbols({%if not atm.use_compression %}top_symbols {% else %}from_comp_{{comp_dict[atm.id]}}{% endif %})
+                     {%- for node, placement in pending_atms[loop.index0][1].iteritems() -%}
+                        {% for d in placement -%}
+                            {% if d == 2 -%}
+                            ,.{{atm.id}}_n{{node.id}}_d{{loop.index0}}_bram({{atm.id}}_n{{node.id}}_d{{loop.index0}}_bram)
+                            {%- endif %}
+                        {%- endfor %}
+                     {%- endfor -%}
+                     {%- for node in atm.nodes if node.report %} {% set ns.curr_count = ns.curr_count + 1 %}
+                      , .{{atm.id}}_w_out_{{node.id}}(report_vect[{{ns.curr_count - 1}}])
+                     {%- endfor %}
+                    );
+{% endfor %}
+
+
+{% set unique_compressors=[] %}
+{% for atm in automatas %}
+{% if atm.use_compression and comp_dict[atm.id] not in unique_compressors %}
+
+wire [{{id_to_comp_dict[comp_dict[atm.id]] -1}}:0] from_comp_{{comp_dict[atm.id]}};
+Symbol_Compressor_Pipeline_{{comp_dict[atm.id]}} sym_comp_{{comp_dict[atm.id]}}(
+                            .clk(clk),
+                            .symbol(top_symbols),
+                            .compressed_out(from_comp_{{comp_dict[atm.id]}})
+                            );
+{% do unique_compressors.append(comp_dict[atm.id]) %}
+{% endif %}
+{% endfor %}
+
+{% if use_bram %}
+{% set per_dim_bit = bit_feed_size // automatas[0].stride_value %}
+{% for d_bram in brams_contents %}
+{% set d_loop = loop %}
+{% for bram, nodes in d_bram %}
+{% set i_loop = loop %}
+wire [35:0] from_bram_d{{d_loop.index0}}_index{{loop.index0}};
+{{single_bram_macro18('bram_d' + d_loop.index0|string  + 'index'+loop.index0|string, bram, after_match,
+nodes|length, 'from_bram_d'+ d_loop.index0|string + '_index' + loop.index0|string, 'top_symbols['+ (d_loop.index * per_dim_bit - 1)|string + ':' + (d_loop.index * per_dim_bit - per_dim_bit)|string+']')}}
+
+{%- for atm_node_tuple in nodes -%}
+{% set n_loop = loop %}
+{%- for atm, node_id in atm_node_tuple -%}
+
+assign {{atm.id}}_n{{node_id}}_d{{d_loop.index0}}_bram = from_bram_d{{d_loop.index0}}_index{{i_loop.index0}}[{{n_loop.index0}}];
+{% endfor -%}
+{%- endfor -%}
+{% endfor %}
+{% endfor %}
+
+{% else %} {# using lut to emulate bram #}
+
+{% set per_dim_bit = bit_feed_size // automatas[0].stride_value %}
+{% for d_bram in brams_list %}
+{% set d_loop = loop %}
+{% for mv, atm_node_tuple in d_bram.iteritems() %}
+{% set n_loop = loop %}
+{% if not after_match %}
+assign from_bram_d{{d_loop.index0}}_index{{loop.index0}} = (1'b0{% for b in mv %}{% if b == 1 %}||top_symbols[{{per_dim_bit * d_loop.index - 1}}:{{per_dim_bit * d_loop.index0}}]=={{per_dim_bit}}'d{{loop.index0}}{% endif %}{% endfor %})? 1'b1 : 1'b0;
+{% else %}
+reg from_bram_d{{d_loop.index0}}_index{{loop.index0}};
+always @(posedge clk) begin
+    if (1'b0{% for b in mv %}{% if b == 1 %}||top_symbols[{{per_dim_bit * d_loop.index - 1}}:{{per_dim_bit * d_loop.index0}}]=={{per_dim_bit}}'d{{loop.index0}}{% endif %}{% endfor %})
+        from_bram_d{{d_loop.index0}}_index{{loop.index0}} <= 1'b1;
+    else
+        from_bram_d{{d_loop.index0}}_index{{loop.index0}} <= 1'b0;
+end
+{% endif %}
+{% for atm, node_id in atm_node_tuple %}
+assign {{atm.id}}_n{{node_id}}_d{{d_loop.index0}}_bram = from_bram_d{{d_loop.index0}}_index{{n_loop.index0}};
+{% endfor %}
+{% endfor %}
+{% endfor %}
+{% endif %}
+
+
+
+endmodule
+
