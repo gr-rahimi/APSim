@@ -12,7 +12,7 @@
 @param brams_contents: list of bram contents
 @param brams_list: this is a list of dictionaries. each dictionary key is the match vector and the value is the tuple (atmid , nodeid)
 @param use_bram: if True actual bram will be used otherwise LUT will be used to emulate bram
-@param pending_atms
+@param pending_atms: This is a list of tuples. the first value is each tuple is an full object automata and a dictionary representing the matching location (Bram/LUT)
 @param after_match
 @param axis_bw : size of the axi stream TDATA in bits (report vector and metadata)
 @param metadata_bw: size of the metadata in bits to be added to the report vector
@@ -29,7 +29,7 @@
 {%- endfor -%}
 {%- endfor %}
 
-module Automata_Stage{{stage_index}}(input clk,
+module Automata_Pack{{stage_index}}(input clk,
                     input run,
                     input reset,
                     input [{{bit_feed_size-1}} : 0] top_symbols,

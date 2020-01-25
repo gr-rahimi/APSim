@@ -1,0 +1,62 @@
+{#
+@param use_reg: if True, all the output signals will have first be registerd
+@param bit_feed_size: number of bits being feed in each cycle
+@param metadata_bw: size of the metadata in bits to be added to the report vector
+@param report_cnts: number of report bits in the current stage
+#}
+module Stage_Controller(
+                        input atm_clk,
+                        input rst,
+                        input sym_valid,
+                        input next_buffer_full,
+                        input report_buffer_full,
+                        input global_run,
+                        input [{{bit_feed_size + metadata_bw - 1}}:0] sym_and_met,
+                        input [{{report_cnts + metadata_bw - 1}}:0] curr_report_and_met,
+                        output {% if use_reg %}reg{% else %}wire{% endif %} stage_run,
+                        output {% if use_reg %}reg{% else %}wire{% endif %} report_vector_valid,
+                        output {% if use_reg %}reg{% else %}wire{% endif %} [{{report_cnts + metadata_bw - 1}}:0] report_and_met,
+                        output {% if use_reg %}reg{% else %}wire{% endif %} buffer_rd_en,
+                        output {% if use_reg %}reg{% else %}wire{% endif %} [{{bit_feed_size + metadata_bw - 1}}:0] curr_sym_and_met,
+                        output reg next_stage_sym_and_met_valid,
+                        output reg [{{bit_feed_size + metadata_bw - 1}}:0] next_stage_sym_and_met,
+                        output wire imm_stop
+                        );
+
+{% if use_reg %}
+reg [{{bit_feed_size + metadata_bw - 1}}:0] delayed_sym_and_met;
+wire curr_stage_run = global_run & sym_valid & ~report_buffer_full & next_buffer_full;
+always @(posedge atm_clk) begin
+    if (rst)
+        stage_run <= 0;
+        delayed_sym_and_met <= 0;
+        buffer_rd_en <= 0;
+        report_vector_valid <= 0;
+        report_and_met <= 0;
+    else
+        stage_run <= curr_stage_run;
+        buffer_rd_en <= global_run & ~report_buffer_full & next_buffer_full;
+        report_vector_valid <= stage_run;
+        report_and_met <= curr_report_and_met;
+        if (curr_stage_run)
+            delayed_sym_and_met <= sym_and_met;
+            curr_sym_and_met <= delayed_sym_and_met;
+end
+{% else %}
+assign stage_run = global_run & sym_valid & ~report_buffer_full & next_buffer_full;
+curr_sym_and_met = sym_and_met;
+assign buffer_rd_en = global_run & ~report_buffer_full & next_buffer_full;
+assign report_vector_valid = stage_run;
+assign report_and_met = curr_report_and_met;
+{% endif %}
+
+always @(posedge clk) begin
+    if (rst)
+        next_stage_sym_and_met_valid <= 0;
+        next_stage_sym_and_met <= 0;
+    else
+        next_stage_sym_and_met_valid <= global_run & ~report_buffer_full & next_buffer_full & sym_valid;
+        next_stage_sym_and_met <= curr_sym_and_met;
+end
+assign imm_stop = ~report_buffer_full & next_buffer_full;
+assign

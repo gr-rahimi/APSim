@@ -1,0 +1,70 @@
+{#
+@stage_index: current stage index (started from zero)
+@param rep_bit_cnt: number of report bits being feed in each cycle
+@param metadata_bw: size of the metadata in bits to be added to the report vector
+@use_out_reg: Boolean, if true, outputs will be registered
+@reduction_pipe_count: number of pipeline stages to calculate the AXI_tvlid signal.
+@reduction_tree: a list of lists. The internal lists have 2 items. The first item is an integer specifying the number of AXI interconnects for each layer of hierarchy.
+the second item is a list of integers which specify the index of the previous layers.
+
+#}
+
+
+module AXI_Controller_Stage_{{stage_index}}(input            atm_clk,
+                       input            valid,
+                       input            freeze,
+                       input [{{rep_bit_cnt + metadata_bw - 1}}:0] report_and_met,
+                       output {% if use_out_reg %} reg {% else %} wire {% endif %} axi_tvalid,
+                       output {% if use_out_reg %}reg{% else %}wire{% endif %} [{{rep_bit_cnt + metadata_bw - 1}}:0] axi_tdata
+                       );
+
+wire pipe_out_tvalid;
+wire [{{rep_bit_cnt + metadata_bw - 1}}:0] pipe_out_axi_tdata;
+
+{% if reduction_pipe_count == 0 %}
+assign pipe_out_tvalid = (|report_and_met[{{rep_bit_cnt - 1}}:0]) & valid;
+assign pipe_out_axi_tdata = report_and_met;
+{% else %}
+{% for conn_patt in reduction_tree %}
+{% set int_node_cnt = conn_patt|length %}
+reg [{{int_node_cnt - 1}}:0] internal_node_level_{{loop.index0}};
+reg [{{rep_bit_cnt + metadata_bw - 1}}:0] rep_and_met_level_{{loop.index0}};
+reg valid_level_{{loop.index0}};
+always @(posedge atm_clk) begin
+    if (!freeze) begin
+        rep_and_met_level_{{loop.index0}} <= {% if loop.index0 == 0 %} report_and_met; {% else %} rep_and_met_level_{{loop.index0 - 1}}; {% endif %}
+        valid_level_{{loop.index0}} <= {% if loop.index0 == 0 %} valid; {% else %} valid_level_{{loop.index0 - 1}}; {% endif %}
+    end
+end
+{% set stage_loop = loop %}
+{% for perv_nodes in conn_patt %}
+always @(posedge atm_clk) begin
+{% if stage_loop.index0 == 0 %}
+    if (!freeze)
+        internal_node_level_{{stage_loop.index0}}[{{loop.index0}}] <= |report_and_met[{{perv_nodes[-1]}}:{{perv_nodes[0]}}];
+{% else %}
+    if (!freeze)
+        internal_node_level_{{stage_loop.index0}}[{{loop.index0}}] <= |internal_node_level_{{stage_loop.index0 - 1}}[{{perv_nodes[-1]}}:{{perv_nodes[0]}}];
+
+{% endif %}
+end
+{% endfor %}
+{% endfor %}
+assign pipe_out_axi_tdata =  rep_and_met_level_{{reduction_pipe_count - 1}} ;
+assign pipe_out_tvalid = internal_node_level_{{reduction_pipe_count - 1}}[0] & valid_level_{{reduction_pipe_count - 1}};
+{% endif %}
+
+{% if use_out_reg %}
+always @(posedge atm_clk) begin
+    if (!freeze) begin
+        axi_tvalid <= pipe_out_tvalid;
+        axi_tdata <= pipe_out_axi_tdata;
+    end
+end
+{% else %}
+assign axi_tvalid = pipe_out_tvalid;
+assign axi_tdata = pipe_out_axi_tdata;
+{% endif %}
+
+
+endmodule

@@ -1,0 +1,27 @@
+{#
+@param automatas: List of automatas to be processed
+@stage_index: current stage index (started from zero)
+@param bit_feed_size: number of bits being feed in each cycle
+@param axis_bw : size of the axi stream TDATA in bits (report vector and metadata)
+@param metadata_bw: size of the metadata in bits to be added to the report vector
+#}
+
+{# counting the number of report states #}
+{% set ns = namespace(report_count=0) %}
+{%- for atm in automatas -%}
+{%- for node in atm.nodes -%}
+{%if node.report %} {% set ns.report_count = ns.report_count + 1 %} {%endif%}
+{%- endfor -%}
+{%- endfor %}
+
+module Automata_Stage_{{stage_index}}(input         atm_clk,
+                                      input         global_run,
+                                      input         reset,
+                                      input [{{bit_feed_size + metadata_bw - 1}}:0] sym_and_met,
+                                      input         axi_tready,
+                                      output wire   axi_tvalid,
+                                      output wire [{{axis_bw - 1}} : 0] axi_tdata,
+                                      output wire [{{ns.report_count - 1}} : 0] report_vect,
+                                      output wire local_stop);
+
+endmodule

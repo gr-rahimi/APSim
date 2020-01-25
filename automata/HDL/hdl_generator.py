@@ -572,7 +572,7 @@ class HDL_Gen(object):
         '''
         self._stage_id += 1
         self._stage_info[self._stage_id] = list(atms_id)
-        template = self._env.get_template('Automata_Stage.template')
+        template = self._env.get_template('Automata_Pack.template')
         current_stage_atms = [self._atm_info[temp_atm_id] for temp_atm_id in atms_id]
         rendered_content = template.render(automatas=current_stage_atms,
                                            summary_str=self._get_stage_summary(self._atm_info.values()),
@@ -599,7 +599,7 @@ class HDL_Gen(object):
         return int(math.ceil(a/float(b))*b)
 
     @classmethod
-    def _get_intcon_tree(cls, leaf_count, max_degree):
+    def get_intcon_tree(cls, leaf_count, max_degree):
         """
         this function returns the array necessary to configure the interconnect connectivity pattern
         :param leaf_count: int, total number of leaf counts
@@ -667,8 +667,8 @@ class HDL_Gen(object):
         template = self._env.get_template('report_block_design_tcl.template')
         # this is only for the current tes and need to be updated later
 
-        dataplane_con_tree = self._get_intcon_tree(leaf_count=len(atms_list), max_degree=dataplane_intcon_max_degree)
-        controlplane_con_tree = self._get_intcon_tree(leaf_count=len(atms_list), max_degree=contplane_intcon_max_degree)
+        dataplane_con_tree = self.get_intcon_tree(leaf_count=len(atms_list), max_degree=dataplane_intcon_max_degree)
+        controlplane_con_tree = self.get_intcon_tree(leaf_count=len(atms_list), max_degree=contplane_intcon_max_degree)
         rendered_content = template.render(report_packet_width_list=[HDL_Gen._get_ceil_dividable(self._get_report_counts_of_autoamta_list(atm_stage_list)+ HDL_Gen.metada_bw, 8) / 8 for atm_stage_list in atms_list],
                                    report_buffer_length=[4096 for _ in atms_list],
                                    intconn_info_list=[[32, len(l), 256, l] for l in dataplane_con_tree],
