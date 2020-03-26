@@ -3,6 +3,18 @@ if [ "$#" -ne 1 ]; then
     echo "Include the path to the python2.7 include directory"
     exit 1
 fi
+
+unameOut="$(uname -s)"
+case "${unameOut}" in
+    Linux*)     machine=Linux;;
+    Darwin*)    machine=Mac;;
+    CYGWIN*)    machine=Cygwin;;
+    MINGW*)     machine=MinGw;;
+    *)          machine="UNKNOWN:${unameOut}"
+esac
+
+	
+	
 Python_Path=$1 
 
 if [ ! -d $Python_Path ]
@@ -16,8 +28,17 @@ touch __init__.py
 g++ -c -fPIC -fPIC -std=c++11  VASim.cpp
 swig -c++ -python VASim.i
 g++ -c -fPIC -std=c++11 VASim_wrap.cxx  -I $Python_Path
-g++ -shared -Wl,-soname,_VASim.so -o _VASim.so VASim.o VASim_wrap.o
-#g++ -undefined dynamic_lookup  VASim.o VASim_wrap.o -o _VASim.so
+
+if [ $machine = Linux ]
+then
+    g++ -shared -Wl,-soname,_VASim.so -o _VASim.so VASim.o VASim_wrap.o
+elif [ $machine = Mac ]
+then
+    g++ -undefined dynamic_lookup  VASim.o VASim_wrap.o -o _VASim.so
+else
+    echo "this operating system is not supported"
+    exit 2    
+fi
 
 me=`dirname "$0"`
 so_path="$me/_VASim.so"
