@@ -721,16 +721,24 @@ class Automatanetwork(object):
                                          node_color= color, font_size= 1 , ax =ax)
 
 
-    def draw_graph(self, file_name, draw_edge_label = True, use_dot = True, write_node_labels = False):
+    def draw_graph(self, file_name, draw_edge_label = True, use_dot = True, write_node_labels = False,
+                   matching_nodes=[]):
         """
 
         :param file_name: name of the png file
         :param draw_edge_label: True if writing edge labels is required
         :param use_dot: If true, uses dot method to draw the graph
+        :param matching_nodes: a list of edges (src, dst) specifying matched nodes.
         :return:
         """
+        match_edge_keys = []
+        if matching_nodes:  #matching data exist. so matching edges should be added. They will be deleted later
 
-        if not use_dot: # use pyplot
+            for s, d in matching_nodes:
+                edge_key = self._my_graph.add_edge(s, d, style='dashed', color='red', label='')
+                match_edge_keys.append(edge_key)
+
+        if use_dot is False: # use pyplot
             ax = plt.subplot()
             self.darw_graph_on_ax(draw_edge_label , ax)
             plt.savefig(file_name, dpi=500)
@@ -754,9 +762,18 @@ class Automatanetwork(object):
             if draw_edge_label:
                 for edge in self._my_graph.edges(data=True,):
                     edge[2]['fontsize'] = 6
-                    edge[2]['label'] = edge[2][Automatanetwork.symbol_data_key] # this is more memory efficient cw str()
+                    if Automatanetwork.symbol_data_key in edge[2]:  # check if an automaton edge or a matching edge
+                        edge[2]['label'] = edge[2][Automatanetwork.symbol_data_key]
+
 
             write_dot(self._my_graph, '/tmp/Rezasim_pydot.dot')
+
+            #  we should delte the matching edges if there was any
+            if matching_nodes:
+                for key, (s, d) in zip(match_edge_keys, matching_nodes):
+                    self._my_graph.remove_edge(s, d, key=key)
+
+
             #TODO what is this?
             if not write_node_labels:
                 pass

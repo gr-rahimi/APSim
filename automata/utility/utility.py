@@ -16,6 +16,31 @@ import os
 from tqdm import tqdm
 import itertools
 from pathos.multiprocessing import ProcessingPool as Pool
+from networkx.drawing.nx_agraph import write_dot
+
+def dot_to_svg(dot_file_path, svg_file_path=None):
+    """
+    this function generate an svg file based on the dot file
+    :param dot_file_path: path to the dot file
+    :param svg_file_path: path to the equivalent svg file, if it is None, the same path as the dot (with svg extension)
+    will be used
+    :return: None
+    """
+    if svg_file_path is None:
+        pre, ext = os.path.splitext(dot_file_path)
+        svg_file_path = pre + ".svg"
+    os.system('dot -Tsvg {} -o {}'.format( dot_file_path, svg_file_path))
+
+def draw_graph(graph, svg_path):
+    """
+    generate an svg file of the graph
+    :param graph: graph to be drawn
+    :param svg_path: path to the svg file
+    :return:
+    """
+    dot_path = '/tmp/Rezasim_pydot.dot'
+    write_dot(graph, dot_path)
+    dot_to_svg(dot_path, svg_path)
 
 
 def draw_matrix(file_to_save, matrix, boundries, **kwargs):

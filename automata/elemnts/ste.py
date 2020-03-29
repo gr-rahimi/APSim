@@ -12,7 +12,7 @@ from sortedcontainers import SortedSet
 symbol_type = 1 #cl
 
 
-def get_Symbol_type(is_naive = False):
+def get_Symbol_type(is_naive=False):
     if symbol_type == 1:
         return PackedIntervalSet
     else:
@@ -159,7 +159,10 @@ class ComparableMixin(object):
 class PackedInput(ComparableMixin):
 
     def __init__(self, alphabet_point):
-        self._point = alphabet_point
+        if isinstance(alphabet_point, tuple):
+            self._point = alphabet_point
+        else:
+            self._point = tuple(alphabet_point)
         self._iter_idx = -1
         self._dim = len(self._point)
 
@@ -363,7 +366,8 @@ class PackedIntervalSet(object):
     @property
     def dim(self):
         if not self._interval_set:
-            #TODO log
+            #TODO it should be fixed
+            return 1  # here we assume empty symbols set have dimension of one. Not true for strided version
             raise RuntimeWarning("empty symbol set does not have dimension yet")
         else:
             return self._interval_set[0].dim
@@ -475,6 +479,9 @@ class PackedIntervalSet(object):
 
         if self.dim > 1:
             return
+
+        if not self._interval_set:  # empty symbol set case
+            return
         new_sym_set = []
 
         # we know that the current symbol is sorted
@@ -523,6 +530,33 @@ class PackedIntervalSet(object):
             for idx, item in enumerate(to_be_deleted):
 
                 del self._interval_set[item-idx]
+
+    @property
+    def corners(self):
+        """
+        this property yield a generator over the corners of each interval. number of points are 2^dim
+        :return:
+        """
+        for interval in self._interval_set:
+            for i in range(pow(2, self.dim)):
+                binary_str = format(i, "0{0}b".format(self.dim))
+                pt = [0] * self.dim
+                for ch_idx, ch in enumerate(binary_str):
+                    if ch == '0':
+                        pt[ch_idx] = interval.left[ch_idx]
+                    else:
+                        pt[ch_idx] = interval.right[ch_idx]
+                yield PackedInput(pt)
+
+
+    @property
+    def intervals(self):
+        """
+        this property return a generator to iterate over the intervals
+        :return:
+        """
+        for intvl in self._interval_set:
+            yield intvl
 
     @property
     def points(self):
@@ -584,6 +618,49 @@ class PackedIntervalSet(object):
             if ivl.is_interval_star(max_val=max_val):
                 return True
         return False
+
+    def get_combinatorial_symbol_set(self):
+        """
+        This function returns a new symbolset that represents the case where it actually being implemented in one
+        memory column per dimension. It basically combines every combination of the intervals in each dimension
+        :return:
+        """
+        new_sym_set = PackedIntervalSet([])
+
+        per_dim_interval_list = [set() for _ in range(self.dim)]
+
+        for interval in self._interval_set:
+            for d in range(self.dim):
+                per_dim_interval_list[d].add((interval.left[d], interval.right[d]))
+
+        for pdc in product(*per_dim_interval_list):
+            new_interval = PackedInterval(PackedInput([pdc[d][0] for d in range(self.dim)]),
+                                          PackedInput([pdc[d][1] for d in range(self.dim)]))
+            new_sym_set.add_interval(new_interval)
+
+        new_sym_set.prone()
+        new_sym_set.merge()
+
+        return new_sym_set
+
+def is_there_common_sym(sym_set1, sym_set2):
+    """
+    this function receives two symbol set and check for existence of a common symbol.
+    if there is a common symbol, it returns True, otherwise False. It does this checking by going through corners of
+    each symset and check if other sym set accepts it or not
+    :param sym_set1:
+    :param sym_set2:
+    :return:
+    """
+    assert sym_set1.dim == sym_set2.dim, "two symbols should have the same dimensions"
+    for pt in sym_set1.corners:
+        if sym_set2.can_accept(pt):
+            return True
+    for pt in sym_set2.corners:
+        if sym_set1.can_accept(pt):
+            return True
+    return False
+
 
 class S_T_E(BaseElement):
     known_attributes = {'start', 'symbol-set', 'id'}
@@ -737,5 +814,3 @@ class S_T_E(BaseElement):
     @property
     def is_fake(self):
         return False
-
-
