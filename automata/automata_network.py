@@ -735,7 +735,7 @@ class Automatanetwork(object):
         if matching_nodes:  #matching data exist. so matching edges should be added. They will be deleted later
 
             for s, d in matching_nodes:
-                edge_key = self._my_graph.add_edge(s, d, style='dashed', color='red', label='')
+                edge_key = self._my_graph.add_edge(s, d, style='dashed', color='red', dir='none', label='')
                 match_edge_keys.append(edge_key)
 
         if use_dot is False: # use pyplot
