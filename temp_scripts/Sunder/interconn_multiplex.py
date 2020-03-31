@@ -14,25 +14,34 @@ from automata.utility.utility import minimize_automata, get_approximate_automata
 from automata.utility import total_reports, reports_per_cycle, total_active_states, actives_per_cycle, reports_in_cycle
 from automata.utility.utility import draw_graph
 
-atms_count = 1000000  #
+atms_count = 100  #
 filed_names = ['number of original states', 'number of matched states']
-thread_count = 8
+thread_count = 4
 
 def thread_func(ds):
     try:
-
-
 
         full_atm = atma.parse_anml_file(anml_path[ds])
         full_atm.remove_ors()
         atms_list = full_atm.get_connected_components_as_automatas()
         atms_list = atms_list[:atms_count]
 
-        with open(str(ds) + '.csv',
+        with open(str(ds) + '4bit.csv',
                   'w') as csv_file:
             csv_writer = csv.writer(csv_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
             csv_writer.writerow(filed_names)
             for curr_atm in atms_list:
+                b_atm = atma.automata_network.get_bit_automaton(curr_atm, original_bit_width=curr_atm.max_val_dim_bits_len)
+                four_b_atm = atma.automata_network.get_strided_automata2(atm=b_atm,
+                                                                  stride_value=4,
+                                                                  is_scalar=True,
+                                                                  base_value=2,
+                                                                  add_residual=True)
+                curr_atm = four_b_atm.get_single_stride_graph()
+                curr_atm.make_homogenous()
+                minimize_automata(curr_atm)
+                curr_atm.fix_split_all()
+
                 match_graph = nx.Graph()
 
                 parent_sym_to_product_sym_dic = {}

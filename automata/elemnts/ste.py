@@ -367,7 +367,7 @@ class PackedIntervalSet(object):
     def dim(self):
         if not self._interval_set:
             #TODO it should be fixed
-            return 1  # here we assume empty symbols set have dimension of one. Not true for strided version
+            return 2  # here we assume empty symbols set have dimension of one. Not true for strided version
             raise RuntimeWarning("empty symbol set does not have dimension yet")
         else:
             return self._interval_set[0].dim
