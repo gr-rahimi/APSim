@@ -1,5 +1,18 @@
+{#
+This template generates the AWS tcl script
+@param symbolic: whether or not this automaton is symbolic
+#}
+
 create_project -force project_1 ./ -part xcvu9p-flgb2104-1-i
+
+
+{% if symbolic %}
+set verilog_files [glob *.sv]
+{%- else -%}
 set verilog_files [glob *.v]
+{% endif %}
+
+
 add_files $verilog_files
 #add_files -fileset clk_constrain -norecurse ./clk_constrain.xdc
 #read_xdc -mode out_of_context ./clk_constrain.xdc
