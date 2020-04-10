@@ -152,11 +152,12 @@ def test_compressor(original_width, byte_trans_map, byte_map_width, translation_
 
 
 def get_hdl_folder_name(prefix, number_of_atms, stride_value, before_match_reg, after_match_reg, ste_type, use_bram,
-                        use_compression, compression_depth):
+                        use_compression, compression_depth, symbolic=False):
     folder_name = prefix + 'stage_' + str(number_of_atms) + '_stride' + str(stride_value) + (
         '_before' if before_match_reg else '') + ('_after' if after_match_reg else '') + \
                    ('_ste' + str(ste_type)) + ('_withbram' if use_bram else '_nobram') + \
-                  ('with_compD' if use_compression else 'no_comp') + (str(compression_depth) if use_compression else '')
+                  ('with_compD' if use_compression else 'no_comp') + (str(compression_depth) if use_compression else '') + \
+                      ('_symbolic' if symbolic else '_explicit')
 
     return folder_name
 
@@ -205,7 +206,7 @@ def generate_full_lut(atms_list, single_out ,before_match_reg, after_match_reg, 
 
 
 class HDL_Gen(object):
-    def __init__(self, path, before_match_reg, after_match_reg, ste_type, total_input_len, bram_shape=None):
+    def __init__(self, path, before_match_reg, after_match_reg, ste_type, total_input_len, bram_shape=None, symbolic=False):
         '''
         :param path: path to generate verilog files
         :param before_match_reg
@@ -233,10 +234,11 @@ class HDL_Gen(object):
         self._stage_info = {} # keeps information about automatas in the same stage. key= stage_idx, value= list of atm_ids
          # this is a 2D list for keeping autoamatas that reide in the same stage
         self._Atm_Interface = namedtuple('Atm_Interface', ['id', 'nodes', 'nodes_count', 'reports_count', 'edges_count',
-                                                          'stride_value', 'use_compression', 'max_val_dim'])
+                                                          'stride_value', 'use_compression', 'max_val_dim', 'input_bits'])
         self._Node_Interface = namedtuple('Node_Interface', ['id', 'report', 'sym_count', 'symbols'])
         self._pending_automatas = [] # this list keeps all the automata that has not been assigned to a stage [(atm_interface, lut_bram_dic),....]
         self._bram_shape = bram_shape
+        self._symbolic = symbolic
 
 
     def _generate_single_automata(self, automata, inp_bit_len, lut_bram_dic):
@@ -263,7 +265,7 @@ class HDL_Gen(object):
 
     def register_automata(self, atm, use_compression, byte_trans_map=None, translation_list=None, lut_bram_dic={}):
         '''
-        :param atm:
+        :param atm:register_automata
         :param use_compression:
         :param byte_trans_map:
         :param translation_list:
@@ -273,7 +275,8 @@ class HDL_Gen(object):
         :return:
         '''
 
-        assert atm.fake_root not in lut_bram_dic
+        if not self._symbolic:
+            assert atm.fake_root not in lut_bram_dic
 
         def __check_dic_valid():
             for k, v in lut_bram_dic.iteritems():
@@ -285,26 +288,31 @@ class HDL_Gen(object):
         __check_dic_valid() # check for validation of lutbram dic
 
         if use_compression is False:
-            self._generate_single_automata(automata=atm, inp_bit_len=self._total_input_len, lut_bram_dic=lut_bram_dic)
+            if not self._symbolic:
+                self._generate_single_automata(automata=atm, inp_bit_len=self._total_input_len, lut_bram_dic=lut_bram_dic)
         else:
             single_map_len = HDL_Gen._get_sym_map_bit_len(byte_trans_map if not translation_list else translation_list[-1])
             assert single_map_len == int(math.ceil(math.log(atm.max_val_dim + 1, 2)))
             inp_bit_len = single_map_len * atm.stride_value
-            self._generate_single_automata(automata=atm, inp_bit_len=inp_bit_len, lut_bram_dic=lut_bram_dic)
+            if not self._symbolic:
+                self._generate_single_automata(automata=atm, inp_bit_len=inp_bit_len, lut_bram_dic=lut_bram_dic)
 
-        assert atm.id not in self._atm_info
+        if not self._symbolic:
+            assert atm.id not in self._atm_info
+
+        print "Testing stuff here"
+        print atm.__dict__
         atm_interface = self._Atm_Interface(id=atm.id, nodes=[], nodes_count=atm.nodes_count,
                                             reports_count=sum(1 for _ in atm.get_filtered_nodes(lambda ste: ste.report)),
                                             edges_count=atm.edges_count, stride_value=atm.stride_value,
-                                            use_compression=use_compression, max_val_dim=atm.max_val_dim)
+                                            use_compression=use_compression, max_val_dim=atm.max_val_dim, input_bits=atm.input_bits)
         self._atm_info[atm.id] = atm_interface
         for node in atm.nodes:
             atm_interface.nodes.append(self._Node_Interface(id=node.id, report=node.report,
-                                                            sym_count=0 if node.id == FakeRoot.fake_root_id else len(node.symbols),
+                                                            sym_count=0 if node.id == FakeRoot.fake_root_id or self._symbolic else len(node.symbols),
                                                             symbols=node.symbols if 2 in lut_bram_dic.get(node, []) else None))
 
         self._pending_automatas.append((atm_interface, lut_bram_dic))
-
 
 
     def register_compressor(self, atm_ids,byte_trans_map, translation_list):
@@ -408,13 +416,18 @@ class HDL_Gen(object):
             for n in atm.nodes:
                 total_sym_count += n.sym_count
 
-        str_list = ['******************** Summary {}********************']
 
-        str_list.append("total nodes = {}".format(total_nodes))
-        str_list.append("total reports = {}".format(total_reports))
-        str_list.append("total edges = {}".format(total_edges))
-        str_list.append("average symbols len = {}".format(float(total_sym_count) / total_nodes))
+        str_list = ['******************** Summary {}********************']
+        if not self._symbolic:
+            str_list.append("total nodes = {}".format(total_nodes))
+            str_list.append("total reports = {}".format(total_reports))
+            str_list.append("total edges = {}".format(total_edges))
+            str_list.append("average symbols len = {}".format(float(total_sym_count) / total_nodes))
+        else:
+            str_list.append("Truth Table")
+        
         str_list.append('#######################################################')
+
 
         return '\n'.join(str_list)
 
@@ -573,8 +586,10 @@ class HDL_Gen(object):
                                            comp_dict={atm_id:self._atm_to_comp_id[atm_id] for atm_id in atms_id if atm_id in self._atm_to_comp_id},
                                            brams_contents=brams_contents, brams_list=brams_list, use_bram=use_bram,
                                            pending_atms=self._pending_automatas,
-                                           after_match=self._after_match_reg)
-        with open(os.path.join(self._path, 'stage{}.v'.format(self._stage_id)), 'w') as f:
+                                           after_match=self._after_match_reg,
+                                           symbolic=self._symbolic)
+        extension = 'sv' if self._symbolic else 'v'
+        with open(os.path.join(self._path, 'stage{}.{}'.format(self._stage_id, extension)), 'w') as f:
             f.writelines(rendered_content)
 
 
@@ -582,19 +597,24 @@ class HDL_Gen(object):
 
         atms_list = [[self._atm_info[atm_id] for atm_id in atms_id]for atms_id in self._stage_info.values()]
 
+        # This is where the Top Module is stamped out
         template = self._env.get_template('Top_Module.template')
         rendered_content = template.render(automatas=atms_list, bit_feed_size=self._total_input_len)
-        with open(os.path.join(self._path, 'top_module.v'), 'w') as f:
+        filename = 'top_module.sv' if self._symbolic else 'top_module.v'
+        with open(os.path.join(self._path, filename), 'w') as f:
             f.writelines(rendered_content)
 
-        template = self._env.get_template('Single_STE.template')
-        rendered_content = template.render(ste_type=self._ste_type)
-        with open(os.path.join(self._path, 'ste.v'), 'w') as f:
-            f.writelines(rendered_content)
+        # This is where the individual STE is stamped out
+        # Don't need an STE if not symbolic
+        if not self._symbolic:
+            template = self._env.get_template('Single_STE.template')
+            rendered_content = template.render(ste_type=self._ste_type)
+            with open(os.path.join(self._path, 'ste.v'), 'w') as f:
+                f.writelines(rendered_content)
 
         # TCL script
         template = self._env.get_template('tcl.template')
-        rendered_content = template.render()
+        rendered_content = template.render(symbolic=self._symbolic)
         with open(os.path.join(self._path, 'my_script.tcl'), 'w') as f:
             f.writelines(rendered_content.encode('utf-8'))
 
