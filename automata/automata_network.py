@@ -30,8 +30,10 @@ class Automatanetwork(object):
     symbol_data_key = 'symbol_set'
     start_type_data_key = 'start_type'
 
+    input_bits = None # This is exclusively used by symbolic truth table-based automata
 
-    def __init__(self, id, is_homogenous, stride, max_val):
+
+    def __init__(self, id, is_homogenous, stride, max_val, inputs=None):
         if '-' in id:
             id = id.replace('-', '_')
 
@@ -46,6 +48,8 @@ class Automatanetwork(object):
         #TODO cleanup, _last_index?
         self.last_assigned_id = 0
         self._max_val = max_val
+
+        self.input_bits = inputs
 
     def _clear_mark_idx(self):
         for node in self.nodes:
@@ -128,12 +132,10 @@ class Automatanetwork(object):
     def from_xml(cls, xml_node):
 
         Automatanetwork._check_validity(xml_node)
-
+        
         #TODO xml files are always homogeneous
         graph_ins = Automatanetwork(id=xml_node.attrib['id'], is_homogenous=True, stride=1, max_val=255)
-
         original_id_to_node = {}
-
 
         for child in xml_node:
             if child.tag == 'state-transition-element':
@@ -737,7 +739,6 @@ class Automatanetwork(object):
             plt.close()
         else: # use dot and graphviz
             #TODO draw edge label does not work
-
             for node in self.nodes:
                 if node.start_type == StartType.fake_root:
                     self.nodes[node.id]['color'] = 'black'
@@ -1056,7 +1057,7 @@ class Automatanetwork(object):
             str_list.append("Average edge per node = {}".format(float(nc)/ec))
         else:
             str_list.append("Average edge per node is undefined")
-            logging.warning('an automaton detected with zero number of edges')
+            logging.warning('an automaton detected with 0 number of edges')
         str_list.append("Number of start nodes = {}".format(self.number_of_start_nodes))
         str_list.append("Number of report nodes = {}".format(self.number_of_report_nodes))
         str_list.append("does have all_input = {}".format(self.does_have_all_input()))
