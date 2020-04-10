@@ -15,6 +15,7 @@
 @param use_bram: if True actual bram will be used otherwise LUT will be used to emulate bram
 @param pending_atms
 @param after_match
+@param symbolic: whether or not the automata are symbolic
 #}
 
 /*
@@ -61,21 +62,51 @@ assign single_out = {{report_list|join(' | ')}};
 
 {%endif%}
 
+{%- if symbolic -%}
+    {%set input_bit_list = [] %}
+    {% for atm in automatas %}
+        {%- for input in atm.input_bits -%}
+            {% if input not in input_bit_list %}
+                {% do input_bit_list.append(input) %}
+            {% endif %}
+        {%- endfor -%}
+    {%- endfor -%}
+{% endif %}
 
-{%for atm in  automatas%}
-Automata_{{atm.id}} automata_{{atm.id}} (.clk(clk),
+{%- if symbolic -%}
+    {% for v in input_bit_list %}
+        wire {{v}};
+        assign {{v}} = top_symbols[{{loop.index0}}];
+    {%- endfor -%}
+{% endif %}
+
+
+{% for atm in  automatas %}
+Automata_{{atm.id}} automata_{{atm.id}} (
+                     .clk(clk),
                      .run(run),
-                     .reset(reset),
-                     .symbols({%if not atm.use_compression %}top_symbols {% else %}from_comp_{{comp_dict[atm.id]}}{% endif %})
+                     {% if symbolic %}
+                        .rst(reset),
+                        {% for input in atm.input_bits %}
+                            .{{input}}({{input}}),
+                        {% endfor %}
+                     {%- else -%}
+                        .reset(reset),
+                        .symbols({%if not atm.use_compression %}top_symbols {% else %}from_comp_{{comp_dict[atm.id]}}{% endif %})
+                     {%- endif -%}
                      {% for node, placement in pending_atms[loop.index0][1].iteritems() -%}
                         {% for d in placement -%}
                             {% if d == 2 %}
-                            ,.{{atm.id}}_n{{node.id}}_d{{loop.index0}}_bram({{atm.id}}_n{{node.id}}_d{{loop.index0}}_bram)
+                            .{{atm.id}}_n{{node.id}}_d{{loop.index0}}_bram({{atm.id}}_n{{node.id}}_d{{loop.index0}}_bram),
                             {%- endif %}
                         {%- endfor %}
                      {%- endfor -%}
                      {%- for node in atm.nodes if node.report %}
-                      , .{{atm.id}}_w_out_{{node.id}}({{atm.id}}_w_out_{{node.id}})
+                        {% if symbolic %}
+                            .report({{atm.id}}_w_out_{{node.id}})
+                        {%- else -%}
+                        , .{{atm.id}}_w_out_{{node.id}}({{atm.id}}_w_out_{{node.id}})
+                        {%- endif -%}
                      {%- endfor %}
                     );
 {% endfor %}
@@ -93,7 +124,7 @@ Symbol_Compressor_Pipeline_{{comp_dict[atm.id]}} sym_comp_{{comp_dict[atm.id]}}(
                             );
 {% do unique_compressors.append(comp_dict[atm.id]) %}
 {% endif %}
-{% endfor %}
+{% endfor %}    
 
 
 
