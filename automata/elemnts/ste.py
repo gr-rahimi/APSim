@@ -614,8 +614,10 @@ class S_T_E(BaseElement):
                 parameter_dict['start_type'] = StartType.start_of_data
             elif xml_node.attrib['start'] == 'all-input':
                 parameter_dict['start_type'] = StartType.all_input
+            elif xml_node.attrib['start'] == 'none':
+                parameter_dict['start_type'] = StartType.non_start 
             else:
-                raise RuntimeError('Unknown value for start attribute')
+                raise RuntimeError('Unknown value for start attribute is {}'.format(parameter_dict['start_type']))
         else:
             parameter_dict['start_type'] = StartType.non_start
 
