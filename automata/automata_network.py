@@ -1956,17 +1956,24 @@ class Automatanetwork(object):
 
     def max_STE_in_degree(self):
         """
-        return the maximum fan in ampng all the STEs
+        return the maximum fan in among all the STEs
         :return:
         """
-        return max(self.get_STEs_in_degree())
+
+        if not self.get_STEs_in_degree():
+            return 0
+        else:
+            return max(self.get_STEs_in_degree())
 
     def max_STE_out_degree(self):
         """
         return the maximum fan out ampng all the STEs
         :return:
         """
-        return max(self.get_STEs_out_degree())
+        if not self.get_STEs_out_degree():
+            return 0
+        else:
+            return max(self.get_STEs_out_degree())
 
     def set_max_fan_in(self, max_fan_in):
         assert self.is_homogeneous, "This function works only for homogeneous automatas"
