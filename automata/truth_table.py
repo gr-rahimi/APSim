@@ -71,6 +71,25 @@ def generate_transition_table(automata):
                 else:
                     transition_dict[(source_state, destination_state)].extend(transition_alphabet)
 
+    # Check to make sure that all nodes are reachable
+    for node in automata.nodes:
+        if not node.is_fake:
+            found = False
+            for (src, dst) in transition_dict.keys():
+                if dst == node:
+                    found = True
+            if not found:
+                assert node in start_states, "Found unreachable node {} that is not a start state!".format(node)
+
+    # Make starting nodes reachable
+    for node in start_states:
+
+        character_set =  expand_symbol_set(automata.get_STE_by_id(node)._symbol_set)
+        transition_alphabet = alphabet(character_set)
+        transition_dict[(None, node)] = transition_alphabet
+
+    print "Done building transition dict"
+
     return transition_dict, start_states, accept_states
 
 
@@ -102,12 +121,12 @@ def generate_tt(automata):
     # Grab a transition dict
     transition_dict, start_states, accept_states = generate_transition_table(automata)
 
+
+
     # print "Start States: ", start_states
-    # for k,v in transition_dict.items():
-    #     print(k, ': ', v)
-
     # print "Accept States: ", accept_states
-
+    # for k,v in transition_dict.items():
+    #     print k,v
     # exit()
 
     # We create a reverse dictionary from destination to labels to source
@@ -128,9 +147,14 @@ def generate_tt(automata):
         for label in labels:
             add_to_reverse_dict(dest, label, source)
 
+    del transition_dict
+
     # We're interested in transition and report tables
     tables = {'report':[], 'transition':{}}
     label_format_string = '0%db' % len(input_names)
+
+
+    print "Done building reverse dict"
 
     # for dest, labels_to_sources in reverse_dict.items():
     #     print dest
@@ -167,12 +191,16 @@ def generate_tt(automata):
 
                 # Create an entry in the table that sets our 
                 # current state to 1 if the source is a 1
-                next_row[state_index_dict[int(source)]] = '1'
+
+                if source:
+                    next_row[state_index_dict[int(source)]] = '1'
 
                 # Add to the table
                 table.append((binary_label, list(next_row), '1'))
 
         tables['transition'][dest] = table
+    
+    print "Done with transitions"
     
     # for dest in tables['transition']:
     #     print dest
@@ -198,35 +226,8 @@ def generate_tt(automata):
 
     print("Finished generating tables")
 
-    # for (state, table) in tables['transition'].items():
-    #     print "State: ", state
-    #     for row in table:
-    #         print row
-    # exit()
-
-    # for table in tables['report']:
-    #     print table
-    # exit()
-
     return tables, start_states, accept_states
 
-# def write_to_file(table, file):
-#     for (inputs, state_bits, output) in table:
-#         row = ' '.join(inputs) + ' : ' if inputs else ''
-#         file.write(row + ' '.join(state_bits) + ' : ' + output + '\n')
-
-
-# def save_to_file(truth_tables, filename):
-#     try:
-#         with open(filename, 'w') as file:
-#             for truth_table in truth_tables.values():
-#                 for (inputs, state_bits, output) in truth_table:
-#                     row = ' '.join(inputs) + ' : ' if inputs else ''
-#                     file.write(row + ' '.join(state_bits) + ' : ' + output + '\n')
-
-#                 file.write('\n')
-#     except IOError as e:
-#         print("Exception: ", e)
 
 def expand_symbol_set(symbol_set):
     """
