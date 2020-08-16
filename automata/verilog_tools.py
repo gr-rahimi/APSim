@@ -144,6 +144,8 @@ def build_truthtable(tables, start_states, accept_states, module_name, output_ve
     custom primitive truthtable files.
     """
 
+    print "Starting building truthtables"
+
     truth_tables = parse_truth_tables(tables, start_states, accept_states)
 
     verilog_code = ""
@@ -153,7 +155,7 @@ def build_truthtable(tables, start_states, accept_states, module_name, output_ve
             verilog_code += make_combinationatorial_udp(truth_table)
 
         elif truth_table.type == TruthTableType.TRANSITION:
-            verilog_code += make_sequential_udp(truth_table)
+            verilog_code += make_sequential_udp(truth_table, start_states)
         else:
             raise Exception('Unsupported truth table type: {}'.format(truth_table.type))
         
@@ -161,7 +163,8 @@ def build_truthtable(tables, start_states, accept_states, module_name, output_ve
         verilog_code += "\n"
 
     # Write out the module definition
-    verilog_code += make_module(truth_tables, start_states, module_name)
+    inputs, vc = make_module(truth_tables, start_states, module_name)
+    verilog_code += vc
 
     try:
         with open(output_verilog_file, 'w') as f:
@@ -171,6 +174,8 @@ def build_truthtable(tables, start_states, accept_states, module_name, output_ve
         print("Cannot write to file {}".format(output_verilog_file))
         print("\tException: ", e)
         exit(-1)
+    
+    return inputs
 
 
 def make_combinationatorial_udp(truth_table):
@@ -215,7 +220,62 @@ def make_combinationatorial_udp(truth_table):
     return verilog_code
 
 
-def make_sequential_udp(truth_table):
+def make_start_sequential_udp(start_state, truth_table):
+    """
+    This function generates a TruthTable Verilog module
+    This is used for start states
+    """
+
+    inputs = truth_table.header['inputs']
+
+    verilog_code = "module {}TruthTable (\n".format(start_state)
+    verilog_code += "\toutput reg {},\n".format(start_state)
+    verilog_code += "\tinput wire clk, run, rst, {}\n".format(','.join(inputs))
+    verilog_code += ");\n"
+    verilog_code += "\treg {};\n".format(previous_state_name)
+    verilog_code += "\tinitial\n"
+    verilog_code += "\t\t{} = 1'b0;\n".format(start_state)
+    verilog_code += "\n"
+    verilog_code += "\talways @(posedge clk)\n"
+    verilog_code += "\tcasex ({" + "{}".format(', '.join(inputs)) + "})\n"
+    verilog_code += "\t\t//{} : {}\n".format(', '.join(inputs), start_state)
+
+    for transition in transitions:
+        transition_inputs = transition['inputs']
+
+        previous_states = transition['previous_state']
+        next_state_value = transition['next_state']
+
+        transition_inputs += ''.join(previous_states)
+
+        verilog_code += "\t\t{}'b{} : {} = 1'b{};\n".format(
+            len(inputs),
+            ''.join(['X' for x in range(len(inputs))]),
+            start_state,
+            1
+        )
+    verilog_code += "\t\t{} : {} = 1'b0;\n".format(
+        "default",
+        next_state
+    )
+
+    verilog_code += "\tendcase\n"
+    verilog_code += "\n"
+    verilog_code += "\talways @(posedge clk, posedge rst)\n"
+    verilog_code += "\tbegin\n"
+    verilog_code += "\t\tif(rst == 1'b1)\n"
+    verilog_code += "\t\t\t{} = 1'b0;\n".format(previous_state_name)
+    verilog_code += "\t\telse if (run == 1'b1)\n"
+    verilog_code += "\t\t\t{} = {};\n".format(previous_state_name, next_state)
+    verilog_code += "\tend\n"
+    verilog_code += "endmodule\n\n"
+    verilog_code += '\n'
+
+    return verilog_code
+
+
+
+def make_sequential_udp(truth_table, start_states):
     """
     This function generates a TruthTable Verilog module
     This is used for state transition logic, which is sequential
@@ -226,6 +286,11 @@ def make_sequential_udp(truth_table):
     previous_states = truth_table.header['previous_state']
 
     next_state = truth_table.header['next_state']
+
+    # print "Start States: ", start_states
+    # if next_state in start_states:
+    #     print "A START STATE!!"
+    #     exit()
 
     # This is a little tricky
     # If we have more than one bit in the previous_state
@@ -314,16 +379,26 @@ def make_module(truth_tables, start_states, module_name):
     finite state automaton.
     """
 
-    inputs = None
+    module_inputs = None
     output = None
     wires = []
+
+    # print "Truth Tables:"
+    # for tt in truth_tables:
+    #     print tt
+    # print "Start States: "
+    # for ss in start_states:
+    #     print ss
+    # print "Module Name: "
+    # print module_name
+    # exit()
     
     for truth_table in truth_tables:
         if truth_table.type == TruthTableType.TRANSITION:
-            if not inputs:
-                inputs = truth_table.header['inputs']
+            if not module_inputs:
+                module_inputs = truth_table.header['inputs']
             else:
-                assert truth_table.header['inputs'] == inputs, "Input assertion fails!"
+                assert truth_table.header['inputs'] == module_inputs, "Input assertion fails!"
             
             if truth_table.header['next_state'] not in wires:
                 wires.append(truth_table.header['next_state'])
@@ -334,15 +409,15 @@ def make_module(truth_tables, start_states, module_name):
             else:
                 assert truth_table.header['output'] == output, "Output assertion fails!"
 
-    verilog_code = "module {}({}, clk, run, rst, report);\n".format(module_name, ', '.join(inputs))
+    verilog_code = "module {}({}, clk, run, rst, report);\n".format(module_name, ', '.join(module_inputs))
     verilog_code += "\n"
-    verilog_code += "\tinput {}, clk, run, rst;\n".format(', '.join(inputs))
+    verilog_code += "\tinput {}, clk, run, rst;\n".format(', '.join(module_inputs))
     verilog_code += "\toutput wire {};\n".format(output)
     verilog_code += "\twire {};\n".format(', '.join(wires))
-    for ss in start_states:
-        wire_name = 'new' + str(ss)
-        verilog_code += "\twire {};\n".format(wire_name)
-        verilog_code += "\tassign {} = 1'b1;\n".format(wire_name)
+    # for ss in start_states:
+    #     wire_name = 'new' + str(ss)
+    #     verilog_code += "\twire {};\n".format(wire_name)
+    #     verilog_code += "\tassign {} = 1'b1;\n".format(wire_name)
     verilog_code += "\n"
 
     # Instantiate all truth tables here
@@ -373,8 +448,8 @@ def make_module(truth_tables, start_states, module_name):
         for input in inputs[:-1]:
             verilog_code += "\t\t.{}({}),\n".format(input, input)
         
-        # If we don't have any external previous states, we're done
-        if(len(previous_states) == 0):
+        # If we don't have any external previous statedds, we're done
+        if (len(previous_states) == 0) and truth_table.type != TruthTableType.TRANSITION:
             verilog_code += "\t\t.{}({})\n".format(inputs[-1], inputs[-1])
         else:
             verilog_code += "\t\t.{}({}),\n".format(inputs[-1], inputs[-1])
@@ -393,4 +468,4 @@ def make_module(truth_tables, start_states, module_name):
 
     verilog_code += "endmodule\n"
 
-    return verilog_code
+    return module_inputs, verilog_code
