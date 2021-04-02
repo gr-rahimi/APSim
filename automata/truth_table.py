@@ -121,14 +121,6 @@ def generate_tt(automata):
     # Grab a transition dict
     transition_dict, start_states, accept_states = generate_transition_table(automata)
 
-
-
-    # print "Start States: ", start_states
-    # print "Accept States: ", accept_states
-    # for k,v in transition_dict.items():
-    #     print k,v
-    # exit()
-
     # We create a reverse dictionary from destination to labels to source
     # That is, reverse_dict[d][l] is the list of source states that
     # transition to destination state d on label l
@@ -155,12 +147,6 @@ def generate_tt(automata):
 
 
     print "Done building reverse dict"
-
-    # for dest, labels_to_sources in reverse_dict.items():
-    #     print dest
-    #     print "---"
-    #     print labels_to_sources
-    # exit()
 
     # For each destination state...
     for dest, labels_to_sources in reverse_dict.items():
@@ -201,11 +187,6 @@ def generate_tt(automata):
         tables['transition'][dest] = table
     
     print "Done with transitions"
-    
-    # for dest in tables['transition']:
-    #     print dest
-    #     print tables['transition'][dest]
-    # exit()
 
     new_state_names = ['new' + s for s in state_names]
     report_table = [(None, new_state_names, 'report')]
