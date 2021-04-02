@@ -150,20 +150,23 @@ def build_truthtable(tables, start_states, accept_states, module_name, output_ve
 
     verilog_code = ""
 
-    for truth_table in truth_tables:
-        if truth_table.type == TruthTableType.REPORTING:
-            verilog_code += make_combinationatorial_udp(truth_table)
+    def define_tts(truth_tables, start_states):
+        verilog_code = ""
+        for truth_table in truth_tables:
+            if truth_table.type == TruthTableType.REPORTING:
+                verilog_code += make_combinationatorial_udp(truth_table)
 
-        elif truth_table.type == TruthTableType.TRANSITION:
-            verilog_code += make_sequential_udp(truth_table, start_states)
-        else:
-            raise Exception('Unsupported truth table type: {}'.format(truth_table.type))
-        
-        #Add a newline between tables
-        verilog_code += "\n"
+            elif truth_table.type == TruthTableType.TRANSITION:
+                verilog_code += make_sequential_udp(truth_table, start_states)
+            else:
+                raise Exception('Unsupported truth table type: {}'.format(truth_table.type))
+            
+            #Add a newline between tables
+            verilog_code += "\n"
+        return verilog_code
 
     # Write out the module definition
-    inputs, vc = make_module(truth_tables, start_states, module_name)
+    inputs, vc = make_module(truth_tables, start_states, module_name, define_tts)
     verilog_code += vc
 
     try:
@@ -337,7 +340,7 @@ def make_sequential_udp(truth_table, start_states):
     verilog_code += "\talways @(posedge clk)\n"
     verilog_code += "\tcasex ({" + "{},{}".format(
         ', '.join(inputs), ', '.join(transition_state_names)) + "})\n"
-    verilog_code += "\t\t//{} {} : {}\n".format(', '.join(inputs), ' '.join(transition_state_names), next_state)
+    verilog_code += "\t\t//{} {} : {}\n".format(', '.join(inputs), ', '.join(transition_state_names), next_state)
 
     for transition in transitions:
         transition_inputs = transition['inputs']
@@ -373,7 +376,7 @@ def make_sequential_udp(truth_table, start_states):
     return verilog_code
 
 
-def make_module(truth_tables, start_states, module_name):
+def make_module(truth_tables, start_states, module_name, define_tts):
     """
     This function generates the module interface for the symbolic
     finite state automaton.
@@ -419,6 +422,8 @@ def make_module(truth_tables, start_states, module_name):
     #     verilog_code += "\twire {};\n".format(wire_name)
     #     verilog_code += "\tassign {} = 1'b1;\n".format(wire_name)
     verilog_code += "\n"
+
+    verilog_code += define_tts(truth_tables, start_states)
 
     # Instantiate all truth tables here
     verilog_code += "\t// Instantiate truth tables\n"
