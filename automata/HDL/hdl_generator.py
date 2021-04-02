@@ -153,6 +153,10 @@ def test_compressor(original_width, byte_trans_map, byte_map_width, translation_
 
 def get_hdl_folder_name(prefix, number_of_atms, stride_value, before_match_reg, after_match_reg, ste_type, use_bram,
                         use_compression, compression_depth, symbolic=False):
+    '''
+        Concatenate hdl arguments to generate unique folder name
+        :return: Folder name
+    '''
     folder_name = prefix + 'stage_' + str(number_of_atms) + '_stride' + str(stride_value) + (
         '_before' if before_match_reg else '') + ('_after' if after_match_reg else '') + \
                    ('_ste' + str(ste_type)) + ('_withbram' if use_bram else '_nobram') + \
@@ -208,6 +212,7 @@ def generate_full_lut(atms_list, single_out ,before_match_reg, after_match_reg, 
 class HDL_Gen(object):
     def __init__(self, path, before_match_reg, after_match_reg, ste_type, total_input_len, bram_shape=None, symbolic=False):
         '''
+        Set configurations for HDL Generator
         :param path: path to generate verilog files
         :param before_match_reg
         :param after_match_reg
