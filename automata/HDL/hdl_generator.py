@@ -265,7 +265,7 @@ class HDL_Gen(object):
                                            bit_feed_size=inp_bit_len,
                                            lut_bram_dic=lut_bram_dic) # TODO change the name of bit_feed_size in template. it is confusing with other bit_feed_size which is non compressed len
 
-        with open(os.path.join(self._path, automata.id + '.v', ), 'w') as f:
+        with open(os.path.join(self._path, automata.id + '.sv', ), 'w') as f:
             f.writelines(rendered_content)
 
     def register_automata(self, atm, use_compression, byte_trans_map=None, translation_list=None, lut_bram_dic={}):
