@@ -56,7 +56,7 @@ def process_anml(bitwidth, input_directory, automata_per_stage):
     output_hdl_directory = input_directory + '/' + str(bitwidth) + '_' + str(automata_per_stage)
 
     #anml_input_files = glob.glob(input_directory + '/vasim*.anml')
-    anml_input_files = glob.glob(input_directory + '/split_automata_*.anml')
+    anml_input_files = glob.glob(input_directory + '/*.anml')
 
     # Clean up directory
     shutil.rmtree(output_hdl_directory, ignore_errors=True)
@@ -74,8 +74,12 @@ def process_anml(bitwidth, input_directory, automata_per_stage):
                                    total_input_len=dbw, symbolic=False)
 
 
+    print("ANML Files: ", anml_input_files)
+
     # Iterate through the ANML files in the directory
     for index, anml_input_file in enumerate(anml_input_files):
+
+        #print "Parsing: ", anml_input_file 
 
         # Grab the automata file number
         automata_number = re.search('\d+', anml_input_file).group(0)
@@ -98,7 +102,8 @@ def process_anml(bitwidth, input_directory, automata_per_stage):
 
         # Minimizing the automata with NFA heuristics
         if minimize:
-            minimize_automata(automata_with_set_bw)
+            # We're going to merge reporting states, even if they have differing report codes
+            minimize_automata(automata_with_set_bw, same_report_code=False)
             #atma.generate_anml_file(anml_input_file + "_min.anml", automata)
         else:
             print("No minimization of Automata")
