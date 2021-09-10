@@ -47,7 +47,13 @@ There are some scripts available in the "Example" folder replicating main experi
 
 Reference
 ----------
-Elaheh Sadredini, Reza Rahimi, Marzieh Lenjani, Mircea Stan, and Kevin Skadron. "FlexAmata: A Universal and
+Please reference the following papers if you use the tool: 
+
+1. Elaheh Sadredini, Reza Rahimi, Marzieh Lenjani, Mircea Stan, and Kevin Skadron. "FlexAmata: A Universal and
 Efficient Adaption of Applications to Spatial Automata Processing Accelerators." The 25th International Conference on
 Architectural Support for Programming Languages and Operating Systems (ASPLOS), 2020.
+
+2. Elaheh Sadredini, Reza Rahimi, Marzieh Lenjani, Mircea Stan, and Kevin Skadron. "Impala: Algorithm/Architecture Co-Design for In-Memory Multi-Stride Pattern Matching", The 26th IEEE International Symposium on High-Performance Computer Architecture (HPCA), 2020.
+
+3. Reza Rahimi, Elaheh Sadredini, Mircea Stan, and Kevin Skadron. "Grapefruit: An Open-Source, Full-Stack, and Customizable Automata Processing on FPGAs", The 28th IEEE International Symposium on Field-Programmable Custom Computing Machines (FCCM), 2020.
 
