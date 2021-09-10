@@ -45,7 +45,7 @@ There are some scripts available in the "Example" folder replicating main experi
 `python <script name>`
 
 
-Reference
+References
 ----------
 Please reference the following papers if you use the tool: 
 
