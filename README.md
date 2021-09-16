@@ -41,7 +41,7 @@ Install
 
 Usage
 -------
-There are some scripts available in the "temp_scripts" folder replicating main experiments in the paper. Run each of them using the following command
+There are some scripts available in the "Example" folder replicating main experiments in the paper. Run each of them using the following command
 `python <script name>`
 
 
