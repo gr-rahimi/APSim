@@ -614,8 +614,10 @@ class S_T_E(BaseElement):
                 parameter_dict['start_type'] = StartType.start_of_data
             elif xml_node.attrib['start'] == 'all-input':
                 parameter_dict['start_type'] = StartType.all_input
+            elif xml_node.attrib['start'] == 'none':
+                parameter_dict['start_type'] = StartType.non_start 
             else:
-                raise RuntimeError('Unknown value for start attribute')
+                raise RuntimeError('Unknown value for start attribute is {}'.format(parameter_dict['start_type']))
         else:
             parameter_dict['start_type'] = StartType.non_start
 
@@ -690,7 +692,12 @@ class S_T_E(BaseElement):
     @classmethod
     def check_validity(cls, xml_node):
         attr_set = set(xml_node.attrib)
-        assert attr_set.issubset(S_T_E.known_attributes)
+
+        # For now, lets remove tihs attribute if in the STE; we do not support it
+        if "high-only-on-eod" in attr_set:
+            attr_set.remove("high-only-on-eod")
+
+        assert attr_set.issubset(S_T_E.known_attributes), "Received attribute set: {}".format(attr_set)
         super(S_T_E, cls).check_validity(xml_node)
 
     # check if the active-on-match has any new attribute

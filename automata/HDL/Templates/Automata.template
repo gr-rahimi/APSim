@@ -43,9 +43,12 @@ assign all_input = 1'b1;
 assign start_of_data = ~reset;
 
 {%for node in automata.nodes  if not node.id == 0 %}
+
+/*
 {%- if not node.report -%}
 wire {{automata.id}}_w_out_{{node.id}};
 {% endif -%}
+*/
 
 wire {{automata.id}}_lut_match_{{node.id}};
 wire {{automata.id}}_w_match_{{node.id}};
@@ -70,15 +73,16 @@ LUT_Match_{{automata.id}}_{{node.id}} #({{bit_feed_size}}) lut_match_{{automata.
 
 assign {{automata.id}}_w_match_{{node.id}} = {{automata.id}}_lut_match_{{node.id}} {% for d in lut_bram_dic[node] %} {% if d == 2 %} & {{automata.id}}_n{{node.id}}_d{{loop.index0}}_bram {% endif %}{% endfor %};
 
-STE #({{n_preds|length}}) {{automata.id}}_ste_{{node.id}} (
+STE #(.fan_in({{n_preds|length}}){%- if node.start_type|string == 'StartType.all_input' -%},.START_TYPE(2){%- endif -%}) {{automata.id}}_ste_{{node.id}} (
                 .clk(clk),
                 .run(run),
                 .reset(reset),
                 .income_edges({ {{pred_wire_str|join(', ')}} }),
                 .match({{automata.id}}_w_match_{{node.id}}) ,
                 .active_state({{automata.id}}_w_out_{{node.id}}));
+
+
 {% endfor %}
 
 endmodule
 {% endmacro %}
-

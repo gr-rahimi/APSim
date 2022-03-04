@@ -130,7 +130,12 @@ class BaseElement(object):
     @classmethod
     def from_xml_node_to_dict(cls, xml_node, attrib_dic):
         attr_set = set(xml_node.attrib)
-        assert attr_set.issubset(cls.known_attributes)
+
+        # For now, lets remove tihs attribute if in the STE; we do not support it
+        if "high-only-on-eod" in attr_set:
+            attr_set.remove("high-only-on-eod")
+
+        assert attr_set.issubset(cls.known_attributes), "Received attribute set: {}".format(attr_set)
         # find state id
         attrib_dic['original_id'] = xml_node.attrib['id']
 
